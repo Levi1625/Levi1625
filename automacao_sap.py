@@ -2812,7 +2812,18 @@ _RE_LIQUIDOS     = re.compile(
     r"VALOR\s+L[IÍ]QUIDO[^:]*:\s*([\d.]+,\d{2})", re.I
 )
 _RE_FATOR        = re.compile(
-    r"\d+\s+[\d.,]+\s+\d{2}\.\d{4}\s+([\d,]+)"
+    # A linha da tabela "RELAÇÃO DAS FOLHAS DE REGISTRO DE SERVIÇOS" tem
+    # Pedido, FRS, Valor Principal, Fórmula e Valor Reajuste ANTES da
+    # data de referência (DT. REFER. REAJ. RM, formato MM.AAAA) — o
+    # padrão antigo só previa 2 campos antes da data, então nunca batia
+    # e o fator sempre saía 0,00. Ancorar na data e pegar o número logo
+    # depois dela resolve isso não importa quantos campos vêm antes —
+    # mas datas do cabeçalho (ex.: "01.09.2026") também contêm um
+    # trecho "09.2026" que bate com \d{2}\.\d{4}, e se a linha seguinte
+    # começar com um número (Pedido, 10 dígitos) isso viraria falso
+    # positivo. Por isso exige vírgula no valor capturado — Pedido/FRS
+    # são inteiros sem vírgula, o fator é sempre decimal (ex. 0,9989000).
+    r"\d{2}\.\d{4}\s+(\d+,\d+)"
 )
 _RE_MUNIC_EXEC   = re.compile(r"Munic.pio de Execu", re.I)
 _RE_MUNIC_BENE   = re.compile(r"Munic.pio Benefici.rio Descri", re.I)
@@ -2820,7 +2831,8 @@ _RE_NATUREZA     = re.compile(r"NATUREZA DOS SERVI", re.I)
 _RE_ITEM_SERV    = re.compile(
     r"Item de Servi.o do Munic.pio Benefici", re.I
 )
-_RE_COD_SERV     = re.compile(r"^\d{2}\.\d{2}\s*-")
+_RE_COD_SERV     = re.compile(r"^\d{2}(?:\.\d{2,3}){1,2}\s*-")
+_RE_COD_LOCACAO  = re.compile(r"^\d{2}\.\d{3}\.\d{3}\s*-")
 _RE_COD_IBGE     = re.compile(r"^\d{2}\.\d{3}\.\d{3}")
 _RE_SERV_1401    = re.compile(r"14\.01\s*-")
 # =====================================================
@@ -13451,10 +13463,16 @@ def _float_para_moeda_br(valor):
 
 def _buscar_valor(texto, rotulos):
     for rotulo in rotulos:
-        padrao = rf"{re.escape(rotulo)}\s*:\s*([\d.,]+)"
+        # O SAP põe o sinal de negativo DEPOIS do número (ex.: "12,90-"),
+        # não antes. Sem capturar esse "-" opcional, um valor negativo
+        # (comum em Valor Reajuste) virava positivo no espelho.
+        padrao = rf"{re.escape(rotulo)}\s*:\s*([\d.,]+)(-)?"
         match = re.search(padrao, texto, re.IGNORECASE)
         if match:
-            return match.group(1).strip()
+            valor = match.group(1).strip()
+            if match.group(2):
+                valor = f"-{valor}"
+            return valor
     return ""
 
 
@@ -13555,11 +13573,16 @@ def _extrair_descricao_servicos(linhas):
             if not _RE_ITEM_SERV.search(linha): # era re.search(...)
                 partes[-1] = f"{partes[-1]} {linha.strip()}"
     if partes:
-        return partes[-1]
+        descricao = partes[-1]
+        # RM de locação não tem código LC (formato XX.XX) — tem só a
+        # Natureza dos Serviços, num código de formato diferente
+        # (XX.XXX.XXX, ex.: "70.000.480 - Locação..."). Usa isso pra
+        # saber se é locação e trocar o título/observação do espelho.
+        return descricao, bool(_RE_COD_LOCACAO.match(descricao))
     for linha in linhas:
         if _RE_SERV_1401.match(linha):          # era re.match(...)
-            return linha.strip()
-    return ""
+            return linha.strip(), False
+    return "", False
 def extrair_tomador_do_pedido(caminho_pedido_pdf: str) -> dict:
     """
     Extrai Nome e Município do Tomador do Endereço de Faturamento
@@ -13913,6 +13936,7 @@ def extrair_dados_rm(
         "contrato":                str(contrato_fallback or "").strip(),
         "rm":                      str(rm_fallback or "").strip(),
         "nl":                      str(nl_fallback or "").strip(),
+        "eh_locacao":              False,
         "pis":                     "0,00",
         "cofins":                  "0,00",
         "inss":                    "0,00",
@@ -14129,7 +14153,9 @@ def extrair_dados_rm(
         dados["fator_reajuste"] = match_fator.group(1)
 
     dados.update(_extrair_impostos(texto_completo))
-    dados["descricao_servicos"] = _extrair_descricao_servicos(linhas)
+    dados["descricao_servicos"], dados["eh_locacao"] = (
+        _extrair_descricao_servicos(linhas)
+    )
 
     bruto_float = _moeda_para_float(valor_bruto)
     if bruto_float > 0:
@@ -14256,7 +14282,9 @@ def gerar_espelho_nf(dados_rm, nome_fornecedor, icj, caminho_saida):
     el = []
 
     el.append(P(
-        "ESPELHO NOTA FISCAL DE SERVIÇOS ELETRÔNICA - NFS-e",
+        "ESPELHO NOTA FISCAL DE LOCAÇÃO"
+        if dados_rm.get("eh_locacao")
+        else "ESPELHO NOTA FISCAL DE SERVIÇOS ELETRÔNICA - NFS-e",
         titulo_s
     ))
     el.append(Spacer(1, 3*mm))
