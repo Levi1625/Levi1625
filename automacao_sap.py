@@ -12247,7 +12247,11 @@ def _revisar_rascunho_na_pasta_rascunhos(
 
 def _fechar_composicao_novo_outlook(
     assunto: str,
-    timeout: float = 8.0,
+    # Com o Outlook novo lento pra renderizar (carga da máquina, primeira
+    # composição depois de abrir o processo), 8s às vezes não bastava
+    # pra a janela aparecer — a etapa desistia sem nunca ter chance de
+    # colar nada, mesmo o Outlook abrindo poucos segundos depois.
+    timeout: float = 25.0,
     para_str: str = "",
     cc_str: str = "",
     nomes_gal_cc=None,
@@ -21928,6 +21932,24 @@ def executar_uploads_sharepoint(
                         "INFO",
                     )
                     break
+                # Certidões (CNDT/CRF/CND): o nome sempre carrega o tipo
+                # como prefixo — usa isso como âncora extra além do
+                # número, caso a extração de dígitos (\d{8,12} contíguos)
+                # falhe por o SharePoint mostrar o contrato formatado
+                # diferente (ex.: com separador a cada 3 dígitos).
+                _tipo_cert = nome_local.split("_", 1)[0]
+                if _tipo_cert in ("cndt", "crf", "cnd") and _tipo_cert in toks:
+                    _num_contrato = next(iter(ids_local), "")
+                    if _num_contrato and _num_contrato in arq:
+                        ja_existe = True
+                        registrar_log(
+                            f"INFO [{nome_log}]: {pdf.name} não enviado — "
+                            f"tipo '{_tipo_cert.upper()}' e contrato "
+                            f"{_num_contrato} já estão no SharePoint "
+                            f"como '{arq}'.",
+                            "INFO",
+                        )
+                        break
                 numero = stem.replace(prefixo_nome.lower(), "").strip()
                 if numero and numero in toks:
                     ja_existe = True
