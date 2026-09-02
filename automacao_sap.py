@@ -10168,12 +10168,18 @@ def _focar_linha_cc_outlook(janela) -> bool:
     return False
 
 
-def _texto_apareceu_no_corpo_outlook(janela, texto: str) -> bool:
+def _texto_apareceu_no_corpo_outlook(
+    janela, texto: str, y_min_corpo: int = None
+) -> bool:
     """
-    True se `texto` apareceu dentro do CORPO do e-mail (o Document com
-    automation_id 'RootWebArea'), não no poço de destinatário.
-    Verificação por CONTEÚDO — mais confiável que checar HasKeyboardFocus
-    da UIA, que no Outlook novo (WebView2) não reflete o foco real do DOM.
+    True se `texto` apareceu na ÁREA DO CORPO do e-mail (abaixo do
+    Assunto/anexos) — não no poço de destinatário.
+    No Outlook novo (WebView2), Para/Cc/Assunto/corpo moram TODOS dentro
+    do mesmo Document (automation_id 'RootWebArea'): só checar presença
+    do texto nesse Document dá falso positivo até para o chip do Cc
+    (que também está lá). Por isso o critério real é a POSIÇÃO vertical
+    de onde o texto foi achado — só conta se estiver abaixo de
+    `y_min_corpo` (a linha de Assunto/anexos), que é onde o corpo começa.
     """
     try:
         janela = _janela_outlook_uia(janela)
@@ -10193,15 +10199,22 @@ def _texto_apareceu_no_corpo_outlook(janela, texto: str) -> bool:
             if aid != "RootWebArea":
                 continue
             try:
-                for d in corpo.descendants()[:500]:
+                for d in corpo.descendants()[:600]:
                     try:
                         t = (
                             d.window_text() or d.element_info.name or ""
                         ).strip().lower()
                     except Exception:
                         continue
-                    if t and primeiro_tok in t:
+                    if not t or primeiro_tok not in t:
+                        continue
+                    if y_min_corpo is None:
                         return True
+                    try:
+                        if int(d.rectangle().top) >= int(y_min_corpo):
+                            return True
+                    except Exception:
+                        continue
             except Exception:
                 continue
         return False
@@ -10225,6 +10238,13 @@ def _colar_nome_no_cc_outlook(janela, nome: str) -> bool:
     _rolar_composicao_outlook_topo(janela)
     if not _focar_linha_cc_outlook(janela):
         return False
+    try:
+        _wr_cc = janela.rectangle()
+        _y_min_corpo = int(_wr_cc.top) + int(
+            (int(_wr_cc.bottom) - int(_wr_cc.top)) * 0.60
+        )
+    except Exception:
+        _y_min_corpo = None
     send_keys("{END}")
     time.sleep(0.12)
     # Separador se já houver gerente/SMTP no Cc
@@ -10236,16 +10256,18 @@ def _colar_nome_no_cc_outlook(janela, nome: str) -> bool:
         "INFO",
     )
     time.sleep(0.25)
-    if _texto_apareceu_no_corpo_outlook(janela, nome):
+    if _texto_apareceu_no_corpo_outlook(janela, nome, _y_min_corpo):
         registrar_log(
             "AVISO [EMAIL-GAL]: nome caiu no CORPO do e-mail — "
             "desfazendo e tentando outra posição.",
             "AVISO",
         )
+        # Backspace pelo tamanho exato do que foi digitado (nome + ";")
+        # em vez de Ctrl+Z: o undo do Outlook novo (WebView2) não desfaz
+        # o texto colado de forma íntegra — já corrompeu nome colado
+        # certo (ex.: "Hugo Ferreira" virou "Hgo Ferreira").
         try:
-            send_keys("^z")
-            time.sleep(0.15)
-            send_keys("^z")
+            send_keys("{BACKSPACE " + str(len(nome) + 1) + "}")
             time.sleep(0.15)
         except Exception:
             pass
