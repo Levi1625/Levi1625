@@ -21802,7 +21802,18 @@ def executar_uploads_sharepoint(
                     if texto_raw is None:
                         continue
                     texto = str(texto_raw).strip()
-                    if not texto or len(texto) < 3:
+                    # Máximo ~100: nomes de arquivo/pasta reais nunca
+                    # chegam nem perto disso. Sem esse teto, o texto da
+                    # trilha de navegação (breadcrumb) — que repete o
+                    # nome inteiro da pasta do contrato, ex.: "MI
+                    # FIRE-4600687497-Serviços de manutenção..." — entra
+                    # na lista de "arquivos existentes". Como esse nome
+                    # contém o número do contrato, e os PDFs de certidão
+                    # também levam o número do contrato no nome (não um
+                    # número de Pedido/FRS/RM), o programa achava (falso
+                    # positivo) que a certidão já estava enviada, pulava
+                    # o upload, e a pasta ficava vazia no SharePoint.
+                    if not texto or len(texto) < 3 or len(texto) > 100:
                         continue
                     tipo_raw = ctrl.element_info.control_type
                     if tipo_raw is None:
