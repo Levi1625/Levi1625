@@ -10034,19 +10034,15 @@ def _focar_linha_cc_outlook(janela) -> bool:
         return y_min <= cy <= y_max
 
     def _clique_area_colar(x, y, rotulo="Cc"):
-        # Só a faixa do Cc — evita De: e assinatura/corpo
+        # Só a faixa do Cc — evita De: e assinatura/corpo.
+        # Não checa foco por UIA aqui: no Outlook novo (WebView2) o
+        # HasKeyboardFocus não reflete o foco real do DOM de forma
+        # confiável — rejeitava até cliques certos. A verificação real
+        # é por CONTEÚDO, depois de colar (ver _colar_nome_no_cc_outlook).
         if y < y_min or y > y_max:
             return False
         click(coords=(int(x), int(y)))
         time.sleep(0.15)
-        if not _foco_parece_destinatario_outlook(janela):
-            registrar_log(
-                f"AVISO [EMAIL-GAL]: clique em {rotulo} "
-                f"({int(x) - int(wr.left)},{int(y) - int(wr.top)}) não focou "
-                "um campo de destinatário (provável corpo do e-mail) — ignorando.",
-                "AVISO",
-            )
-            return False
         registrar_log(
             f"INFO [EMAIL-GAL]: foco {rotulo} p/ colar "
             f"({int(x) - int(wr.left)},{int(y) - int(wr.top)}).",
@@ -10172,6 +10168,47 @@ def _focar_linha_cc_outlook(janela) -> bool:
     return False
 
 
+def _texto_apareceu_no_corpo_outlook(janela, texto: str) -> bool:
+    """
+    True se `texto` apareceu dentro do CORPO do e-mail (o Document com
+    automation_id 'RootWebArea'), não no poço de destinatário.
+    Verificação por CONTEÚDO — mais confiável que checar HasKeyboardFocus
+    da UIA, que no Outlook novo (WebView2) não reflete o foco real do DOM.
+    """
+    try:
+        janela = _janela_outlook_uia(janela)
+        if janela is None:
+            return False
+        alvo = (texto or "").strip().lower()
+        if not alvo:
+            return False
+        primeiro_tok = alvo.split()[0] if alvo.split() else alvo
+        if len(primeiro_tok) < 3:
+            return False
+        for corpo in janela.descendants(control_type="Document")[:5]:
+            try:
+                aid = (corpo.element_info.automation_id or "")
+            except Exception:
+                aid = ""
+            if aid != "RootWebArea":
+                continue
+            try:
+                for d in corpo.descendants()[:500]:
+                    try:
+                        t = (
+                            d.window_text() or d.element_info.name or ""
+                        ).strip().lower()
+                    except Exception:
+                        continue
+                    if t and primeiro_tok in t:
+                        return True
+            except Exception:
+                continue
+        return False
+    except Exception:
+        return False
+
+
 def _colar_nome_no_cc_outlook(janela, nome: str) -> bool:
     """
     Cola o nome NORMALIZADO no Cc (lugar certo) e espera a GAL sugerir.
@@ -10198,6 +10235,21 @@ def _colar_nome_no_cc_outlook(janela, nome: str) -> bool:
         f"INFO [EMAIL-GAL]: colado no Cc (campo certo): {nome}",
         "INFO",
     )
+    time.sleep(0.25)
+    if _texto_apareceu_no_corpo_outlook(janela, nome):
+        registrar_log(
+            "AVISO [EMAIL-GAL]: nome caiu no CORPO do e-mail — "
+            "desfazendo e tentando outra posição.",
+            "AVISO",
+        )
+        try:
+            send_keys("^z")
+            time.sleep(0.15)
+            send_keys("^z")
+            time.sleep(0.15)
+        except Exception:
+            pass
+        return False
     # Espera a 1ª sugestão da GAL aparecer (não clica cedo demais)
     fim = time.time() + 4.5
     while time.time() < fim:
