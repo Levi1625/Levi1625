@@ -10310,15 +10310,21 @@ def _colar_nome_no_cc_outlook(janela, nome: str) -> bool:
         except Exception:
             pass
         time.sleep(0.25)
-    # Sem sugestão GAL → foco provavelmente não estava no Cc
+    # Sem sugestão GAL → nome não é resolvível ali (não necessariamente
+    # posição errada — o clique em 'Cc/id-poço' já é confiável por si só,
+    # ver comentário acima). NÃO usa Ctrl+Z aqui: no Outlook novo
+    # (WebView2) já vimos ele corromper o texto colado em vez de desfazer
+    # por inteiro (ex.: 'Hugo Ferreira' virar 'Hgo Ferreira', o chip fica
+    # vermelho/inválido e a próxima tentativa de colar herda esse lixo).
+    # Backspace na quantidade exata do que foi digitado é determinístico.
     if not _primeira_opcao_gal_outlook(janela):
         registrar_log(
             "AVISO [EMAIL-GAL]: colei o nome mas a GAL não sugeriu — "
-            "foco provavelmente não estava no Cc; desfazendo.",
+            "desfazendo com Backspace exato (não Ctrl+Z).",
             "AVISO",
         )
         try:
-            send_keys("^z")
+            send_keys("{BACKSPACE " + str(len(nome) + 1) + "}")
             time.sleep(0.15)
         except Exception:
             pass
