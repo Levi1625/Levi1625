@@ -26567,7 +26567,14 @@ def _mostrar_dialogo_espelhos(
         esp_ok = bool(d.get("esp_ok", False))
         cnpj_ok = d.get("cnpj_tomador", "") not in ("—", "NÃO ENCONTRADO", "")
         bruto_ok = d.get("bruto", "—") not in ("—", "0,00", "")
-        if esp_ok and cnpj_ok and bruto_ok:
+        # Reajuste sem fator (ou vice-versa) é inconsistente — sinal de
+        # que a extração do PDF do RM falhou nesses campos (ex.: fator
+        # zerado por bug no regex, mesmo com reajuste diferente de zero).
+        fator_ok = not (
+            _to_float(d.get("reajuste", "0")) != 0
+            and _to_float(d.get("fator", "0")) == 0
+        )
+        if esp_ok and cnpj_ok and bruto_ok and fator_ok:
             n_ok += 1
         else:
             n_prob += 1
@@ -26792,12 +26799,20 @@ def _mostrar_dialogo_espelhos(
             "—", "NÃO ENCONTRADO", ""
         )
         bruto_ok = d.get("bruto", "—") not in ("—", "0,00", "")
+        # Reajuste sem fator (ou vice-versa) é inconsistente — sinal de
+        # que a extração do PDF do RM falhou nesses campos.
+        fator_ok = not (
+            _to_float(d.get("reajuste", "0")) != 0
+            and _to_float(d.get("fator", "0")) == 0
+        )
         if not esp_ok:
             return "❌ Sem espelho", COR_ERRO
         if not cnpj_ok:
             return "⚠ CNPJ tomador", COR_ALERTA
         if not bruto_ok:
             return "⚠ Sem valor", COR_ALERTA
+        if not fator_ok:
+            return "⚠ Fator/reajuste", COR_ALERTA
         return "✅ OK", COR_SUCESSO
 
     for row, d in enumerate(dados_rms):
