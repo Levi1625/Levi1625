@@ -38129,6 +38129,8 @@ class _DialogoConfiguracao(QDialog):
                 "Neste modo você informa contrato, ano/mês e o link do SharePoint. "
                 "O CNPJ da contratada vem ao clicar em 'Buscar dados no SAP'."
             )
+        if getattr(self, "_btn_avancar", None) is not None:
+            self._atualizar_botoes()
 
     def _cnpj_contratada_ui(self) -> str:
         return _so_digitos((self._dados_sap or {}).get("cnpj") or "")
@@ -38293,14 +38295,9 @@ class _DialogoConfiguracao(QDialog):
         self.numero_contrato_resultado = numero
         salvar_config_contrato(numero)
         if self._reusar_url and (self.url_resultado or "").startswith("https://"):
-            self._preencher_confirmacao()
-            self._stack.setCurrentIndex(2)
-            n = len(self.fila_jobs) + 1
-            self._btn_avancar.setText(
-                f"▶  Iniciar ({n} contrato" + ("s" if n > 1 else "") + ")"
-            )
-        else:
-            self._stack.setCurrentIndex(1)
+            self._finalizar_job_atual()
+            return
+        self._stack.setCurrentIndex(1)
         self._atualizar_botoes()
 
     def _ajustar_altura_tabelas_contrato(self, *args):
@@ -40157,58 +40154,65 @@ class _DialogoConfiguracao(QDialog):
                 return
             self.url_resultado = url
             salvar_config_sharepoint(url)
+            if self._modo_so_certidoes_ativo():
+                self._finalizar_job_atual()
+                return
             self._preencher_confirmacao()
             self._stack.setCurrentIndex(2)
             self._btn_avancar.setText("▶  Iniciar Automação")
 
         elif idx == 2:
-            self._montar_dados_finais()
-            job = dict(getattr(self, "_job_atual") or {})
-            if not job.get("so_certidoes"):
-                if not self._validar_emails_digitados():
-                    return
-                if not job.get("emails_para"):
-                    self._msg_campo(
-                        "E-mail em Para",
-                        "Digite pelo menos um e-mail em Para no formato "
-                        "nome@dominio (exemplo: ana@empresa.com).\n\n"
-                        "Cópia (CC) é opcional — pode ficar vazia, só com "
-                        "gerente e fiscais automáticos.",
-                    )
-                    try:
-                        self._campo_emails_para.setFocus()
-                    except Exception:
-                        pass
-                    return
-            if not job.get("so_certidoes") and not (job.get("preposta_nome") or "").strip():
+            self._finalizar_job_atual()
+            return
+
+        self._atualizar_botoes()
+
+    def _finalizar_job_atual(self):
+        self._montar_dados_finais()
+        job = dict(getattr(self, "_job_atual") or {})
+        if not job.get("so_certidoes"):
+            if not self._validar_emails_digitados():
+                return
+            if not job.get("emails_para"):
                 self._msg_campo(
-                    "Nome da preposta/preposto",
-                    "Digite o nome da preposta/preposto para a "
-                    "saudação do e-mail.",
+                    "E-mail em Para",
+                    "Digite pelo menos um e-mail em Para no formato "
+                    "nome@dominio (exemplo: ana@empresa.com).\n\n"
+                    "Cópia (CC) é opcional — pode ficar vazia, só com "
+                    "gerente e fiscais automáticos.",
                 )
                 try:
-                    self._campo_nome_preposta.setFocus()
+                    self._campo_emails_para.setFocus()
                 except Exception:
                     pass
                 return
-            salvar_dados_contrato(
-                self.numero_contrato_resultado,
-                self._linhas_servico,
-                self._fiscais_extra,
-                self._campo_email_gerente.text().strip(),
-                self._dados_sap,
-                ano=self._spin_ano.value(),
-                mes=self._combo_mes.currentData(),
-                url_sharepoint=self.url_resultado,
-                emails_cc_extra=self._emails_cc_extra,
-                preposta_nome=job.get("preposta_nome") or "",
-                pedidos_materiais=getattr(self, "_pedidos_materiais", []) or [],
+        if not job.get("so_certidoes") and not (job.get("preposta_nome") or "").strip():
+            self._msg_campo(
+                "Nome da preposta/preposto",
+                "Digite o nome da preposta/preposto para a "
+                "saudação do e-mail.",
             )
-            if job.get("contrato"):
-                self.fila_jobs.append(job)
-            self.accept()
-
-        self._atualizar_botoes()
+            try:
+                self._campo_nome_preposta.setFocus()
+            except Exception:
+                pass
+            return
+        salvar_dados_contrato(
+            self.numero_contrato_resultado,
+            self._linhas_servico,
+            self._fiscais_extra,
+            self._campo_email_gerente.text().strip(),
+            self._dados_sap,
+            ano=self._spin_ano.value(),
+            mes=self._combo_mes.currentData(),
+            url_sharepoint=self.url_resultado,
+            emails_cc_extra=self._emails_cc_extra,
+            preposta_nome=job.get("preposta_nome") or "",
+            pedidos_materiais=getattr(self, "_pedidos_materiais", []) or [],
+        )
+        if job.get("contrato"):
+            self.fila_jobs.append(job)
+        self.accept()
 
     def _voltar(self):
         idx = self._stack.currentIndex()
@@ -40223,7 +40227,10 @@ class _DialogoConfiguracao(QDialog):
         self._btn_voltar.setEnabled(idx > 0)
         nfila = len(self.fila_jobs)
         extra = f"  ·  {nfila} na fila" if nfila else ""
-        self._lbl_etapa.setText(f"Etapa {idx + 1} de 3{extra}")
+        so_cert = self._modo_so_certidoes_ativo()
+        total_etapas = 2 if so_cert else 3
+        self._lbl_etapa.setText(f"Etapa {idx + 1} de {total_etapas}{extra}")
+        self._barra_etapas.setMaximum(total_etapas)
         self._barra_etapas.setValue(idx + 1)
         if getattr(self, "_btn_fila", None) is not None:
             self._btn_fila.setVisible(idx == 2)
@@ -40233,7 +40240,13 @@ class _DialogoConfiguracao(QDialog):
             self._btn_avancar.setText("Avançar  ▶")
         elif idx == 1:
             self._btn_avancar.setEnabled(True)
-            self._btn_avancar.setText("Avançar  ▶")
+            if so_cert:
+                n = nfila + 1
+                self._btn_avancar.setText(
+                    f"▶  Iniciar ({n} contrato" + ("s" if n > 1 else "") + ")"
+                )
+            else:
+                self._btn_avancar.setText("Avançar  ▶")
         else:
             self._btn_avancar.setEnabled(True)
             n = nfila + 1
