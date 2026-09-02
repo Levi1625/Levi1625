@@ -12247,10 +12247,10 @@ def _revisar_rascunho_na_pasta_rascunhos(
 
 def _fechar_composicao_novo_outlook(
     assunto: str,
-    # Com o Outlook novo lento pra renderizar (carga da máquina, primeira
-    # composição depois de abrir o processo), 8s às vezes não bastava
-    # pra a janela aparecer — a etapa desistia sem nunca ter chance de
-    # colar nada, mesmo o Outlook abrindo poucos segundos depois.
+    # Prazo BASE — o laço abaixo estica isso sozinho enquanto o Outlook
+    # novo ainda estiver de pé/carregando (até um teto de 60s), em vez
+    # de desistir num número fixo. 8s era curto demais em máquina lenta
+    # e a etapa desistia sem nunca ter chance de colar nada no Cc.
     timeout: float = 25.0,
     para_str: str = "",
     cc_str: str = "",
@@ -12312,13 +12312,36 @@ def _fechar_composicao_novo_outlook(
                 pass
         return n
 
-    fim = time.time() + timeout
+    # Espera inteligente: sai assim que a janela aparece (checa a cada
+    # 0.12s, não fica parado até o fim do prazo) e, enquanto o processo
+    # olk.exe continuar de pé (sinal de que o Outlow ainda está
+    # iniciando/carregando, não travado), vai esticando o prazo em
+    # passos curtos em vez de desistir num número fixo — só desiste de
+    # vez se o processo sumir ou passar de um teto de segurança (60s).
+    _inicio_espera = time.time()
+    _teto_seguranca = _inicio_espera + 60.0
+    fim = _inicio_espera + timeout
     alvo = None
+    _avisou_esticando = False
     while time.time() < fim:
         achadas = _janelas_assunto()
         if achadas:
             alvo = achadas[0]
             break
+        if (
+            time.time() >= fim - 0.5
+            and fim < _teto_seguranca
+            and _qtd_olk() > 0
+        ):
+            fim = min(_teto_seguranca, time.time() + 3.0)
+            if not _avisou_esticando:
+                registrar_log(
+                    "INFO [EMAIL-EML]: Outlook novo ainda de pé — "
+                    "esperando mais um pouco pela composição em vez "
+                    "de desistir.",
+                    "INFO",
+                )
+                _avisou_esticando = True
         time.sleep(0.12)
     if alvo is None:
         registrar_log(
