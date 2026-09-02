@@ -9924,6 +9924,42 @@ def _rolar_composicao_outlook_topo(janela) -> None:
         pass
 
 
+def _foco_parece_destinatario_outlook(janela) -> bool:
+    """
+    True só se o controle com foco de teclado parece um poço de
+    destinatário (Para/Cc), nunca o corpo do e-mail nem o assunto.
+    Usado para não colar o nome no lugar errado (corpo) quando o
+    clique por coordenada erra o alvo.
+    """
+    try:
+        janela = _janela_outlook_uia(janela)
+        if janela is None:
+            return False
+        for c in janela.descendants()[:500]:
+            try:
+                if not c.has_keyboard_focus():
+                    continue
+            except Exception:
+                continue
+            try:
+                aid = ((c.element_info.automation_id or "") or "").lower()
+                tipo = str(c.element_info.control_type or "").lower()
+            except Exception:
+                aid, tipo = "", ""
+            if "body" in aid or "corpo" in aid or "subject" in aid:
+                return False
+            if tipo in ("document", "pane") and not aid:
+                return False
+            if "_cc" in aid or "-cc" in aid or "recipient" in aid:
+                return True
+            if tipo in ("edit", "combobox"):
+                return True
+            return False
+        return False
+    except Exception:
+        return False
+
+
 def _focar_linha_cc_outlook(janela) -> bool:
     """
     Foca a área vazia do poço Cc para COLAR o nome (Ctrl+V).
@@ -9965,6 +10001,14 @@ def _focar_linha_cc_outlook(janela) -> bool:
             return False
         click(coords=(int(x), int(y)))
         time.sleep(0.15)
+        if not _foco_parece_destinatario_outlook(janela):
+            registrar_log(
+                f"AVISO [EMAIL-GAL]: clique em {rotulo} "
+                f"({int(x) - int(wr.left)},{int(y) - int(wr.top)}) não focou "
+                "um campo de destinatário (provável corpo do e-mail) — ignorando.",
+                "AVISO",
+            )
+            return False
         registrar_log(
             f"INFO [EMAIL-GAL]: foco {rotulo} p/ colar "
             f"({int(x) - int(wr.left)},{int(y) - int(wr.top)}).",
