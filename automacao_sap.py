@@ -39413,6 +39413,7 @@ class _DialogoConfiguracao(QDialog):
         v_email.addWidget(self._campo_emails_para)
         v_email.addLayout(h_para)
         v_email.addWidget(self._lista_emails_para)
+        v_miolo.addWidget(self._painel_email_confirmacao)
 
         lbl_nome_prep = QLabel(
             "Nome da preposta/preposto (aparece no e-mail: Prezado(a) + este nome):"
