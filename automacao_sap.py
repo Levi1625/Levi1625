@@ -1184,8 +1184,8 @@ def _diretorio_dados() -> Path:
 
 
 class Config:
-    VERSAO           = "2.2"
-    DATA             = "27/08/2026"
+    VERSAO           = "2.5"
+    DATA             = "02/09/2026"
     INST_DIR         = _diretorio_instalacao()
     BASE_DIR         = _diretorio_dados()
     CONFIG_SAP       = str(BASE_DIR / "config.json")
@@ -1235,7 +1235,7 @@ class Config:
     )
     ARQUIVO_OFICIAL_ZIP = (
         r"C:\Users\GFG7\PETROBRAS\BS SOP GPS - CS-II"
-        r"\09. Paineis\AutomacaoSAP.zip"
+        r"\09. Paineis\Sigma-C.zip"
     )
     PASTA_OFICIAL_REDE = ARQUIVO_OFICIAL_ZIP
 
@@ -5109,8 +5109,8 @@ def salvar_config_sharepoint(url):
 # =====================================================
 # ATUALIZAÇÃO DO .EXE
 # Você deixa o pacote novo em:
-#   C:\Users\GFG7\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\AutomacaoSAP.zip
-# (ou outro AutomacaoSAP.zip dentro de BS SOP GPS - CS-II).
+#   C:\Users\GFG7\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\Sigma-C.zip
+# (ou outro Sigma-C.zip dentro de BS SOP GPS - CS-II).
 # Quem sincroniza essa biblioteca no OneDrive vê o ZIP no próprio usuário.
 # O .exe de cada um pode estar no Desktop/Downloads: a atualização
 # extrai o ZIP para a pasta ONDE O EXE DELES ESTÁ.
@@ -5192,16 +5192,16 @@ def _fontes_atualizacao_candidatas() -> list:
     _add(getattr(Config, "ARQUIVO_OFICIAL_ZIP", ""))
     _add(getattr(Config, "PASTA_OFICIAL_LOCAL", ""))
     for raiz, paineis in _raizes_biblioteca_petrobras():
-        _add(raiz / paineis / "AutomacaoSAP.zip")
+        _add(raiz / paineis / "Sigma-C.zip")
         _add(raiz / paineis)
-        _add(raiz / "AutomacaoSAP.zip")
+        _add(raiz / "Sigma-C.zip")
         if raiz.is_dir():
             try:
-                for zip_sp in raiz.glob("*/AutomacaoSAP.zip"):
+                for zip_sp in raiz.glob("*/Sigma-C.zip"):
                     _add(zip_sp)
             except Exception:
                 pass
-    _add(r"C:\AutomacaoSAP\pacote\AutomacaoSAP")
+    _add(r"C:\AutomacaoSAP\pacote\Sigma-C")
     return saida
 
 
@@ -5256,7 +5256,7 @@ def _zip_oficial_na_fonte(fonte: Path) -> Path | None:
     if fonte.is_file() and fonte.suffix.lower() == ".zip":
         return fonte
     if fonte.is_dir():
-        prefer = fonte / "AutomacaoSAP.zip"
+        prefer = fonte / "Sigma-C.zip"
         if prefer.is_file():
             return prefer
         zips = sorted(
@@ -5301,7 +5301,7 @@ def _caminho_oficial_exibido() -> str:
         / "PETROBRAS"
         / "BS SOP GPS - CS-II"
         / "09. Paineis"
-        / "AutomacaoSAP.zip"
+        / "Sigma-C.zip"
     )
     if zip_home.exists():
         return str(zip_home)
@@ -5325,9 +5325,9 @@ def _consultar_atualizacao() -> dict:
     candidatos = _fontes_atualizacao_candidatas()
     if not candidatos:
         resultado["erro"] = (
-            "Não achei AutomacaoSAP.zip no OneDrive PETROBRAS.\n\n"
+            "Não achei Sigma-C.zip no OneDrive PETROBRAS.\n\n"
             "Quem publica: deixe o ZIP mais novo em\n"
-            r"C:\Users\GFG7\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\AutomacaoSAP.zip"
+            r"C:\Users\GFG7\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\Sigma-C.zip"
             "\n(ou em outra pasta dentro de BS SOP GPS - CS-II).\n\n"
             "Quem usa: sincronize essa biblioteca. O .exe pode ficar "
             "no Desktop ou em Downloads; a atualização sai do ZIP."
@@ -5337,7 +5337,7 @@ def _consultar_atualizacao() -> dict:
     melhor_mtime = None
     for fonte in candidatos:
         zip_p = _zip_oficial_na_fonte(fonte)
-        tem_exe = fonte.is_dir() and (fonte / "AutomacaoSAP.exe").is_file()
+        tem_exe = fonte.is_dir() and (fonte / "Sigma-C.exe").is_file()
         if not tem_exe and zip_p is None:
             continue
         pasta_ref = zip_p if zip_p is not None else fonte
@@ -5375,8 +5375,8 @@ def _consultar_atualizacao() -> dict:
     melhor = melhor_ver if melhor_ver is not None else melhor_mtime
     if melhor is None:
         resultado["erro"] = (
-            "Achei a pasta no OneDrive, mas não tem AutomacaoSAP.zip "
-            "(nem AutomacaoSAP.exe). Substitua o ZIP nessa pasta."
+            "Achei a pasta no OneDrive, mas não tem Sigma-C.zip "
+            "(nem Sigma-C.exe). Substitua o ZIP nessa pasta."
         )
         return resultado
     resultado["ok"] = True
@@ -5409,19 +5409,19 @@ def _localizar_pacote_atualizacao(pasta: Path) -> Path:
         with zipfile.ZipFile(pasta, "r") as zf:
             zf.extractall(dest)
         for cand in [dest, *list(dest.iterdir())]:
-            if cand.is_dir() and (cand / "AutomacaoSAP.exe").is_file():
+            if cand.is_dir() and (cand / "Sigma-C.exe").is_file():
                 return cand
         raise RuntimeError(
-            "O ZIP oficial não contém AutomacaoSAP.exe. "
+            "O ZIP oficial não contém Sigma-C.exe. "
             "Empacote a pasta inteira do aplicativo (onedir)."
         )
-    if pasta.is_dir() and (pasta / "AutomacaoSAP.exe").is_file():
+    if pasta.is_dir() and (pasta / "Sigma-C.exe").is_file():
         return pasta
     zip_p = _zip_oficial_na_fonte(pasta)
     if zip_p is not None:
         return _localizar_pacote_atualizacao(zip_p)
     raise RuntimeError(
-        "Não achei AutomacaoSAP.exe nem AutomacaoSAP.zip na origem oficial."
+        "Não achei Sigma-C.exe nem Sigma-C.zip na origem oficial."
     )
 
 
@@ -5430,7 +5430,7 @@ def _aplicar_atualizacao(pasta_oficial: str):
     if not getattr(sys, "frozen", False):
         raise RuntimeError(
             "A troca automática só funciona no .exe. "
-            "No Python, use o pacote novo em C:\\AutomacaoSAP\\pacote\\AutomacaoSAP."
+            "No Python, use o pacote novo em C:\\AutomacaoSAP\\pacote\\Sigma-C."
         )
     import subprocess as _sp_upd
     origem = _localizar_pacote_atualizacao(Path(pasta_oficial))
@@ -5444,7 +5444,7 @@ def _aplicar_atualizacao(pasta_oficial: str):
             shutil.copytree(item, alvo, dirs_exist_ok=True)
         else:
             shutil.copy2(item, alvo)
-    exe_dst = destino / "AutomacaoSAP.exe"
+    exe_dst = destino / "Sigma-C.exe"
     bat = Path(tempfile.gettempdir()) / "AutomacaoSAP_aplicar_update.bat"
     orig_s = str(staging)
     dest_s = str(destino)
@@ -5551,7 +5551,7 @@ def _criar_botao_verificar_atualizacao(dialog_parent, compacto=False):
         btn.setMinimumHeight(36)
     btn.setCursor(Qt.PointingHandCursor)
     btn.setToolTip(
-        "Compara a versão daqui com o AutomacaoSAP.zip do OneDrive.\n"
+        "Compara a versão daqui com o Sigma-C.zip do OneDrive.\n"
         "Se houver versão nova, pergunta se quer atualizar.\n"
         "No .exe: fecha, troca os arquivos e abre de novo na tela inicial."
     )
@@ -5578,8 +5578,8 @@ def _criar_botao_verificar_atualizacao(dialog_parent, compacto=False):
 
 try:
     _gravar_marcador_versao(Config.INST_DIR)
-    _oficial_pacote = Path(r"C:\AutomacaoSAP\pacote\AutomacaoSAP")
-    if _oficial_pacote.is_dir() and (_oficial_pacote / "AutomacaoSAP.exe").is_file():
+    _oficial_pacote = Path(r"C:\AutomacaoSAP\pacote\Sigma-C")
+    if _oficial_pacote.is_dir() and (_oficial_pacote / "Sigma-C.exe").is_file():
         _gravar_marcador_versao(_oficial_pacote)
 except Exception:
     pass
@@ -31828,8 +31828,8 @@ class _PaginaConfig(QWidget):
             "copia a versão nova do ZIP no OneDrive PETROBRAS para o "
             "lugar onde ESTE .exe está.\n\n"
             "Quem publica: substitua sempre\n"
-            r"C:\Users\GFG7\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\AutomacaoSAP.zip"
-            "\n(ou outro AutomacaoSAP.zip dentro de BS SOP GPS - CS-II). "
+            r"C:\Users\GFG7\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\Sigma-C.zip"
+            "\n(ou outro Sigma-C.zip dentro de BS SOP GPS - CS-II). "
             "Quem sincroniza a mesma biblioteca encontra o arquivo em "
             r"C:\Users\<seu usuário>\PETROBRAS\BS SOP GPS - CS-II\..."
         )
@@ -31841,7 +31841,7 @@ class _PaginaConfig(QWidget):
         self._campo_pasta_atualizacao = QLineEdit()
         self._campo_pasta_atualizacao.setFont(QFont("Consolas", 9))
         self._campo_pasta_atualizacao.setPlaceholderText(
-            r"C:\Users\...\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\AutomacaoSAP.zip"
+            r"C:\Users\...\PETROBRAS\BS SOP GPS - CS-II\09. Paineis\Sigma-C.zip"
         )
         self._campo_pasta_atualizacao.setText(_caminho_oficial_exibido())
         self._campo_pasta_atualizacao.setStyleSheet(f"""
@@ -31857,7 +31857,7 @@ class _PaginaConfig(QWidget):
         btn_browse = QPushButton("📁")
         btn_browse.setFixedWidth(40)
         btn_browse.setObjectName("btn_verde")
-        btn_browse.setToolTip("Escolher AutomacaoSAP.zip")
+        btn_browse.setToolTip("Escolher Sigma-C.zip")
         btn_browse.clicked.connect(self._escolher_pasta_atualizacao)
         h_pasta.addWidget(btn_browse)
         v_up.addLayout(h_pasta)
