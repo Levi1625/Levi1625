@@ -9800,7 +9800,7 @@ def _rotulo_destinatario_outlook(janela, alvos: tuple):
     """
     wr = janela.rectangle()
     h_jan = max(1, int(wr.bottom - wr.top))
-    lim = int(wr.top) + int(h_jan * 0.55)
+    lim = int(wr.top) + int(h_jan * 0.75)
     melhor, melhor_h = None, 999
     ctrls = []
     try:
@@ -9819,9 +9819,9 @@ def _rotulo_destinatario_outlook(janela, alvos: tuple):
             if chave in vistos:
                 continue
             vistos.add(chave)
-            nome = (c.element_info.name or "").strip().lower().rstrip(":")
+            nome = (c.element_info.name or "").strip().lower().rstrip(":,;")
             if not nome:
-                nome = (c.window_text() or "").strip().lower().rstrip(":")
+                nome = (c.window_text() or "").strip().lower().rstrip(":,;")
             tipo = str(c.element_info.control_type or "").lower()
             if nome not in alvos:
                 continue
@@ -9831,7 +9831,7 @@ def _rotulo_destinatario_outlook(janela, alvos: tuple):
             h = int(r.bottom - r.top)
             if int(r.top) < int(wr.top):
                 continue
-            if int(r.bottom) > lim or h < 8 or h > 56:
+            if int(r.bottom) > lim or h < 8 or h > 90:
                 continue
             if h < melhor_h:
                 melhor, melhor_h = c, h
@@ -9877,7 +9877,7 @@ def _botao_rotulo_destinatario_outlook(janela, alvos: tuple):
     try:
         for c in janela.descendants()[:7000]:
             try:
-                t = (c.window_text() or "").strip().lower()
+                t = (c.window_text() or "").strip().lower().rstrip(":,;")
                 tipo = str(c.element_info.control_type or "")
                 r = c.rectangle()
             except Exception:
@@ -9886,13 +9886,13 @@ def _botao_rotulo_destinatario_outlook(janela, alvos: tuple):
                 continue
             if tipo not in ("Button", "SplitButton", "Hyperlink", "Text"):
                 continue
-            # Cabeçalho (abaixo da ribbon ~28%, acima do corpo ~55%)
+            # Cabeçalho (abaixo da ribbon ~15%, acima do corpo ~75%)
             y_rel = int(r.top) - int(wr.top)
             h_jan = max(1, int(wr.bottom) - int(wr.top))
-            if y_rel < int(h_jan * 0.26) or y_rel > int(h_jan * 0.55):
+            if y_rel < int(h_jan * 0.15) or y_rel > int(h_jan * 0.75):
                 continue
             w_btn = int(r.right) - int(r.left)
-            if w_btn < 16 or w_btn > 280:
+            if w_btn < 16 or w_btn > 320:
                 continue
             # Prefere Button; Text é fallback
             prio = 0 if tipo == "Button" else (
@@ -9960,6 +9960,43 @@ def _foco_parece_destinatario_outlook(janela) -> bool:
         return False
 
 
+def _diagnosticar_area_cc_outlook(janela, wr, h_jan) -> None:
+    """
+    Nenhuma via achou o campo Cc — grava no log os controles do topo da
+    composição (nome/automation_id/tipo/posição) para dar pistas reais
+    da estrutura desta janela, em vez de só chutar coordenada de novo.
+    """
+    try:
+        linhas = []
+        for c in janela.descendants()[:4000]:
+            try:
+                r = c.rectangle()
+                y_rel = int(r.top) - int(wr.top)
+                if y_rel < 0 or y_rel > int(h_jan * 0.80):
+                    continue
+                nome = (c.element_info.name or c.window_text() or "").strip()
+                aid = (c.element_info.automation_id or "").strip()
+                tipo = str(c.element_info.control_type or "")
+                if not nome and not aid:
+                    continue
+            except Exception:
+                continue
+            linhas.append(
+                f"{tipo}|aid={aid[:40]}|nome={nome[:40]}|"
+                f"y={y_rel}|x={int(r.left) - int(wr.left)}"
+            )
+            if len(linhas) >= 40:
+                break
+        if linhas:
+            registrar_log(
+                "DIAG [EMAIL-GAL]: controles no topo da composição — "
+                + " || ".join(linhas),
+                "INFO",
+            )
+    except Exception:
+        pass
+
+
 def _focar_linha_cc_outlook(janela) -> bool:
     """
     Foca a área vazia do poço Cc para COLAR o nome (Ctrl+V).
@@ -9987,17 +10024,18 @@ def _focar_linha_cc_outlook(janela) -> bool:
     except Exception:
         return False
     h_jan = max(1, int(wr.bottom) - int(wr.top))
-    # Para ~45%, Cc ~52%, Assunto ~59%; De: ~37% — NÃO misturar
-    y_min = int(wr.top) + int(h_jan * 0.40)
-    y_max = int(wr.top) + int(h_jan * 0.58)
+    # Faixa alargada: com Cc já preenchido (chips existentes) a linha
+    # pode não cair mais nos ~45–58% calibrados numa janela sem chips.
+    y_min = int(wr.top) + int(h_jan * 0.25)
+    y_max = int(wr.top) + int(h_jan * 0.75)
 
     def _na_faixa_cc(r) -> bool:
         cy = (int(r.top) + int(r.bottom)) // 2
         return y_min <= cy <= y_max
 
     def _clique_area_colar(x, y, rotulo="Cc"):
-        # Só a faixa do Cc — evita De: (~37%) e assinatura/corpo
-        if y < y_min or y > int(wr.top) + int(h_jan * 0.58):
+        # Só a faixa do Cc — evita De: e assinatura/corpo
+        if y < y_min or y > y_max:
             return False
         click(coords=(int(x), int(y)))
         time.sleep(0.15)
@@ -10044,8 +10082,15 @@ def _focar_linha_cc_outlook(janela) -> bool:
             if aid == "recipient-well-label-cc":
                 label_cc = c
                 continue
-            if aid.endswith("_cc") or aid.endswith("-cc"):
-                if "_to" in aid or "subject" in aid or "from" in aid:
+            partes_aid = re.split(r"[_\-]+", aid)
+            aid_tem_cc = (
+                aid.endswith("_cc") or aid.endswith("-cc") or "cc" in partes_aid
+            )
+            if aid_tem_cc:
+                if any(
+                    t in aid
+                    for t in ("_to", "subject", "from", "account", "accessib")
+                ):
                     continue
                 if not _na_faixa_cc(r):
                     continue
@@ -10098,7 +10143,7 @@ def _focar_linha_cc_outlook(janela) -> bool:
             try:
                 r = ctrl.rectangle()
                 cy = (int(r.top) + int(r.bottom)) // 2
-                if cy < int(wr.top) + int(h_jan * 0.38):
+                if cy < int(wr.top) + int(h_jan * 0.20):
                     continue
                 x = min(int(r.right) + 280, int(wr.right) - 60)
                 y = int(r.bottom) + 28
@@ -10119,6 +10164,7 @@ def _focar_linha_cc_outlook(janela) -> bool:
     except Exception:
         pass
 
+    _diagnosticar_area_cc_outlook(janela, wr, h_jan)
     registrar_log(
         "AVISO [EMAIL-GAL]: não foquei o campo Cc.",
         "AVISO",
