@@ -19308,6 +19308,15 @@ def _modulo_certidoes():
         )
     mod = types.ModuleType("_certidoes_embutido")
     exec(compile(src, "<certidoes>", "exec"), mod.__dict__)
+    # Corrige em runtime: a função original do módulo embutido sempre
+    # trocava a pasta de destino real (empresa/ano/mês do contrato em
+    # execução) pelo padrão fixo do teste isolado (EMPRESA_PADRAO +
+    # mês/ano de HOJE), fazendo os PDFs de CNDT/CRF/CND caírem numa
+    # pasta errada e nunca aparecerem para o upload no SharePoint.
+    def _garantir_destino_contrato_corrigido(destino, sap):
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        return destino
+    mod._garantir_destino_contrato = _garantir_destino_contrato_corrigido
     _MOD_CERTIDOES = mod
     return mod
 
