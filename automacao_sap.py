@@ -27845,7 +27845,12 @@ def abrir_dashboard(
                 txt_diff = f"↑↑ {diff:.0f}s vs média {fmt(media)}"
             _n_it = (n_itens_cmp or {}).get(etapa, 0)
             if _n_it > 0 and etapa in _ITENS_REF_COMPARATIVO:
-                txt_diff = f"{txt_diff} ({_n_it} itens)"
+                _n_ct = max(1, int(n_contratos or 1))
+                txt_diff = (
+                    f"{txt_diff} ({_n_it} "
+                    f"{'item' if _n_it == 1 else 'itens'} e {_n_ct} "
+                    f"{'contrato' if _n_ct == 1 else 'contratos'})"
+                )
 
             lbl_ic = QLabel(icone)
             lbl_ic.setFont(QFont("Segoe UI Emoji", 10))
@@ -27860,44 +27865,6 @@ def abrir_dashboard(
             h_row.addWidget(lbl_ic)
             h_row.addWidget(lbl_diff, stretch=1)
             v_metrics.addLayout(h_row)
-
-        # Linha extra: quantidade de contratos desta execução vs média
-        # histórica (mostrada mesmo quando é só 1 contrato).
-        try:
-            media_contratos = db_media_contratos_execucao()
-        except Exception:
-            media_contratos = None
-        h_row_c = QHBoxLayout()
-        lbl_ec = QLabel("Contratos")
-        lbl_ec.setFont(QFont("Consolas", 9))
-        lbl_ec.setStyleSheet(f"color: {TEXTO_CLARO};")
-        lbl_ec.setFixedWidth(130)
-        lbl_atual_c = QLabel(str(n_contratos))
-        lbl_atual_c.setFont(QFont("Consolas", 9, QFont.Bold))
-        lbl_atual_c.setFixedWidth(50)
-        lbl_atual_c.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        if media_contratos is None:
-            icone_c, cor_c = "ℹ️", TEXTO_OPACO
-            txt_c = "sem histórico ainda"
-        else:
-            diff_c = n_contratos - media_contratos
-            if diff_c >= 0:
-                icone_c, cor_c = "✅", COR_SUCESSO
-                txt_c = f"≥ média de {media_contratos:.1f} contrato(s)/execução"
-            else:
-                icone_c, cor_c = "ℹ️", VERDE_NEON
-                txt_c = f"↓ {abs(diff_c):.1f} vs média {media_contratos:.1f}"
-        lbl_ic_c = QLabel(icone_c)
-        lbl_ic_c.setFont(QFont("Segoe UI Emoji", 10))
-        lbl_ic_c.setFixedWidth(24)
-        lbl_diff_c = QLabel(txt_c)
-        lbl_diff_c.setFont(QFont("Consolas", 8))
-        lbl_diff_c.setStyleSheet(f"color: {cor_c};")
-        h_row_c.addWidget(lbl_ec)
-        h_row_c.addWidget(lbl_atual_c)
-        h_row_c.addWidget(lbl_ic_c)
-        h_row_c.addWidget(lbl_diff_c, stretch=1)
-        v_metrics.addLayout(h_row_c)
 
         body_lay.addWidget(frame_metrics)
 
@@ -28268,7 +28235,12 @@ def _criar_widget_dashboard(
                 ic, cor_d, txt = "🔴", COR_ERRO, f"↑↑ {diff:.0f}s vs média {fmt(int(media))}"
             _n_it = (n_itens_cmp or {}).get(etapa, 0)
             if _n_it > 0 and etapa in _ITENS_REF_COMPARATIVO:
-                txt = f"{txt} ({_n_it} itens)"
+                _n_ct = max(1, int(n_contratos or 1))
+                txt = (
+                    f"{txt} ({_n_it} "
+                    f"{'item' if _n_it == 1 else 'itens'} e {_n_ct} "
+                    f"{'contrato' if _n_ct == 1 else 'contratos'})"
+                )
             h_r = QHBoxLayout()
             l_e = QLabel(etapa); l_e.setFont(QFont("Consolas", 9)); l_e.setStyleSheet(f"color:{TEXTO_CLARO};"); l_e.setFixedWidth(130)
             l_a = QLabel(fmt(dur)); l_a.setFont(QFont("Consolas", 9, QFont.Bold)); l_a.setFixedWidth(50); l_a.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -28276,30 +28248,6 @@ def _criar_widget_dashboard(
             l_d = QLabel(txt); l_d.setFont(QFont("Consolas", 8)); l_d.setStyleSheet(f"color:{cor_d};")
             h_r.addWidget(l_e); h_r.addWidget(l_a); h_r.addWidget(l_i); h_r.addWidget(l_d, stretch=1)
             v_m.addLayout(h_r)
-
-        # Linha extra: quantidade de contratos desta execução vs média
-        # histórica (mostrada mesmo quando é só 1 contrato).
-        try:
-            media_contratos = db_media_contratos_execucao()
-        except Exception:
-            media_contratos = None
-        if media_contratos is None:
-            ic_c, cor_c, txt_c = "ℹ️", TEXTO_OPACO, "sem histórico ainda"
-        else:
-            diff_c = n_contratos - media_contratos
-            if diff_c >= 0:
-                ic_c, cor_c = "✅", COR_SUCESSO
-                txt_c = f"≥ média de {media_contratos:.1f} contrato(s)/execução"
-            else:
-                ic_c, cor_c = "ℹ️", VERDE_NEON
-                txt_c = f"↓ {abs(diff_c):.1f} vs média {media_contratos:.1f}"
-        h_rc = QHBoxLayout()
-        l_ec = QLabel("Contratos"); l_ec.setFont(QFont("Consolas", 9)); l_ec.setStyleSheet(f"color:{TEXTO_CLARO};"); l_ec.setFixedWidth(130)
-        l_ac = QLabel(str(n_contratos)); l_ac.setFont(QFont("Consolas", 9, QFont.Bold)); l_ac.setFixedWidth(50); l_ac.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        l_icc = QLabel(ic_c); l_icc.setFont(QFont("Segoe UI Emoji", 10)); l_icc.setFixedWidth(24)
-        l_dc = QLabel(txt_c); l_dc.setFont(QFont("Consolas", 8)); l_dc.setStyleSheet(f"color:{cor_c};")
-        h_rc.addWidget(l_ec); h_rc.addWidget(l_ac); h_rc.addWidget(l_icc); h_rc.addWidget(l_dc, stretch=1)
-        v_m.addLayout(h_rc)
 
         body_lay.addWidget(frame_m)
 
