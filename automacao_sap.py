@@ -12724,11 +12724,49 @@ def _aplicar_rotulo_confidencialidade_publica() -> bool:
         pass
     time.sleep(0.25)
 
-    # Escopo de busca: diálogo + pai (lista Pública às vezes sobe)
+    # Escopo de busca: diálogo + janelas PRÓXIMAS dele (a lista 'Pública'
+    # às vezes sobe para um popup separado) — nunca a área de trabalho
+    # inteira. Sem esse limite, um controle qualquer de outro app (ex.:
+    # bandeja do sistema, "Rede pública" do Wi-Fi) com nome parecido
+    # podia ser clicado, abrindo painéis do Windows sem relação nenhuma.
+    try:
+        _r_dlg = dlg.rectangle()
+    except Exception:
+        _r_dlg = None
+
+    def _perto_do_dlg(w, margem=400) -> bool:
+        if _r_dlg is None:
+            return False
+        try:
+            r = w.rectangle()
+        except Exception:
+            return False
+        return not (
+            int(r.right) + margem < int(_r_dlg.left)
+            or int(r.left) - margem > int(_r_dlg.right)
+            or int(r.bottom) + margem < int(_r_dlg.top)
+            or int(r.top) - margem > int(_r_dlg.bottom)
+        )
+
+    _CLASSES_SHELL_IGNORAR = (
+        "Shell_TrayWnd", "Shell_SecondaryTrayWnd",
+        "TrayNotifyWnd", "NotifyIconOverflowWindow",
+        "Windows.UI.Core.CoreWindow",
+    )
+
     escopos = [dlg]
     try:
         for w in janelas:
-            escopos.append(w)
+            if w is dlg:
+                continue
+            try:
+                cls = (getattr(w.element_info, "class_name", "") or "")
+            except Exception:
+                cls = ""
+            if cls in _CLASSES_SHELL_IGNORAR:
+                continue
+            if _perto_do_dlg(w):
+                escopos.append(w)
     except Exception:
         pass
 
@@ -35332,7 +35370,9 @@ def _executar_automacao(params: dict, thread: "AutomacaoThread" = None):
     # porque o e-mail (que anexa os PDFs direto do disco, em
     # espelhos_gerados) já terminou de lê-los. Apagar antes disso
     # (como acontecia antes) fazia o anexo sumir silenciosamente.
-    if upload_espelho_ok:
+    # Se o e-mail falhou, mantém os PDFs — a próxima execução reaproveita
+    # tudo (SAP e upload já feitos) e só tenta o e-mail de novo.
+    if upload_espelho_ok and email_ok:
         try:
             _pasta_esp_str = str(pasta_espelho_local)
             _pasta_esp_segura = any(
@@ -35389,7 +35429,15 @@ def _executar_automacao(params: dict, thread: "AutomacaoThread" = None):
         _empresa_limpa_local[:10].lower() in _pasta_str.lower()
     )
 
-    if pasta_raiz_local.exists() and _pasta_segura and _pasta_automacao:
+    if not email_ok:
+        registrar_log(
+            "INFO [LIMPEZA]: pasta local mantida — e-mail falhou; os "
+            "arquivos ficam prontos para a próxima execução retomar só "
+            "a etapa de e-mail (SAP e upload já concluídos não são refeitos).",
+            "INFO",
+        )
+        print(f"  ℹ Pasta local mantida (e-mail pendente): {pasta_raiz_local}")
+    elif pasta_raiz_local.exists() and _pasta_segura and _pasta_automacao:
 
         _sucesso_final, _erro_final = _excluir_pasta_com_retry(pasta_raiz_local)
         if _sucesso_final:
@@ -35538,9 +35586,13 @@ def _executar_automacao(params: dict, thread: "AutomacaoThread" = None):
             _acc["up_esp"] = bool(_acc.get("up_esp", True)) and bool(upload_espelho_ok)
             _acc["email"] = bool(_acc.get("email", True)) and bool(email_ok)
 
-    # ── Remove checkpoint — só no último contrato da fila
+    # ── Remove checkpoint — só no último contrato da fila.
+    # Se o e-mail falhou, mantém o checkpoint: a próxima execução
+    # detecta e oferece retomar (SAP/upload já feitos ficam prontos,
+    # só a etapa de e-mail é refeita).
     if params.get("_emitir_conclusao", True):
-        checkpoint_limpar()
+        if email_ok:
+            checkpoint_limpar()
         thread.avancar_etapa_signal.emit("Concluído", "")
         _acc = getattr(thread, "_acc", None) or {}
         thread.concluir_execucao.emit(
