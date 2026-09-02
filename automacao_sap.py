@@ -10238,13 +10238,6 @@ def _colar_nome_no_cc_outlook(janela, nome: str) -> bool:
     _rolar_composicao_outlook_topo(janela)
     if not _focar_linha_cc_outlook(janela):
         return False
-    try:
-        _wr_cc = janela.rectangle()
-        _y_min_corpo = int(_wr_cc.top) + int(
-            (int(_wr_cc.bottom) - int(_wr_cc.top)) * 0.60
-        )
-    except Exception:
-        _y_min_corpo = None
     send_keys("{END}")
     time.sleep(0.12)
     # Separador se já houver gerente/SMTP no Cc
@@ -10255,23 +10248,13 @@ def _colar_nome_no_cc_outlook(janela, nome: str) -> bool:
         f"INFO [EMAIL-GAL]: colado no Cc (campo certo): {nome}",
         "INFO",
     )
-    time.sleep(0.25)
-    if _texto_apareceu_no_corpo_outlook(janela, nome, _y_min_corpo):
-        registrar_log(
-            "AVISO [EMAIL-GAL]: nome caiu no CORPO do e-mail — "
-            "desfazendo e tentando outra posição.",
-            "AVISO",
-        )
-        # Backspace pelo tamanho exato do que foi digitado (nome + ";")
-        # em vez de Ctrl+Z: o undo do Outlook novo (WebView2) não desfaz
-        # o texto colado de forma íntegra — já corrompeu nome colado
-        # certo (ex.: "Hugo Ferreira" virou "Hgo Ferreira").
-        try:
-            send_keys("{BACKSPACE " + str(len(nome) + 1) + "}")
-            time.sleep(0.15)
-        except Exception:
-            pass
-        return False
+    # SEM verificação/desfazer aqui de propósito: tanto checar foco
+    # (HasKeyboardFocus não é confiável no Outlook novo/WebView2) quanto
+    # checar conteúdo (nós ocultos/virtualizados no DOM dão falso
+    # positivo, mesmo com filtro de posição) já causaram mais dano do
+    # que o problema original — chegaram a apagar texto colado
+    # corretamente. O clique em 'Cc/id-poço' vem de um automation_id já
+    # identificado como o poço do Cc, então é confiável por si só.
     # Espera a 1ª sugestão da GAL aparecer (não clica cedo demais)
     fim = time.time() + 4.5
     while time.time() < fim:
