@@ -55,6 +55,12 @@ AJUSTES = [
     ('Observação Mês: entra na cópia de controle',
      '        "OkFiscal", "OkFiscalPor", "OkFiscalEm", "AprovacaoPor", "AprovacaoEm",\n    ]',
      '        "OkFiscal", "OkFiscalPor", "OkFiscalEm", "AprovacaoPor", "AprovacaoEm", "ObservacaoMes",\n    ]'),
+    ('Apoio por contrato: lista criada sozinha',
+     'def _fechar_pela_ponte(',
+     'def _rest_garantir_lista_apoio(site: str, cookies: str) -> None:\n    """Lista SOx_SCM42_Apoio: uma linha por contrato e pessoa de apoio (cadastro feito pelo app)."""\n    if _REST_CACHE.get("apoio"):\n        return\n    base = f"{site}/_api/web/lists/getbytitle(\'SOx_SCM42_Apoio\')"\n    status, _ = _rest_json(cookies, base + "?$select=Id")\n    if status != 200:\n        digest = _rest_digest(site, cookies)\n        corpo = {"__metadata": {"type": "SP.List"}, "BaseTemplate": 100, "Title": "SOx_SCM42_Apoio",\n                 "Description": "Pessoas de apoio por contrato (cadastradas pelo app Controle SOx SCM-42)."}\n        status, dados = _rest_json(cookies, f"{site}/_api/web/lists", digest, corpo)\n        if status not in (200, 201):\n            raise RuntimeError(f"Não criei a lista SOx_SCM42_Apoio: HTTP {status} {dados.get(\'texto\', \'\')}")\n        for nome in ("Email", "Nome", "IncluidoPor"):\n            xml = f"<Field Type=\'Text\' DisplayName=\'{nome}\' Name=\'{nome}\' StaticName=\'{nome}\' MaxLength=\'255\' />"\n            corpo = {"parameters": {"__metadata": {"type": "SP.XmlSchemaFieldCreationInformation"},\n                                    "SchemaXml": xml, "Options": 24}}\n            status, dados = _rest_json(cookies, base + "/fields/createfieldasxml", digest, corpo)\n            if status not in (200, 201):\n                raise RuntimeError(f"Não criei a coluna {nome} na lista de apoio: HTTP {status} {dados.get(\'texto\', \'\')}")\n        print("Lista criada no site: SOx_SCM42_Apoio", flush=True)\n    _REST_CACHE["apoio"] = True\n\n\ndef _fechar_pela_ponte('),
+    ('Apoio por contrato: Publicar garante a lista',
+     '    """Grava os contratos na lista na hora, com o mesmo login do upload do arquivo."""\n    _rest_garantir_obs_mes(site, lista, cookies)\n',
+     '    """Grava os contratos na lista na hora, com o mesmo login do upload do arquivo."""\n    _rest_garantir_obs_mes(site, lista, cookies)\n    _rest_garantir_lista_apoio(site, cookies)\n'),
 ]
 
 
