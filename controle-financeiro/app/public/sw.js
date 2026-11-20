@@ -1,6 +1,6 @@
 // Guarda o app no celular para abrir rápido e sem internet. Os dados vêm do Firebase.
-const CACHE = 'bolso-v1';
-const ARQS = ['./', 'index.html', 'shim.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'vendor/firebase-app-compat.js', 'vendor/firebase-auth-compat.js', 'vendor/firebase-firestore-compat.js'];
+const CACHE = 'bolso-v2';
+const ARQS = ['./', 'index.html', 'shim.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {

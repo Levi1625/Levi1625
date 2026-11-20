@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "dev": "npm run build && npx wrangler@4 pages dev public --d1 DB=bolso-local --compatibility-date=2026-11-01"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.12.0",
-    "jose": "^6.2.18"
+    "@anthropic-ai/sdk": "^1.12.0"
   }
 }

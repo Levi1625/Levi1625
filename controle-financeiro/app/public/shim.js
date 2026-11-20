@@ -1,13 +1,19 @@
-/* Bolso em Dia — app próprio.
-   Liga o mesmo código do app a serviços próprios: Firebase (login e dados),
-   /api/ia (Claude pela sua chave, no Cloudflare), microfone do navegador e downloads.
+/* Bolso em Dia — app próprio (Cloudflare, sem Google).
+   Liga o mesmo código do app ao servidor próprio (/api/...): login com e-mail e senha,
+   dados da casa sincronizados, IA do Claude, microfone do navegador e downloads.
    O app chama window.claude.use(nome), igual ao artefato do Claude. */
 (function () {
   'use strict';
-  const cfg = window.BOLSO_CONFIG || {};
-  const pronto = !!(cfg.firebase && cfg.firebase.apiKey);
   let resolverLogin; const logado = new Promise(r => { resolverLogin = r; });
-  let fs = null, auth = null, casaRef = null, casaDados = null, BASE = '';
+  let eu = null, casa = null;
+
+  /* ---------- chamadas ao servidor ---------- */
+  async function api(metodo, url, corpo) {
+    const r = await fetch(url, {method:metodo, credentials:'same-origin', headers:corpo ? {'content-type':'application/json'} : {}, body:corpo ? JSON.stringify(corpo) : undefined});
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(out.erro || 'Falha no servidor'); e.status = r.status; e.code = out.code || (r.status === 429 ? 'rate_limited' : r.status === 401 || r.status === 403 ? 'not_granted' : 'upstream_error'); throw e; }
+    return out;
+  }
 
   /* ---------- tela de entrada ---------- */
   const css = `#bl-login{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#F2F4F7;font-family:Inter,system-ui,sans-serif;padding:16px}
@@ -16,89 +22,128 @@
 #bl-login input{width:100%;box-sizing:border-box;border:1px solid #D5DBEA;border-radius:12px;padding:12px;margin-bottom:10px;font:inherit}
 #bl-login button{width:100%;border:0;border-radius:12px;padding:12px;font:600 1rem Inter,sans-serif;cursor:pointer;margin-bottom:8px}
 #bl-login .pri{background:#1D3FBF;color:#fff}#bl-login .sec{background:#E9EDF3;color:#101A2C}#bl-login .lk{background:none;color:#1D3FBF;font-weight:500;padding:6px}
-#bl-login .msg{min-height:20px;font-size:.88rem;color:#C0392B;margin:4px 0 8px}
+#bl-login .msg{min-height:20px;font-size:.88rem;color:#C0392B;margin:4px 0 8px}#bl-login .dica{font-size:.8rem;color:#5B6475;margin-top:6px}
 @media (prefers-color-scheme: dark){#bl-login{background:#0E1420}#bl-login .bx{background:#161E2E}#bl-login h1{color:#EEF2F8}#bl-login input{background:#0E1420;color:#EEF2F8;border-color:#2A3446}#bl-login .sec{background:#222C3E;color:#EEF2F8}}`;
   function telaLogin(aviso) {
     if (document.getElementById('bl-login')) return;
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     const d = document.createElement('div'); d.id = 'bl-login';
-    d.innerHTML = `<div class="bx"><h1>Bolso em Dia</h1><p>${aviso || 'Entre com seu e-mail para ver e lançar suas finanças.'}</p>
+    d.innerHTML = `<div class="bx"><h1>Bolso em Dia</h1><p id="bl-p">${aviso || 'Entre com seu e-mail e senha.'}</p>
+      <input id="bl-n" placeholder="Seu nome (ex.: Levi)" autocomplete="name" style="display:none">
       <input id="bl-e" type="email" placeholder="E-mail" autocomplete="email"><input id="bl-s" type="password" placeholder="Senha (mínimo 6 letras ou números)" autocomplete="current-password">
       <div class="msg" id="bl-m"></div>
-      <button class="pri" id="bl-in">Entrar</button><button class="sec" id="bl-novo">Criar minha conta</button>
-      <button class="sec" id="bl-g">Entrar com Google</button><button class="lk" id="bl-esq">Esqueci a senha</button></div>`;
+      <button class="pri" id="bl-ok">Entrar</button><button class="sec" id="bl-troca">Primeiro acesso: criar minha senha</button>
+      <div class="dica">Esqueceu a senha? Peça para outra pessoa da casa, em Ajustes, tirar e colocar seu e-mail de novo. Depois toque em "Primeiro acesso".</div></div>`;
     document.body.appendChild(d);
-    const $ = id => document.getElementById(id), msg = t => { $('bl-m').textContent = t || ''; };
-    const erro = e => ({'auth/invalid-credential':'E-mail ou senha errados.','auth/wrong-password':'Senha errada.','auth/user-not-found':'Conta não encontrada. Toque em Criar minha conta.','auth/email-already-in-use':'Este e-mail já tem conta. Toque em Entrar.','auth/weak-password':'A senha precisa de pelo menos 6 caracteres.','auth/invalid-email':'E-mail inválido.','auth/popup-closed-by-user':'Entrada cancelada.'}[e && e.code] || 'Não deu certo agora. Confira a internet e tente de novo.');
-    $('bl-in').onclick = () => { msg(); auth.signInWithEmailAndPassword($('bl-e').value.trim(), $('bl-s').value).catch(e => msg(erro(e))); };
-    $('bl-novo').onclick = () => { msg(); auth.createUserWithEmailAndPassword($('bl-e').value.trim(), $('bl-s').value).catch(e => msg(erro(e))); };
-    $('bl-g').onclick = () => { msg(); auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => msg(erro(e))); };
-    $('bl-esq').onclick = () => { const e = $('bl-e').value.trim(); if (!e) return msg('Escreva seu e-mail primeiro.'); auth.sendPasswordResetEmail(e).then(() => { $('bl-m').style.color = '#14804a'; msg('Enviamos um e-mail para criar uma nova senha.'); }).catch(x => msg(erro(x))); };
+    const $ = id => document.getElementById(id); let criar = false;
+    const msg = (t, ok) => { $('bl-m').style.color = ok ? '#14804a' : '#C0392B'; $('bl-m').textContent = t || ''; };
+    $('bl-troca').onclick = () => { criar = !criar; $('bl-n').style.display = criar ? '' : 'none'; $('bl-ok').textContent = criar ? 'Criar senha e entrar' : 'Entrar'; $('bl-troca').textContent = criar ? 'Já tenho senha: entrar' : 'Primeiro acesso: criar minha senha'; $('bl-s').autocomplete = criar ? 'new-password' : 'current-password'; msg(); };
+    const ir = async () => { msg(); $('bl-ok').disabled = true;
+      try { await api('POST', criar ? '/api/criar' : '/api/entrar', {email:$('bl-e').value, senha:$('bl-s').value, nome:$('bl-n').value}); await iniciar(); }
+      catch (e) { msg(e.status ? e.message : 'Sem internet agora. Tente de novo.'); }
+      if ($('bl-ok')) $('bl-ok').disabled = false; };
+    $('bl-ok').onclick = ir; $('bl-s').onkeydown = e => { if (e.key === 'Enter') ir(); };
   }
   const tirarLogin = () => { const d = document.getElementById('bl-login'); if (d) d.remove(); };
 
-  /* ---------- casa (dados compartilhados entre as pessoas da casa) ---------- */
-  async function abrirCasa(u) {
-    const email = (u.email || '').toLowerCase();
-    const q = await fs.collection('casas').where('membros', 'array-contains', email).limit(1).get();
-    if (!q.empty) casaRef = q.docs[0].ref;
-    else { casaRef = fs.collection('casas').doc(u.uid); await casaRef.set({dono:u.uid, membros:[email], nomes:{[u.uid]:u.displayName || email.split('@')[0]}, criado:new Date().toISOString()}); }
-    await casaRef.set({nomes:{[u.uid]:u.displayName || email.split('@')[0]}}, {merge:true}).catch(() => {});
-    casaRef.onSnapshot(s => { casaDados = s.data() || {}; });
-    casaDados = (await casaRef.get()).data() || {};
-    BASE = `casas/${casaRef.id}/`;
+  /* ---------- dados: cópia local + sincronização + fila sem internet ---------- */
+  const LS = k => 'bolso:' + (eu ? eu.email : '') + ':' + k;
+  const ler = (k, padrao) => { try { const v = localStorage.getItem(LS(k)); return v ? JSON.parse(v) : padrao; } catch (_) { return padrao; } };
+  const gravar = (k, v) => { try { localStorage.setItem(LS(k), JSON.stringify(v)); } catch (_) {} };
+  let store = {}, since = 0, fila = {}, sincronizado = false, subs = [];
+  const clone = x => x == null ? x : JSON.parse(JSON.stringify(x));
+  const colDe = p => p.split('/')[0];
+  const snapCol = col => ({docs:Object.keys(store).filter(p => colDe(p) === col).map(p => ({id:p.split('/')[1], data:() => clone(store[p])})), metadata:{fromCache:!sincronizado, hasPendingWrites:Object.keys(fila).length > 0}});
+  const snapDoc = p => ({id:p.split('/')[1], exists:p in store, data:() => clone(store[p]), metadata:{fromCache:!sincronizado, hasPendingWrites:p in fila}});
+  let emitirT = null; const emitir = () => { clearTimeout(emitirT); emitirT = setTimeout(() => subs.forEach(s => { try { s.cb(s.col ? snapCol(s.col) : snapDoc(s.path)); } catch (e) { console.error(e); } }), 0); };
+  const salvarLocal = () => { gravar('store', store); gravar('since', since); gravar('fila', fila); };
+
+  async function enviarFila() {
+    for (const [p, op] of Object.entries(fila)) {
+      try { if (op.del) await api('DELETE', '/api/doc?path=' + encodeURIComponent(p)); else await api('PUT', '/api/doc', {path:p, data:op.data}); if (fila[p] === op) delete fila[p]; }
+      catch (e) { if (e.status === 400 || e.status === 413) { delete fila[p]; console.error('descartado', p, e.message); } else if (e.status === 401) { telaLogin('Sua sessão expirou. Entre de novo.'); break; } else break; }
+    }
+    salvarLocal();
+  }
+  let sincronizando = false;
+  async function sincronizar() {
+    if (sincronizando || !eu) return; sincronizando = true;
+    try {
+      await enviarFila();
+      const r = await api('GET', '/api/sync?since=' + Math.max(0, since - 2000));
+      let mudou = !sincronizado;
+      for (const d of r.docs) { if (d.path in fila) continue; if (d.del) { if (d.path in store) { delete store[d.path]; mudou = true; } } else if (JSON.stringify(store[d.path]) !== JSON.stringify(d.data)) { store[d.path] = d.data; mudou = true; } }
+      since = r.agora; casa = r.casa || casa; sincronizado = true; salvarLocal();
+      if (mudou) emitir();
+    } catch (e) { if (e.status === 401) telaLogin('Sua sessão expirou. Entre de novo.'); }
+    sincronizando = false;
+  }
+  function escrever(p, op) { if (op.del) delete store[p]; else store[p] = clone(op.data); fila[p] = op; salvarLocal(); emitir(); enviarFila().catch(() => {}); return Promise.resolve(); }
+  const novoId = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(36).padStart(2, '0')).join('').slice(0, 20);
+  const docRef = p => ({id:p.split('/')[1], path:p,
+    set: d => escrever(p, {data:d}), delete: () => escrever(p, {del:true}), get: async () => snapDoc(p),
+    onSnapshot: (cb, err) => { const s = {path:p, cb}; subs.push(s); setTimeout(() => cb(snapDoc(p)), 0); return () => { subs = subs.filter(x => x !== s); }; }});
+  const db = {
+    doc: p => docRef(p),
+    collection: col => ({doc: id => docRef(col + '/' + (id || novoId())),
+      onSnapshot: (cb, err) => { const s = {col, cb}; subs.push(s); setTimeout(() => cb(snapCol(col)), 0); return () => { subs = subs.filter(x => x !== s); }; }}),
+  };
+
+  /* ---------- casa e pessoa ---------- */
+  function publicarCasa() {
     window.__casa = {
-      email: () => email,
-      membros: () => (casaDados.membros || []).slice(),
-      add: async e => { e = String(e || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('E-mail inválido.'); await casaRef.update({membros:firebase.firestore.FieldValue.arrayUnion(e)}); },
-      remove: async e => { await casaRef.update({membros:firebase.firestore.FieldValue.arrayRemove(e)}); },
-      sair: () => auth.signOut().then(() => location.reload()),
-      ia: () => casaDados.ia !== false,
-      setIA: async v => { await casaRef.set({ia:!!v}, {merge:true}); location.reload(); },
-      usoIA: () => { const m = new Date().toISOString().slice(0, 7), u = (casaDados.iaUso || {})[m] || {}; return {usd:+u.usd || 0, n:+u.n || 0}; },
+      email: () => eu.email,
+      membros: () => (casa && casa.membros || []).slice(),
+      add: async e => { const r = await api('POST', '/api/casa', {acao:'add', email:e}); casa = r.casa; },
+      remove: async e => { const r = await api('POST', '/api/casa', {acao:'remove', email:e}); casa = r.casa; },
+      sair: async () => { await api('POST', '/api/sair').catch(() => {}); location.reload(); },
+      ia: () => !casa || casa.ia !== false,
+      setIA: async v => { await api('POST', '/api/casa', {acao:'ia', valor:!!v}); location.reload(); },
+      usoIA: () => { const m = new Date().toISOString().slice(0, 7), u = (casa && casa.uso || {})[m] || {}; return {usd:+u.usd || 0, n:+u.n || 0}; },
     };
   }
-
-  if (pronto) {
-    firebase.initializeApp(cfg.firebase);
-    auth = firebase.auth(); fs = firebase.firestore();
-    fs.enablePersistence({synchronizeTabs:true}).catch(() => {});
-    auth.onAuthStateChanged(async u => {
-      if (!u) { telaLogin(); return; }
-      try { await abrirCasa(u); tirarLogin(); resolverLogin(u); }
-      catch (e) { console.error(e); telaLogin('Não consegui abrir seus dados. Confira a internet e entre de novo.'); }
-    });
-  } else {
-    document.addEventListener('DOMContentLoaded', () => telaLogin('Falta configurar o Firebase (arquivo config.js). Veja o passo a passo do SETUP.'));
+  async function iniciar() {
+    let r;
+    try { r = await api('GET', '/api/eu'); }
+    catch (e) {
+      if (e.status === 401) { telaLogin(); return; }
+      if (e.status === 503) { telaLogin(e.message); return; }
+      const ultimo = (() => { try { return JSON.parse(localStorage.getItem('bolso:ultimo') || 'null'); } catch (_) { return null; } })();
+      if (!ultimo) { telaLogin('Sem internet agora. Conecte e tente de novo.'); return; }
+      r = ultimo; // sem internet: abre com a cópia guardada no celular
+    }
+    eu = {email:r.email, nome:r.nome}; casa = r.casa;
+    try { localStorage.setItem('bolso:ultimo', JSON.stringify({email:r.email, nome:r.nome, casa:r.casa})); } catch (_) {}
+    store = ler('store', {}); since = ler('since', 0); fila = ler('fila', {});
+    publicarCasa(); tirarLogin(); resolverLogin();
+    sincronizar();
+    setInterval(() => { if (document.visibilityState === 'visible') sincronizar(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sincronizar(); });
+    window.addEventListener('online', sincronizar);
   }
 
-  /* ---------- capacidades no mesmo formato do artefato ---------- */
-  const db = {
-    doc: p => fs.doc(BASE + p),
-    collection: p => fs.collection(BASE + p),
-  };
   const user = {
-    id: async () => auth.currentUser && auth.currentUser.uid,
-    me: async () => ({id:auth.currentUser.uid, name:auth.currentUser.displayName || auth.currentUser.email}),
+    id: async () => eu && eu.email,
+    me: async () => ({id:eu.email, name:eu.nome || eu.email}),
     isOwner: async () => true, canEdit: async () => true, can: async () => true,
-    profiles: async ids => Object.fromEntries(ids.map(i => [i, {name:(casaDados && casaDados.nomes && casaDados.nomes[i]) || ''}])),
+    profiles: async ids => Object.fromEntries(ids.map(i => [i, {name:(casa && casa.nomes && casa.nomes[i]) || ''}])),
   };
+
+  /* ---------- IA do Claude (pelo servidor, com a sua chave) ---------- */
   const blobB64 = b => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(b); });
   async function ia(input, opts, json) {
-    const token = await auth.currentUser.getIdToken();
     const images = opts && opts.images ? await Promise.all(opts.images.map(async b => ({media_type:b.type || 'image/jpeg', data:await blobB64(b)}))) : [];
-    const r = await fetch('/api/ia', {method:'POST', headers:{'content-type':'application/json', authorization:'Bearer ' + token}, body:JSON.stringify({input, json, images, rapido:opts && opts.modelTier === 'quick'}), signal:opts && opts.signal});
-    const out = await r.json().catch(() => ({}));
-    if (!r.ok) { const e = new Error(out.erro || 'Falha na IA'); e.code = r.status === 429 ? 'rate_limited' : r.status === 401 || r.status === 403 ? 'not_granted' : 'upstream_error'; throw e; }
-    if (out.custo_usd > 0) { const m = new Date().toISOString().slice(0, 7), inc = firebase.firestore.FieldValue.increment; casaRef.set({iaUso:{[m]:{usd:inc(out.custo_usd), n:inc(1)}}}, {merge:true}).catch(() => {}); }
+    const out = await api('POST', '/api/ia', {input, json, images, rapido:opts && opts.modelTier === 'quick'});
+    if (out.custo_usd > 0 && casa) { const m = new Date().toISOString().slice(0, 7); casa.uso = casa.uso || {}; const u = casa.uso[m] || {usd:0, n:0}; casa.uso[m] = {usd:u.usd + out.custo_usd, n:u.n + 1}; }
     return out;
   }
   const sample = async (input, opts) => { const o = await ia(input, opts, false); if (opts && opts.onText) opts.onText({text:o.text, delta:o.text}); return {text:o.text, truncated:false}; };
   sample.json = async (input, opts) => (await ia(input, opts, true)).value;
   sample.limits = async () => ({images:true});
+
   const downloads = {save: async ({filename, data}) => { const blob = data instanceof Blob ? data : new Blob([data], {type:/\.json$/.test(filename) ? 'application/json' : 'text/plain;charset=utf-8'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }};
 
-  /* microfone do navegador (Chrome no celular e no computador) */
+  /* ---------- microfone do navegador (Chrome no celular e no computador) ---------- */
   function ditado() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return null;
     const H = {p:[], f:[], s:[]}; let rec = null, estado = 'idle', fim = null;
@@ -109,8 +154,8 @@
         rec = new SR(); rec.lang = (o && o.language) || 'pt-BR'; rec.interimResults = true; rec.continuous = true;
         let razao = 'stopped', inicio = true;
         rec.onstart = () => { muda('listening'); ok(); };
-        rec.onresult = ev => { let parcial = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const r = ev.results[i]; if (r.isFinal) emite('f', {text:(inicio ? '' : ' ') + r[0].transcript.trim()}), inicio = false; else parcial += r[0].transcript; } emite('p', {text:parcial}); };
-        rec.onerror = e => { razao = e.error === 'not-allowed' ? 'not_granted' : e.error === 'no-speech' ? 'stopped' : 'upstream_error'; if (estado === 'starting') { const x = new Error(razao); x.code = razao; no(x); } };
+        rec.onresult = ev => { let parcial = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { const r = ev.results[i]; if (r.isFinal) { emite('f', {text:(inicio ? '' : ' ') + r[0].transcript.trim()}); inicio = false; } else parcial += r[0].transcript; } emite('p', {text:parcial}); };
+        rec.onerror = e => { razao = e.error === 'not-allowed' ? 'not_granted' : e.error === 'no-speech' ? 'stopped' : 'upstream_error'; if (estado === 'starting') no(Object.assign(new Error(razao), {code:razao})); };
         rec.onend = () => { rec = null; muda('idle', razao); if (fim) { fim(); fim = null; } };
         muda('starting'); try { rec.start(); } catch (e) { rec = null; muda('idle', 'upstream_error'); no(Object.assign(new Error('upstream_error'), {code:'upstream_error'})); }
       }); },
@@ -126,11 +171,11 @@
   window.claude = {use: async nome => {
     if (nome === 'downloads') return downloads;
     if (nome === 'dictation') return dict;
-    if (!pronto) return null;
     await logado;
-    if (nome === 'sample' && casaDados && casaDados.ia === false) return null;
+    if (nome === 'sample' && casa && casa.ia === false) return null;
     return {db, user, sample}[nome] || null;
   }};
 
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 })();

@@ -1,10 +1,8 @@
 // Cloudflare Pages Function: POST /api/ia
-// Recebe o pedido do app (já logado no Firebase), chama o Claude com a chave guardada
-// no Cloudflare (ANTHROPIC_API_KEY) e devolve o texto ou o JSON, com o custo estimado.
+// Recebe o pedido do app (pessoa logada), chama o Claude com a chave guardada
+// no Cloudflare (ANTHROPIC_API_KEY), devolve o texto ou o JSON e soma o custo do mês na casa.
 import Anthropic from "@anthropic-ai/sdk";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-
-const JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
+import { banco, sessao, lerCasa, mesmaOrigem } from "../../lib/server.js";
 
 // Preço por milhão de tokens (US$), para mostrar no app quanto a IA custou no mês.
 const PRECO = {
@@ -13,7 +11,7 @@ const PRECO = {
   "claude-haiku-5-5": { in: 0.1, out: 0.5 },
 };
 
-const resposta = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
+const resposta = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
 function extrairJSON(txt) {
   const t = String(txt || "").replace(/```(?:json)?/gi, "").trim();
@@ -27,15 +25,12 @@ function extrairJSON(txt) {
 export async function onRequestPost({ request, env }) {
   if (!env.ANTHROPIC_API_KEY) return resposta({ erro: "A IA ainda não foi configurada (falta a chave da Anthropic no Cloudflare)." }, 503);
 
-  // 1. Só quem está logado no app e está na lista de e-mails permitidos usa a IA (protege sua chave).
-  const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  let email = "";
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`, audience: env.FIREBASE_PROJECT_ID });
-    email = String(payload.email || "").toLowerCase();
-  } catch (_) { return resposta({ erro: "Entre no app de novo." }, 401); }
-  const permitidos = String(env.EMAILS_PERMITIDOS || "").toLowerCase().split(/[,;\s]+/).filter(Boolean);
-  if (!permitidos.includes(email)) return resposta({ erro: "Este e-mail não tem permissão para usar a IA." }, 403);
+  // 1. Só quem está logado no app usa a IA (protege sua chave), e só se a IA estiver ligada na casa.
+  if (!mesmaOrigem(request)) return resposta({ erro: "Origem inválida." }, 403);
+  const s = await sessao(request, env);
+  if (!s) return resposta({ erro: "Entre no app de novo." }, 401);
+  const db = await banco(env), casa = await lerCasa(db, s.casa);
+  if (!casa.ia) return resposta({ erro: "A IA está desligada em Ajustes." }, 403);
 
   // 2. Monta o pedido.
   let body;
@@ -78,6 +73,11 @@ export async function onRequestPost({ request, env }) {
   const p = PRECO[msg.model] || PRECO[modelo] || PRECO["claude-haiku-5-5"];
   const u = msg.usage || {};
   const custo = ((u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) * 1.25 + (u.cache_read_input_tokens || 0) * 0.1) * p.in / 1e6 + (u.output_tokens || 0) * p.out / 1e6;
+
+  // 4. Soma o custo do mês na casa, para o app mostrar quanto a IA gastou.
+  const mes = new Date().toISOString().slice(0, 7), uso = casa.uso || {};
+  uso[mes] = { usd: Number(((uso[mes]?.usd || 0) + custo).toFixed(6)), n: (uso[mes]?.n || 0) + 1 };
+  await db.prepare("UPDATE casas SET uso = ? WHERE id = ?").bind(JSON.stringify(uso), s.casa).run();
 
   if (body.json) {
     const value = extrairJSON(out);
