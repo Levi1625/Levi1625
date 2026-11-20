@@ -66,7 +66,7 @@ No **Chrome** do celular, abra o endereço e toque em **⋮ → Instalar app** (
 1. No app do Claude: **Ajustes → Baixar backup (.json)**.
 2. No app próprio: **Ajustes → Restaurar backup (.json)**.
 
-## 6. Lembretes no WhatsApp (todo dia às 8h35)
+## 6. Lembretes no WhatsApp (todo dia às 8h)
 Cada pessoa cadastra o próprio número e a apikey do CallMeBot em **Ajustes → Lembretes no WhatsApp** (tem o passo a passo na tela e o botão **Mandar teste**). As variáveis `WHATSAPP` e `CALLMEBOT_APIKEY` abaixo são opcionais: valem só para a sua casa, se você não cadastrar em Ajustes.
 
 1. No Cloudflare, projeto `bolso-em-dia` **→ Settings → Variables and Secrets → Add**:
@@ -82,7 +82,7 @@ Cada pessoa cadastra o próprio número e a apikey do CallMeBot em **Ajustes →
 3. Crie uma conta grátis em https://cron-job.org e toque em **Create cronjob**:
    - Title: `Bolso em Dia`
    - URL: `https://bolso-em-dia-26l.pages.dev/api/lembretes?chave=SUA_CHAVE&enviar=1` (troque `SUA_CHAVE` pela senha do passo 1)
-   - Execution schedule: **Every day at 8:35**, fuso **America/Sao_Paulo**
+   - Execution schedule: **Every day at 8:00**, fuso **America/Sao_Paulo**
    - **Create**. Toque em **Test run** para ver chegar no WhatsApp (se não houver nada no dia, não chega mensagem).
 
 ## 7. Clientes (repassar ou vender)

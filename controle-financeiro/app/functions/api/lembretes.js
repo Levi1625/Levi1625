@@ -1,6 +1,6 @@
 // GET /api/lembretes?chave=...&enviar=1[&hoje=AAAA-MM-DD]
 // Monta o lembrete do dia (contas, dinheiro que cai, agenda das viagens e do plano) a partir
-// dos dados do app e, com enviar=1, manda pelo WhatsApp (CallMeBot). Chamado todo dia às 8h35.
+// dos dados do app e, com enviar=1, manda pelo WhatsApp (CallMeBot). Chamado todo dia de manhã (8h) pelo cron-job.org.
 // Cada casa cadastra o próprio WhatsApp e a chave do CallMeBot em Ajustes. Para a casa de LEMBRETES_EMAIL,
 // se ela não tiver cadastro próprio, valem as variáveis WHATSAPP e CALLMEBOT_APIKEY do Cloudflare.
 // LEMBRETES_CHAVE (segredo) protege esta rota; o cron-job.org chama com ?chave=...&enviar=1.
