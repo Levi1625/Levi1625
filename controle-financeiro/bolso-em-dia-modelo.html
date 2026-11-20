@@ -131,6 +131,8 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .quick{display:flex;gap:8px;margin-bottom:6px}
 .quick input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;font-size:1rem}
 .quick input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.mic{flex:none;width:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:1.1rem;cursor:pointer}
+.mic.on{background:var(--neg);color:#fff;border-color:var(--neg)}
 .qprev{display:flex;flex-wrap:wrap;gap:6px;min-height:26px;margin-bottom:16px}
 .chip{font-size:.78rem;padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
 .chip b{color:var(--ink);font-weight:600}
@@ -368,7 +370,7 @@ const CATS_DESP = [
   {n:'Viagens', g:'estilo', k:'passagem,hotel,airbnb,hospedagem,booking,latam,gol,azul,viagem,pousada,decolar'},
   {n:'Dívidas & juros', g:'financeiro', k:'juros,multa,tarifa,anuidade,iof,emprestimo,financiamento,acordo,cheque especial,rotativo'},
   {n:'Impostos & taxas', g:'financeiro', k:'imposto,irpf,darf,das,mei,taxa,cartorio,detran,licenciamento'},
-  {n:'Repasse', g:'repasse', k:'repasse'},
+  {n:'Repasse', g:'repasse', k:'repasse,conta dela,conta dele,conta da minha mae,conta da sogra'},
   {n:'Outros', g:'estilo', k:''},
 ];
 const CATS_REC = [
@@ -380,7 +382,7 @@ const CATS_REC = [
   {n:'Renda extra', k:'freela,freelance,extra,bico,servico,venda,vendi,diaria,diarias,ajuda de custo'},
   {n:'Rendimentos', k:'rendimento,dividendo,dividendos,juros recebidos'},
   {n:'Reembolso', k:'reembolso,estorno,devolucao,pix de volta'},
-  {n:'Repasse', k:'repasse'},
+  {n:'Repasse', k:'repasse,pra pagar a conta,para pagar a conta,pagar conta dela,pagar conta dele'},
   {n:'Outras receitas', k:''},
 ];
 const GRUPOS = {
@@ -559,6 +561,7 @@ async function aiCategorizar(id, desc, tipo) {
 }
 
 /* ---------- interpretação do texto rápido ---------- */
+const BANCO = /nubank|inter\b|itau|bradesco|santander|caixa|c6|picpay|mercado ?pago|banco|neon|next|original|\bpan\b|will|xp|btg|sicredi|sicoob|digio|bmg|ourocard|porto|credicard|renner|riachuelo|carrefour|atacadao|assai/;
 function parseRapido(txt) {
   const r = {tipo:'despesa', data:hoje(), meio:S.cfg.meioPadrao || 'pix', cartaoId:null, nparc:1, valor:NaN, desc:'', cat:null};
   let t = ` ${txt} `;
@@ -574,7 +577,8 @@ function parseRapido(txt) {
   if (mv) { r.valor = parseValor(mv[1]); t = t.replace(mv[0], ' '); }
   const n = norm(t);
   let card = null;
-  S.cartoes.forEach(c => { const cn = norm(c.nome); if (cn && (` ${n} `).includes(` ${cn}`)) card = c; });
+  const temCartao = /\b(credito|cartao|cc)\b/.test(n);
+  S.cartoes.forEach(c => { const cn = norm(c.nome); if (cn && (` ${n} `).includes(` ${cn}`) && (temCartao || BANCO.test(cn))) card = c; });
   if (!card && /\b(credito|cartao|cc)\b/.test(n) && S.cartoes.length === 1) card = S.cartoes[0];
   let explicit = true;
   const isDeb = /\bdebito\b/.test(n);
@@ -596,6 +600,7 @@ function parseRapido(txt) {
   if (r.tipo === 'receita' && !r.desc) r.desc = 'Receita';
   r.cat = autoCat(r.desc, r.tipo) || (r.tipo === 'receita' ? 'Outras receitas' : 'Outros');
   r.catAuto = !autoCat(r.desc, r.tipo);
+  r.meioDito = explicit;
   if (!explicit && r.tipo !== 'receita' && vaCats().includes(r.cat)) r.meio = 'va';
   return r;
 }
@@ -727,7 +732,8 @@ function alertasMes(m) {
   Object.entries(r.porCatVar).forEach(([c, v]) => {
     const me = med.media[c] || 0, lim = +orc[c] || 0, ritmo = v / dia * dm;
     const btn = `<button class="btn sm" data-a="catDet" data-cat="${esc(c)}" data-m="${m}">Ver</button>`;
-    if (lim && v > lim) out.push({t:'bad', h:`<b>${esc(c)}</b> passou do limite: ${brl(v)} de ${brl(lim)}.`, btn});
+    if (lim && v > lim) { const aj = ajusteMes(m), cs = Object.entries(aj.cortes).filter(x => x[1] > .5); out.push({t:'bad', h:`<b>${esc(c)}</b> passou ${brl(v - lim)} do limite (${brl(v)} de ${brl(lim)}). ${cs.length ? `Para compensar, tirei igualmente dos outros gastos do mês: ${cs.map(([k, x]) => `${esc(k)} −${brl0(x)} (fica ${brl0(aj.lim[k])})`).join(' · ')}.` : 'Não há outro gasto com folga: o excesso sai do livre.'}`, btn}); }
+    else if (false) out.push({t:'bad', h:`<b>${esc(c)}</b> passou do limite: ${brl(v)} de ${brl(lim)}.`, btn});
     else if (me >= 50 && v > me * 1.05) out.push({t:'warn', h:`<b>${esc(c)}</b>: você já gastou ${brl(v)}, mais que a sua média do mês inteiro (${brl(me)}).`, btn});
     else if (atual && dia >= 7 && me >= 50 && ritmo > me * 1.2) out.push({t:'warn', h:`<b>${esc(c)}</b>: nesse ritmo vai fechar o mês em ${brl(ritmo)}, ${pct(ritmo / me - 1)} acima da sua média.`, btn});
   });
@@ -746,7 +752,7 @@ function faltaPagarMes(m) {
   return {v:sum(pend) + sum(fat, c => valorFatura(c, m)), n:pend.length + fat.length};
 }
 /* detalhe de categoria / lugar */
-function detalheSheet(titulo, m, filtro, chave) {
+function detalheSheet(titulo, m, filtro, chave, extra = '') {
   const L = S.lanc.filter(l => l.tipo !== 'receita' && filtro(l));
   const doMes = L.filter(l => l.mes === m).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
   const tot = sum(doMes);
@@ -761,9 +767,12 @@ function detalheSheet(titulo, m, filtro, chave) {
     <p class="small muted" style="margin-top:4px">${med ? `Média dos meses anteriores: ${brl(med)}` : 'Sem histórico para comparar.'}</p>
     <div style="display:flex;align-items:flex-end;gap:8px;height:96px;margin:16px 0 6px" role="img" aria-label="Últimos 6 meses">${serie.map(x => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end"><span class="num" style="font-size:.64rem;color:var(--muted)">${x.v ? kfmt(x.v) : ''}</span><span style="width:100%;max-width:34px;border-radius:6px 6px 2px 2px;background:${x.m === m ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 30%, var(--surface-2))'};height:${Math.max(2, x.v / mx * 64)}px"></span><span style="font-size:.68rem;color:${x.m === m ? 'var(--ink)' : 'var(--muted)'}">${MES[+x.m.slice(5) - 1]}</span></div>`).join('')}</div>
     ${Object.keys(sub).length > 1 ? `<div class="bars" style="margin-top:14px">${Object.entries(sub).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="bar-row"><span class="n small">${esc(k)}</span><span class="v small">${brl(v)}</span><div class="track" style="height:6px"><span class="fill" style="width:${(v / tot * 100).toFixed(1)}%;background:var(--accent)"></span></div></div>`).join('')}</div>` : ''}
-    <h3 style="margin-top:18px">Dia a dia (${doMes.length})</h3>${doMes.length ? `<div class="list">${lista}</div>` : '<div class="empty" style="margin-top:8px">Nada neste mês.</div>'}`);
+    <h3 style="margin-top:18px">Dia a dia (${doMes.length})</h3>${doMes.length ? `<div class="list">${lista}</div>` : '<div class="empty" style="margin-top:8px">Nada neste mês.</div>'}${extra}`);
 }
-A.catDet = el => detalheSheet(el.dataset.cat, el.dataset.m || S.mes, l => (l.cat || 'Outros') === el.dataset.cat, l => lugarDe(l));
+A.catDet = el => { const c = el.dataset.cat, m = el.dataset.m || S.mes, lim = +orcDoMes(m)[c] || 0; let extra = '';
+  if (lim && m >= ymNow()) { const aj = ajusteMes(m), g = aj.gasto[c] || 0, nl = aj.lim[c] ?? lim, fe = aj.fech.includes(c);
+    extra = `<div class="card" style="margin-top:16px;padding:12px 14px"><div class="row" style="justify-content:space-between"><span>Limite do mês</span><b class="num">${brl(nl)}${Math.abs(nl - lim) > .5 ? ` <span class="small muted">(era ${brl0(lim)})</span>` : ''}</b></div><div class="row" style="justify-content:space-between"><span>Gasto</span><b class="num ${g > nl + .5 ? 'neg' : ''}">${brl(g)}</b></div>${g > lim ? `<p class="small neg" style="margin-top:6px">Passou ${brl(g - lim)}: o excesso saiu igualmente dos outros gastos do mês que ainda têm folga.</p>` : `<p class="small muted" style="margin-top:6px">${fe ? 'Terminado neste mês: a sobra foi dividida entre os outros gastos.' : `Ainda pode gastar ${brl(nl - g)}. Se já terminou esse gasto no mês, a sobra vai para os outros.`}</p><button class="btn sm" style="margin-top:8px" data-a="fecharCat" data-cat="${esc(c)}" data-m="${m}">${fe ? 'Reabrir este gasto' : 'Terminei este gasto no mês'}</button>`}</div>`; }
+  detalheSheet(c, m, l => (l.cat || 'Outros') === c, l => lugarDe(l), extra); };
 A.lugDet = el => detalheSheet(el.dataset.lug, el.dataset.m || S.mes, l => lugarDe(l) === el.dataset.lug, l => l.cat || 'Outros');
 
 function vInicio() {
@@ -799,7 +808,7 @@ function vInicio() {
     <div class="hero-flow"><span>Entra <b class="num pos">${brl(passado ? r.rec : pm.rec)}</b></span><span>Sai <b class="num">${brl(passado ? r.desp : pm.desp)}</b></span>${passado ? '' : `<span>Sobra prevista <b class="num ${pm.sobraSemVA < 0 ? 'neg' : 'pos'}">${brl(pm.sobraSemVA)}</b> <span class="small">(sem o vale)</span></span>`}${['va', 'vr'].filter(k => pm.W[k].e || pm.W[k].s).map(k => `<span>${k === 'va' ? 'Vale alimentação' : 'Vale refeição'}: sobra <b class="num ${pm.W[k].e - pm.W[k].s < 0 ? 'neg' : ''}">${brl(pm.W[k].e - pm.W[k].s)}</b></span>`).join('')}</div></section>`;
   const al = alertasMes(m);
   if (al.length) h += `<section class="card alertas"><h2 style="margin-bottom:6px">Atenção</h2><div>${al.slice(0, 8).map(a => `<div class="al al-${a.t}"><i></i><span class="tx">${a.h}</span>${a.btn || ''}</div>`).join('')}</div>${al.length > 8 ? `<p class="hint">+ ${al.length - 8} avisos</p>` : ''}</section>`;
-  h += `<form class="quick" data-f="rapido" autocomplete="off" style="margin-top:16px"><input id="q-rapido" name="q" placeholder="Gastou? Escreva: mercado 120 · uber 18 ontem · tênis 600 nubank 3x" aria-label="Lançamento rápido"><button class="btn pri" type="submit">Lançar</button></form><div class="qprev" id="qprev">${S.qmsg || QDEF}</div>`;
+  h += `<form class="quick" data-f="rapido" autocomplete="off" style="margin-top:16px"><input id="q-rapido" name="q" placeholder="Gastou? Escreva ou fale: mercado 120 vale · tênis 600 nubank 3x" aria-label="Lançamento rápido">${micBtn('q-rapido')}<button class="btn pri" type="submit">Lançar</button></form><div class="qprev" id="qprev">${S.qmsg || QDEF}</div>`;
   const ano = semaforoAno(+m.slice(0, 4));
   h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Seu ano, mês a mês</h2><p>Quanto sobra em dinheiro (sem o vale). Meses passados: o que aconteceu. Próximos: a previsão. Toque num mês.</p></div><div class="legend" style="margin:0"><span><i style="background:var(--pos)"></i>folgado</span><span><i style="background:var(--warn)"></i>apertado</span><span><i style="background:var(--neg)"></i>no vermelho</span></div></div>
     <div class="ano">${ano.map(x => `<button class="mes-chip ${x.vazio ? 'vazio' : 'c-' + x.saude}${x.m === m ? ' sel' : ''}" data-a="irMesProj" data-m="${x.m}"><span>${MES[+x.m.slice(5) - 1]}${x.m === ymNow() ? ' •' : ''}</span><b class="num">${x.vazio ? '—' : (x.s < 0 ? '−' : '') + kfmt(Math.abs(x.s))}</b></button>`).join('')}</div></section>`;
@@ -1201,10 +1210,10 @@ function vObjetivos() {
       <div class="row" style="justify-content:space-between;align-items:flex-end"><div><p class="eyebrow">Guardado</p><div style="font-family:var(--f-display);font-size:1.4rem;font-weight:600" class="num">${brl(g + gasto)}</div></div><div style="text-align:right"><p class="eyebrow">Previsto</p><div class="num" style="font-weight:600">${brl(prev)}</div></div></div>
       <div class="prog" style="margin:10px 0 6px"><span style="width:${prev ? clamp((g + gasto) / prev * 100, 0, 100) : 0}%;background:var(--g-fut)"></span></div>
       <p class="small">${falta > 0 ? (porMes ? (meses > 1 ? `Guarde <b class="num">${brl(porMes)}</b> por mês nos próximos ${meses} meses` : `Faltam <b class="num">${brl(falta)}</b> até ${ymLong(o.alvo)}`) : `Faltam ${brl(falta)}`) : '<span class="pos">Valor total já reservado.</span>'}</p>
-      <div class="bars" style="margin-top:14px;gap:9px">${(o.itens || []).map(it => {
-        const gi = sum(gastos.filter(l => l.objItem === it.id));
+      <div class="bars" style="margin-top:14px;gap:9px">${(() => { const TT = objTetos(o); return (o.itens || []).map(it => {
+        const gi = sum(gastos.filter(l => l.objItem === it.id)), tt = TT[it.id]; it = {...it, prev:r2(tt ? tt.teto : +it.prev || 0)};
         return `<div class="bar-row"><span class="n small">${esc(it.cat)}</span><span class="v small">${gi ? `<span class="${gi > +it.prev ? 'neg' : ''}">${brl0(gi)}</span> / ` : ''}${brl0(it.prev)}</span>${gi ? `<div class="track" style="height:5px"><span class="fill" style="width:${clamp(gi / (+it.prev || 1) * 100, 0, 100)}%;background:${gi > +it.prev ? 'var(--neg)' : 'var(--g-fut)'}"></span></div>` : ''}${it.quando || it.meio ? `<span class="meta"><span>${esc(it.quando || '')}</span><span>${esc(meioNome(it.meio))}</span></span>` : ''}</div>`;
-      }).join('')}</div>
+      }).join(''); })()}</div>
       ${(() => { const T = hoje(), prox = (o.passos || []).filter(a => a.d >= T).slice(0, 3); return prox.length && o.status !== 'concluido' ? `<div class="agenda" style="margin-top:14px"><p class="eyebrow" style="margin-bottom:4px">Próximos passos</p>${prox.map(a => `<div class="ag"><b class="dt">${dLabel(a.d)}</b><span>${esc(a.t)}</span></div>`).join('')}</div>` : ''; })()}
       <div class="row" style="margin-top:14px">${o.status !== 'concluido' ? `<button class="btn sm" data-a="guardarObj" data-id="${o.id}">Guardar dinheiro</button><button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>` : ''}<button class="btn sm pri" data-a="objGuia" data-id="${o.id}">Guia completo</button><button class="btn sm" data-a="objRes" data-id="${o.id}">Ver resultado</button></div></section>`;
   }).join('')}</div>`;
@@ -1248,11 +1257,11 @@ function projMes(m, hv = histVar(), semObj = false) {
     fixosAtivos(m).forEach(f => { if (f.tipo === 'receita') { if (!pagoFixo(f, m)) { recPrev += valorFixo(f, m); W[walletRec(f)].e += valorFixo(f, m); if (walletRec(f) !== 'conta') recPrevVA += valorFixo(f, m); } return; } if (pagoFixo(f, m) || f.cartaoId) return; add(f.cat || 'Outros', lugarFixo(f), valorFixo(f, m), f.desc, 'fixo'); });
     S.cartoes.forEach(c => [addM(m, -1), m].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === m) add(f.cat || 'Outros', 'Crédito ' + c.nome, valorFixo(f, mm), f.desc, 'fixo'); })));
     empsAtivos(m).forEach(e => { if (empPagoNoMes(e, m)) return; if (e.direcao === 'receber') { recPrev += +e.parcela || 0; W.conta.e += +e.parcela || 0; return; } add(e.cat || 'Dívidas & juros', 'Boleto', +e.parcela || 0, e.desc, 'fixo'); });
-    const orc = orcDoMes(m);
+    const orc = orcDoMes(m), AJ = ajusteMes(m);
     const ja = {}; S.lanc.forEach(l => { if (l.mes === m && l.tipo !== 'receita' && !isFixo(l) && !l.grupo) ja[l.cat] = (ja[l.cat] || 0) + (+l.valor || 0); });
     const cartaoAtual = sum(S.lanc.filter(l => l.mes === m && l.cartaoId && !isFixo(l) && l.cat !== 'Cartão (sem detalhe)'));
     new Set([...Object.keys(orc).filter(c => +orc[c] > 0), ...Object.keys(hv)]).forEach(c => {
-      const plan = c in orc ? +orc[c] : (hv[c] ? hv[c].tot : 0);
+      const plan = c in AJ.lim ? AJ.lim[c] : c in orc ? +orc[c] : (hv[c] ? hv[c].tot : 0);
       const feito = c === 'Cartão (sem detalhe)' ? cartaoAtual + (ja[c] || 0) : (ja[c] || 0);
       const falta = Math.max(0, plan - feito); if (!falta) return;
       const om = (S.cfg.orcMeio || {})[c];
@@ -1274,6 +1283,25 @@ function projMes(m, hv = histVar(), semObj = false) {
   return {m, cats, lug, linhas, W, rec:recT, recVA:recVAT, desp, sobra, sobraSemVA, fixos, taxa, saude};
 }
 const SAUDE = {ok:['ok', 'Folgado'], pend:['pend', 'Apertado'], bad:['bad', 'No vermelho']};
+function ajusteMes(m) {
+  const orc = orcDoMes(m), gasto = {}, fech = ((S.cfg.orcFech || {})[m]) || [];
+  S.lanc.forEach(l => { if (l.mes === m && l.tipo !== 'receita' && !isFixo(l) && !l.grupo && !isRep(l) && !l.objId) gasto[l.cat || 'Outros'] = (gasto[l.cat || 'Outros'] || 0) + (+l.valor || 0); });
+  const grupo = c => ((S.cfg.orcMeio || {})[c] === 'va' || vaCats().includes(c)) ? 'vale' : 'conta';
+  const out = {lim:{}, cortes:{}, extras:{}, gasto, fech, semFolga:0};
+  ['vale', 'conta'].forEach(gr => {
+    const cs = Object.keys(orc).filter(c => +orc[c] > 0 && grupo(c) === gr); cs.forEach(c => { out.lim[c] = +orc[c]; });
+    let saldo = 0; cs.forEach(c => { const v = gasto[c] || 0; if (v > orc[c]) saldo -= v - orc[c]; else if (fech.includes(c)) { saldo += orc[c] - v; out.lim[c] = v; } });
+    let alvo = cs.filter(c => (gasto[c] || 0) < out.lim[c] && !fech.includes(c)), rest = saldo;
+    for (let k = 0; k < 6 && Math.abs(rest) > .5 && alvo.length; k++) {
+      const parte = rest / alvo.length; rest = 0; const prox = [];
+      alvo.forEach(c => { const folga = out.lim[c] - (gasto[c] || 0); let d = parte; if (folga + d < 0) { rest += folga + d; d = -folga; } else prox.push(c); out.lim[c] += d; if (d < 0) out.cortes[c] = (out.cortes[c] || 0) - d; else out.extras[c] = (out.extras[c] || 0) + d; });
+      alvo = prox;
+    }
+    if (rest < -.5) out.semFolga += -rest;
+  });
+  return out;
+}
+A.fecharCat = async el => { const m = el.dataset.m, c = el.dataset.cat, f = {...(S.cfg.orcFech || {})}; const l = new Set(f[m] || []); l.has(c) ? l.delete(c) : l.add(c); f[m] = [...l]; try { await saveCfg({orcFech:f}); toast(l.has(c) ? `${c} terminado no mês: a sobra foi para os outros gastos` : `${c} reaberto`); closeSheet(); } catch (_) {} };
 const colchao = () => +(S.cfg.colchao ?? 1000);
 let _flx = null;
 function fluxo() {
@@ -1687,7 +1715,22 @@ F.lanc = async (f) => {
 };
 
 /* ---------- lançamento rápido ---------- */
-const QDEF = '<span class="chip">Escreva com o que gastou e o valor, como numa mensagem. Pode ser mais de um gasto.</span>';
+const micBtn = id => S.dict ? `<button class="ib mic${S.dictOn ? ' on' : ''}" type="button" data-a="mic" data-for="${id}" aria-label="Falar o lançamento" title="Falar">${S.dictOn ? '■' : '🎤'}</button>` : '';
+A.mic = el => {
+  const d = S.dict; if (!d) return;
+  if (d.active()) { d.stop().catch(() => {}); return; }
+  S.dictInp = el.dataset.for;
+  d.start({language:'pt-BR'}).catch(e => { if (e?.code === 'not_granted') toast('Microfone não liberado. Pode digitar ou usar o microfone do teclado do celular.'); else if (e?.code === 'unavailable') { S.dict = null; render(); toast('Falar não está disponível aqui. Use o microfone do teclado do celular.'); } });
+};
+function ligarDitado(d) {
+  S.dict = d;
+  d.onPartial(e => { const inp = S.dictInp && $('#' + S.dictInp); if (inp) inp.placeholder = e.text || 'Ouvindo… fale o gasto e de onde saiu'; });
+  d.onFinal(e => { const inp = S.dictInp && $('#' + S.dictInp); if (inp) { inp.value = inp.value ? inp.value + e.text : e.text.trimStart(); inp.dispatchEvent(new Event('input', {bubbles:true})); } });
+  d.onState(e => { S.dictOn = e.state !== 'idle'; $$('.mic').forEach(b => { b.classList.toggle('on', S.dictOn); b.textContent = S.dictOn ? '■' : '🎤'; });
+    if (e.state === 'idle') { const inp = S.dictInp && $('#' + S.dictInp); if (e.reason === 'unavailable') { S.dict = null; render(); return; } if (inp && inp.value.trim() && (e.reason === 'stopped' || e.reason === 'viewer_stopped')) inp.form?.requestSubmit(); } });
+  render();
+}
+const QDEF = '<span class="chip">Regra: <b>o quê + valor + como pagou</b>. Ex.: <i>padaria 18 vale</i> · <i>tv 2000 10x nubank</i> · <i>almoço 85 viagem</i> · <i>paguei aluguel 2478</i> · <i>recebi salário 2489</i></span>';
 function previewRapido() {
   const inp = $('#q-rapido'), box = $('#qprev'); if (!inp || !box) return;
   const v = inp.value.trim();
@@ -1722,8 +1765,9 @@ Categorias de despesa: ${JSON.stringify(cats)}
 Categorias de receita: ${JSON.stringify(rcats)}
 Cartões de crédito cadastrados: ${JSON.stringify(S.cartoes.map(c => c.nome))}
 Formas de pagamento: pix, debito, va (vale alimentação), vr (vale refeição), dinheiro, boleto, credito.
-Regras: um item por gasto ou receita citado. "valor" em reais como número (se for parcelado, o valor TOTAL). "data" em AAAA-MM-DD; interprete ontem, sexta etc. a partir de hoje; padrão hoje. "nparc" = número de parcelas (padrão 1). Se citar um cartão de crédito ou "crédito", use meio "credito" e "cartao" com o nome exato da lista; se citar débito, meio "debito" mesmo que cite o banco. Se não disser a forma de pagamento, meio null. "desc" curta, com inicial maiúscula. Salário, vale, PLR, 13º, férias, reembolso e dinheiro recebido são receitas.
+Regras: um item por gasto ou receita citado. "valor" em reais como número (se for parcelado, o valor TOTAL). "data" em AAAA-MM-DD; interprete ontem, sexta etc. a partir de hoje; padrão hoje. "nparc" = número de parcelas (padrão 1). Se citar um cartão de crédito ou "crédito", use meio "credito" e "cartao" com o nome exato da lista; um cartão com nome de pessoa (ex.: Sabrina, Mãe, Sogra) só vale se a mensagem disser "cartão" ou "crédito" junto, como "no cartão da Sabrina"; em "roupas sabrina" ou "conta da minha mãe" o nome é só descrição; se citar débito, meio "debito" mesmo que cite o banco. Se não disser a forma de pagamento, meio null. "desc" curta, com inicial maiúscula. Salário, vale, PLR, 13º, férias, reembolso e dinheiro recebido são receitas.
 Se a mensagem disser que é recorrente (todo mês, mensal, assinatura, recorrente, fixo), "recorrente": true; senão false.
+Dinheiro recebido de outra pessoa só para pagar uma conta dela, e o pagamento dessa conta de outra pessoa, usam a categoria "Repasse" (receita e despesa).
 Responda só com JSON: {"itens":[{"tipo":"despesa","valor":0,"desc":"","cat":"","data":"","meio":null,"cartao":null,"nparc":1,"recorrente":false}]}. Sem lançamentos na mensagem: {"itens":[]}.`;
   const r = await S.sample.json(prompt, {modelTier:'quick'});
   const itens = Array.isArray(r?.itens) ? r.itens : Array.isArray(r) ? r : [];
@@ -1740,9 +1784,43 @@ Responda só com JSON: {"itens":[{"tipo":"despesa","valor":0,"desc":"","cat":"",
       const c = S.cartoes.find(c => norm(c.nome) === norm(it.cartao)) || (S.cartoes.length === 1 ? S.cartoes[0] : null);
       if (c && meio !== 'debito') { meio = 'credito'; cartaoId = c.id; } else if (meio === 'credito') meio = 'pix';
     }
+    const meioDito = !!meio;
     if (!meio) meio = tipo !== 'receita' && vaCats().includes(cat) ? 'va' : (S.cfg.meioPadrao || 'pix');
-    return {tipo, valor:r2(valor), desc, cat, data, meio, cartaoId, nparc:tipo === 'despesa' ? clamp(+it.nparc || 1, 1, 48) : 1, recorrente:!!it.recorrente};
+    return {tipo, valor:r2(valor), desc, cat, data, meio, cartaoId, meioDito, nparc:tipo === 'despesa' ? clamp(+it.nparc || 1, 1, 48) : 1, recorrente:!!it.recorrente};
   }).filter(Boolean);
+}
+function itemDoObj(o, it, txt) {
+  const nd = norm((it.desc || '') + ' ' + txt), nc = norm(it.cat || ''), meio = it.cartaoId ? 'cc:' + it.cartaoId : (it.meio === 'va' || it.meio === 'vr') ? it.meio : '';
+  let best = null, bs = 0;
+  (o.itens || []).forEach(x => { const ws = norm(x.cat).split(/[^a-z0-9]+/).filter(w => w.length > 3 && !['viagem', 'para', 'pessoas', 'fora', 'casa', 'parte'].includes(w));
+    let sc = 0; ws.forEach(w => { if (nd.includes(w.slice(0, 5))) sc += 3; else if (nc.includes(w.slice(0, 5))) sc += 1; });
+    if (sc && (x.meio || '') === meio) sc += 1;
+    if (sc > bs) { bs = sc; best = x; } });
+  return best;
+}
+function acharFixo(it) {
+  if (!(it.valor > 0) || (it.nparc || 1) > 1 || it.recorrente) return null;
+  const nd = norm(it.desc || ''), d0 = it.data || hoje(), m0 = d0.slice(0, 7), cands = [];
+  const IGN = ['dia', 'liquido', 'para', 'estimado'];
+  [addM(m0, -1), m0, addM(m0, 1)].forEach(mm => [...fixosAtivos(mm), ...repassesAtivos(mm)].forEach(f => {
+    if ((f.tipo || 'despesa') !== it.tipo || f.cartaoId || pagoFixo(f, mm)) return;
+    const ws = norm(f.desc).split(/[^a-z0-9]+/).filter(w => w.length > 3 && !IGN.includes(w));
+    const nome = ws.some(w => nd.includes(w.slice(0, 6)));
+    const v = valorFixo(f, mm), perto = v > 0 && Math.abs(v - it.valor) / v <= .15;
+    if (!nome && !(perto && f.cat === it.cat)) return;
+    const dist = Math.abs(ddiff(d0, dataFixo(f, mm))); if (dist > 25) return;
+    cands.push({f, mm, s:(nome ? 0 : 100) + dist + (perto ? 0 : 10)});
+  }));
+  cands.sort((a, b) => a.s - b.s); return cands[0] || null;
+}
+async function pagarFaturaTexto(it, txt) {
+  const nt = norm(txt); let c = it.cartaoId ? cartao(it.cartaoId) : null;
+  if (!c) S.cartoes.forEach(x => { if (nt.includes(norm(x.nome))) c = x; });
+  if (!c && S.cartoes.length === 1) c = S.cartoes[0]; if (!c) return null;
+  const T = hoje(); const ms = [addM(ymNow(), -1), ymNow(), addM(ymNow(), 1)].filter(m => !faturaPaga(c, m) && valorFatura(c, m) > 0);
+  const m = ms.sort((a, b) => Math.abs(ddiff(T, vencFatura(c, a))) - Math.abs(ddiff(T, vencFatura(c, b))))[0]; if (!m) return null;
+  await saveCfg({faturasPagas:{...(S.cfg.faturasPagas || {}), [fatKey(c, m)]:{v:r2(it.valor), em:new Date().toISOString()}}});
+  return {...it, desc:`Fatura ${c.nome} de ${ymLabel(m)} paga`, cat:'Fatura', cartaoId:null, meio:'pix', nparc:1, _baixa:'fatura'};
 }
 async function lancarTexto(txt) {
   txt = txt.trim(); if (!txt) return null;
@@ -1756,22 +1834,63 @@ async function lancarTexto(txt) {
     try { itens = await aiParse(txt); } catch (e) { if (AI_OFF.includes(e?.code)) S.sample = null; itens = null; }
   }
   if (!itens || (!itens.length && local.valor > 0)) itens = local.valor > 0 ? [local] : [];
-  if (!itens.length) return {erro:true};
-  const ids = [], fixos = [];
+  if (!itens.length) { S.pend = {tipo:'valor', txt}; return {pergunta:'valor'}; }
   const nt = norm(txt), ativosObj = S.objs.filter(o => o.status !== 'concluido');
   let objV = ativosObj.find(o => norm(o.nome).split(/[^a-z0-9]+/).some(w => w.length > 4 && w !== 'viagem' && nt.includes(w)));
   if (!objV && /\bviagem\b/.test(nt)) objV = ativosObj.filter(o => o.tipo === 'viagem').sort((a, b) => Math.abs(monthsBetween(ymNow(), a.alvo || '2099-12')) - Math.abs(monthsBetween(ymNow(), b.alvo || '2099-12')))[0];
+  const out = [];
   for (const it of itens) {
-    if (objV && !it.objId && it.tipo === 'despesa') { it.objId = objV.id; const nd = norm(it.desc + ' ' + it.cat); const item = (objV.itens || []).find(x => norm(x.cat).split(/[^a-z]+/).some(w => w.length > 3 && nd.includes(w.slice(0, 5)))); if (item) it.objItem = item.id; }
+    if (it.tipo === 'despesa' && /\bfatura\b/.test(norm(txt + ' ' + (it.desc || '')))) { const fp = await pagarFaturaTexto(it, txt); if (fp) { out.push(fp); continue; } }
+    if (!it.recorrente) { const fx = acharFixo(it); if (fx) { it.fixoId = fx.f.id; it.refMes = fx.mm; it.cat = fx.f.repasse ? 'Repasse' : (fx.f.cat || it.cat); it._baixa = fx.f.desc; if (it.tipo === 'receita' && walletRec(fx.f) !== 'conta') it.meio = fx.f.meio || it.meio; if (it.tipo === 'despesa' && !it.meioDito) { it.meio = fx.f.meio || it.meio; it.meioDito = true; } } }
+    if (objV && !it.objId && it.tipo === 'despesa' && !it.fixoId) it.objId = objV.id;
+    out.push(it);
+  }
+  const falta = out.filter(it => it.tipo === 'despesa' && it._baixa !== 'fatura' && !it.meioDito);
+  if (falta.length) { S.pend = {tipo:'meio', txt, out}; return {pergunta:'meio', itens:falta}; }
+  return salvarItens(out, txt);
+}
+async function salvarItens(out, txt) {
+  const ids = [], fixos = [], revs = [];
+  for (const it of out) {
+    if (it._baixa === 'fatura') continue;
+    if (it.objId && !it.objItem) { const o = S.objs.find(x => x.id === it.objId); const item = o && itemDoObj(o, it, txt); if (item) it.objItem = item.id; }
     if (it.recorrente && it.tipo === 'despesa') {
       const fid = await put(COLS.fixos, null, {tipo:'despesa', desc:it.desc, valor:it.valor, cat:it.cat, dia:+it.data.slice(8), meio:it.meio, ...(it.cartaoId ? {cartaoId:it.cartaoId} : {}), inicio:it.data.slice(0, 7), ativo:true});
       fixos.push(fid); it.fixoId = fid; it.nparc = 1; it.refMes = it.data.slice(0, 7);
     }
     ids.push(...await criarLanc(it));
+    if (it.fixoId && it._baixa && it.refMes) { const f = S.fixos.find(x => x.id === it.fixoId), vp = f && valorFixo(f, it.refMes);
+      if (f && (!f.fim || f.fim > it.refMes) && Math.abs(vp - it.valor) > 1 && !(f.ajustes && f.ajustes[it.refMes] && f.ajustes[it.refMes].v != null)) { try { revs.push({id:f.id, data:strip(f)}); await put(COLS.fixos, f.id, {...strip(f), valor:r2(it.valor)}); it._prevAtual = [vp, it.valor]; } catch (_) {} } }
   }
-  return {itens, ids, fixos};
+  S.pend = null;
+  return {itens:out, ids, fixos, revs};
 }
-const descItem = it => `${it.tipo === 'receita' ? '+ ' : ''}<b class="num">${brl(it.valor)}</b> ${esc(it.desc)} <span class="muted">· ${esc(it.cat)} · ${it.cartaoId ? 'Crédito ' + esc(cartao(it.cartaoId)?.nome || '') : MEIOS[it.meio] || ''}${it.nparc > 1 ? ` · ${it.nparc}×` : ''}${it.fixoId ? ' · todo mês' : ''}${it.data !== hoje() ? ' · ' + dLabel(it.data) : ''}</span>`;
+function aplicarMeio(itens, v) { itens.forEach(it => { if (it.tipo !== 'despesa' || it.meioDito) return; if (v.startsWith('cc:')) { it.meio = 'credito'; it.cartaoId = v.slice(3); } else { it.meio = v; it.cartaoId = null; } it.meioDito = true; }); }
+function perguntaHTML(r) {
+  if (r.pergunta === 'valor') return 'Quanto foi? Escreva só o valor (ex.: <i>45</i>) ou mande a frase completa de novo.';
+  const it = r.itens, sug = it.every(x => vaCats().includes(x.cat)) ? 'va' : (S.cfg.meioPadrao || 'pix');
+  const ops = [['pix', 'Pix'], ['debito', 'Débito'], ['va', 'Vale'], ['dinheiro', 'Dinheiro'], ...S.cartoes.map(c => ['cc:' + c.id, 'Crédito ' + c.nome])].sort((a, b) => (b[0] === sug) - (a[0] === sug));
+  return `De onde saiu o dinheiro de ${it.map(x => `<b>${esc(x.desc)}</b> (${brl(x.valor)})`).join(', ')}?<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${ops.map(([v, l]) => `<button class="btn sm${v === sug ? ' pri' : ''}" data-a="respMeio" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div><div class="small muted" style="margin-top:6px">Se for parcelado, escreva de novo com as parcelas (ex.: <i>tv 2000 10x nubank</i>).</div>`;
+}
+const resHTML = r => `✓ Lancei${r.itens.length > 1 ? ' ' + r.itens.length + ' itens' : ''}:<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${r.itens.map(it => `<div>${descItem(it)}</div>`).join('')}</div>${avisosItens(r.itens, r.ids)}`;
+function avisosItens(itens, ids = []) {
+  const av = [], novo = !ids.length || !S.lanc.some(l => ids.includes(l.id));
+  itens.forEach(it => {
+    if (it._prevAtual) av.push(`🔄 Previsão de <b>${esc(it._baixa)}</b> dos próximos meses atualizada de ${brl(it._prevAtual[0])} para ${brl(it._prevAtual[1])}. O mês a mês já foi recalculado.`);
+    if (it.tipo !== 'despesa') return;
+    if (it.objId && it.objItem) { const o = S.objs.find(x => x.id === it.objId), t = o && objTetos(o)[it.objItem]; if (t) { const g = t.gasto + (novo ? it.valor : 0); if (g > t.prev + .5) av.push(`⚠️ <b>${esc(t.nome)}</b> passou ${brl(g - t.prev)} do teto. O excesso sai igualmente dos outros itens de ${esc(o.nome)} que ainda vão ser gastos (veja o Guia).`); } }
+    else if (!it.fixoId && !it.objId) { const m = it.data.slice(0, 7), aj = ajusteMes(m), lim = +orcDoMes(m)[it.cat] || 0, g = (aj.gasto[it.cat] || 0) + (novo ? it.valor : 0); if (lim && g > lim) av.push(`⚠️ <b>${esc(it.cat)}</b> passou ${brl(g - lim)} do limite do mês. Tirei igualmente dos outros gastos do mês que ainda têm folga (se não houver folga, sai do livre).`); }
+  });
+  return av.length ? `<div class="small" style="margin-top:8px;display:flex;flex-direction:column;gap:4px">${av.join('')}</div>` : '';
+}
+A.respMeio = async el => {
+  const p = S.pend; if (!p || p.tipo !== 'meio') return;
+  aplicarMeio(p.out, el.dataset.v);
+  S.chat.push({de:'eu', t:el.textContent}); const msg = {de:'app', h:'<span class="muted">Anotando…</span>'}; S.chat.push(msg); chatRender();
+  try { const r = await salvarItens(p.out, p.txt); msg.ids = r.ids; msg.fixos = r.fixos; msg.revs = r.revs; msg.h = resHTML(r); } catch (_) { msg.h = 'Não consegui registrar agora. Tente de novo.'; }
+  chatRender();
+};
+const descItem = it => `${it.tipo === 'receita' ? '+ ' : ''}<b class="num">${brl(it.valor)}</b> ${esc(it.desc)} <span class="muted">· ${esc(it.cat)} · ${it.cartaoId ? 'Crédito ' + esc(cartao(it.cartaoId)?.nome || '') : MEIOS[it.meio] || ''}${it.nparc > 1 ? ` · ${it.nparc}×` : ''}${it._baixa === 'fatura' ? ' · fatura marcada como paga' : it._baixa ? ` · ${it.tipo === 'receita' ? 'recebido' : 'pago'}: ${esc(it._baixa)}${it.refMes && it.refMes !== ymNow() ? ' (' + ymLabel(it.refMes) + ')' : ''}` : it.fixoId ? ' · todo mês' : ''}${it.data !== hoje() ? ' · ' + dLabel(it.data) : ''}</span>`;
 function simulacaoCompra(txt) {
   const p = parseRapido(txt); if (!(p.valor > 0)) return '';
   const nt = norm(txt), hv = histVar(), n = clamp(p.nparc || 1, 1, 48);
@@ -1822,9 +1941,13 @@ async function enviarChat(txt) {
         await S.sample(`Você é o assistente de um controle financeiro pessoal de uma família brasileira que está no limite do orçamento e quer economizar. Responda em português do Brasil, em texto simples sem markdown, de forma direta e simples (até 7 frases), com valores. Use apenas os dados abaixo; se faltar algo, diga o que falta. Se a pergunta for sobre comprar ou gastar algo: comece com SIM, NÃO ou SÓ SE, diga claramente se a compra faz algum mês ficar no vermelho (isso é se endividar), compare débito/Pix com crédito (à vista e parcelado) usando a SIMULAÇÃO, e diga o melhor jeito ou o melhor momento (por exemplo, esperar o salário, o 13º ou terminar uma parcela).\n\nDADOS:\n${contextoFinanceiro()}\n\n${simulacaoCompra(txt)}\n\nPERGUNTA: ${txt}`, {cache:false, onText:({text}) => { msg.h = esc(text); chatRender(); }});
       }
     } else {
-      const r = await lancarTexto(txt);
-      if (!r || r.erro) msg.h = 'Não achei o valor. Tente assim: <i>mercado 120</i> ou <i>uber 23,50 ontem</i>.';
-      else { msg.ids = r.ids; msg.fixos = r.fixos; msg.h = `✓ Lancei ${r.itens.length > 1 ? r.itens.length + ' itens' : ''}:<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${r.itens.map(it => `<div>${descItem(it)}</div>`).join('')}</div>`; }
+      let r = null;
+      if (S.pend?.tipo === 'meio' && contaValores(txt) === 0) { const pm = parseRapido('x 1 ' + txt); if (pm.meioDito) { aplicarMeio(S.pend.out, pm.cartaoId ? 'cc:' + pm.cartaoId : pm.meio); r = await salvarItens(S.pend.out, S.pend.txt); } }
+      if (!r && S.pend?.tipo === 'valor' && /^\s*(r\$\s*)?[\d.,]+\s*(reais)?\s*$/i.test(txt)) r = await lancarTexto(S.pend.txt + ' ' + txt);
+      if (!r) r = await lancarTexto(txt);
+      if (r && r.pergunta) msg.h = perguntaHTML(r);
+      else if (!r || r.erro) msg.h = 'Não achei o valor. Tente assim: <i>mercado 120</i> ou <i>uber 23,50 ontem</i>.';
+      else { msg.ids = r.ids; msg.fixos = r.fixos; msg.revs = r.revs; msg.h = resHTML(r); }
     }
   } catch (e) {
     if (AI_OFF.includes(e?.code)) S.sample = null;
@@ -1833,23 +1956,24 @@ async function enviarChat(txt) {
   S.chatBusy = false; chatRender();
 }
 F.chat = async f => { const v = f.q.value; f.q.value = ''; previewSheetRapido(); await enviarChat(v); f.q.focus(); };
-A.desfazerChat = async el => { const c = S.chat[+el.dataset.i]; if (!c || !c.ids) return; try { for (const id of c.ids) await del(COLS.lanc, id); for (const id of c.fixos || []) await del(COLS.fixos, id); c.undone = true; chatRender(); toast('Desfeito'); } catch (_) {} };
+A.desfazerChat = async el => { const c = S.chat[+el.dataset.i]; if (!c || !c.ids) return; try { for (const id of c.ids) await del(COLS.lanc, id); for (const id of c.fixos || []) await del(COLS.fixos, id); for (const rv of c.revs || []) await put(COLS.fixos, rv.id, rv.data); c.undone = true; chatRender(); toast('Desfeito'); } catch (_) {} };
 F.rapido = async f => {
   const inp = f.q, txt = inp.value.trim(); if (!txt) return;
   if (PERG.test(txt)) { inp.value = ''; previewRapido(); A.novo(); enviarChat(txt); return; }
   const btn = f.querySelector('[type=submit]'); btn.disabled = true; $('#qprev').innerHTML = '<span class="chip">Anotando…</span>';
   try {
     const r = await lancarTexto(txt);
-    if (!r || r.erro) { toast('Não achei o valor. Ex.: mercado 120'); previewRapido(); }
+    if (r && r.pergunta) { inp.value = ''; S.qmsg = null; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:perguntaHTML(r)}); chatRender(); }
+    else if (!r || r.erro) { toast('Não achei o valor. Ex.: mercado 120'); previewRapido(); }
     else {
-      inp.value = ''; S.ultimo = r.ids;
-      S.qmsg = `<span class="chip"><b class="pos">✓ Lançado</b></span>${r.itens.map(it => `<span class="chip">${descItem(it)}</span>`).join('')}<button class="lnk small" type="button" data-a="desfazerUltimo">Desfazer</button>`;
+      inp.value = ''; S.ultimo = r.ids; S.ultimoRevs = r.revs;
+      S.qmsg = `<span class="chip"><b class="pos">✓ Lançado</b></span>${r.itens.map(it => `<span class="chip">${descItem(it)}</span>`).join('')}<button class="lnk small" type="button" data-a="desfazerUltimo">Desfazer</button>${avisosItens(r.itens)}`;
       previewRapido();
     }
   } catch (_) {}
   btn.disabled = false; inp.focus();
 };
-A.desfazerUltimo = async () => { const ids = S.ultimo || []; try { for (const id of ids) await del(COLS.lanc, id); S.ultimo = null; S.qmsg = null; toast('Desfeito'); previewRapido(); } catch (_) {} };
+A.desfazerUltimo = async () => { const ids = S.ultimo || []; try { for (const id of ids) await del(COLS.lanc, id); for (const rv of S.ultimoRevs || []) await put(COLS.fixos, rv.id, rv.data); S.ultimoRevs = null; S.ultimo = null; S.qmsg = null; toast('Desfeito'); previewRapido(); } catch (_) {} };
 function previewSheetRapido() {
   const inp = $('#s-rapido'), box = $('#s-prev'); if (!inp || !box) return;
   const p = parseRapido(inp.value); const c = p.cartaoId ? cartao(p.cartaoId) : null;
@@ -1874,7 +1998,7 @@ A.ano = el => { S.ano += +el.dataset.d; render(); };
 A.irMes = el => { S.mes = el.dataset.m; location.hash = '#inicio'; };
 A.fTipo = el => { S.filtro.tipo = el.dataset.v; $$('[data-a="fTipo"]').forEach(b => b.setAttribute('aria-pressed', b === el)); $('#ext-list').innerHTML = extratoLista(); };
 A.menu = () => openSheet('Menu', `<nav class="list">${VIEWS.map(([k, n]) => `<a class="li" href="#${k}" style="text-decoration:none;color:var(--ink)"><span class="ic" style="background:var(--surface-2);color:var(--muted)">${ico(k)}</span><span class="tx"><span class="t1">${n}</span></span></a>`).join('')}</nav>`);
-A.novo = () => openSheet('Lançar por mensagem', `<div class="chatlog" id="chatlog"></div><form class="quick" data-f="chat" autocomplete="off" style="margin:12px 0 6px"><input id="s-rapido" name="q" placeholder="Ex.: almoço 32 e uber 18" autofocus aria-label="Mensagem"><button class="btn pri" type="submit">Enviar</button></form><div class="row"><span class="hint">Receita: comece com + ou diga “recebi”. Cartão: diga o nome. Parcelado: 3x. Vale: “no va” ou “no vr”.</span><span class="sp"></span><button class="lnk small" type="button" data-a="formCompleto">Formulário completo</button><button class="lnk small" type="button" data-a="importarExtrato">Importar extrato</button></div>`, () => chatRender());
+A.novo = () => openSheet('Lançar por mensagem', `<div class="chatlog" id="chatlog"></div><form class="quick" data-f="chat" autocomplete="off" style="margin:12px 0 6px"><input id="s-rapido" name="q" placeholder="Ex.: almoço 32 no vale e uber 18 no débito" autofocus aria-label="Mensagem">${micBtn('s-rapido')}<button class="btn pri" type="submit">Enviar</button></form><div class="row"><span class="hint">Receita: comece com + ou diga “recebi”. Cartão: diga o nome. Parcelado: 3x. Vale: “no va” ou “no vr”.</span><span class="sp"></span><button class="lnk small" type="button" data-a="formCompleto">Formulário completo</button><button class="lnk small" type="button" data-a="importarExtrato">Importar extrato</button></div>`, () => chatRender());
 A.formCompleto = () => { const v = $('#s-rapido')?.value || ''; const p = v.trim() ? parseRapido(v) : {}; closeSheet(); formLanc(v.trim() ? {...p, valor:isNaN(p.valor) ? '' : p.valor} : {}); };
 A.rapidoDetalhes = () => { const v = $('#q-rapido')?.value || ''; const p = parseRapido(v); formLanc({...p, valor:isNaN(p.valor) ? '' : p.valor, cat:p.cat}); };
 A.editLanc = el => { const l = S.lanc.find(x => x.id === el.dataset.id); if (l) formLanc(l); };
@@ -2045,13 +2169,35 @@ function guiaHTML(txt) {
     else { if (ul) { h += '</ul>'; ul = false; } h += `<p>${esc(t)}</p>`; } });
   return h + (ul ? '</ul>' : '');
 }
+function objTetos(o) {
+  const its = o.itens || [], G = S.lanc.filter(l => l.objId === o.id), res = {};
+  its.forEach(it => { res[it.id] = {nome:it.cat, prev:+it.prev || 0, teto:+it.prev || 0, gasto:sum(G.filter(l => l.objItem === it.id)), ajuste:0}; });
+  const fonte = it => (it.meio === 'va' || it.meio === 'vr') ? it.meio : 'conta', grupos = {};
+  its.forEach(it => (grupos[fonte(it)] = grupos[fonte(it)] || []).push(it));
+  Object.values(grupos).forEach(gr => {
+    let saldo = 0; const abertos = [];
+    gr.forEach(it => { const r0 = res[it.id];
+      if (r0.gasto > r0.prev + .009) { saldo -= r0.gasto - r0.prev; r0.estourou = r2(r0.gasto - r0.prev); r0.teto = r0.gasto; }
+      else if (it.fechado) { saldo += r0.prev - r0.gasto; r0.sobrou = r2(r0.prev - r0.gasto); r0.teto = r0.gasto; r0.fechado = true; }
+      else abertos.push(it); });
+    let rest = saldo, alvo = abertos;
+    for (let k = 0; k < 6 && Math.abs(rest) > .5 && alvo.length; k++) {
+      const parte = rest / alvo.length; rest = 0; const prox = [];
+      alvo.forEach(it => { const r0 = res[it.id]; let nv = r0.teto + parte; if (nv < r0.gasto) { rest += nv - r0.gasto; nv = r0.gasto; } else prox.push(it); r0.ajuste += nv - r0.teto; r0.teto = nv; });
+      alvo = prox;
+    }
+  });
+  return res;
+}
+A.fecharItem = async el => { const o = S.objs.find(x => x.id === el.dataset.o); if (!o) return; const itens = (o.itens || []).map(it => it.id === el.dataset.i ? {...it, fechado:!it.fechado} : it); try { await put(COLS.objs, o.id, {...strip(o), itens}); toast(itens.find(x => x.id === el.dataset.i).fechado ? 'Item terminado: a sobra foi para os outros itens' : 'Item reaberto'); setTimeout(() => openSheet(o.nome, objGuiaHTML(S.objs.find(x => x.id === o.id) || o)), 250); } catch (_) {} };
 function objGuiaHTML(o) {
   const T = hoje(), its = o.itens || [];
-  const gastos = S.lanc.filter(l => l.objId === o.id);
+  const gastos = S.lanc.filter(l => l.objId === o.id), TT = objTetos(o);
   const porMeio = {}; its.forEach(it => { const k = meioNome(it.meio); porMeio[k] = (porMeio[k] || 0) + (+it.prev || 0); });
   return `<p class="small">${Object.entries(porMeio).map(([k, v]) => `<b>${esc(k)}</b> ${brl0(v)}`).join(' · ')} · <b>total ${brl0(objPrevisto(o))}</b></p>
     <h3 style="margin-top:14px">O que gastar, quanto, quando e de onde</h3>
-    <div class="gitens">${its.map(it => { const g = sum(gastos.filter(l => l.objItem === it.id)); return `<div class="gi"><div class="row" style="justify-content:space-between;gap:10px;align-items:baseline"><b style="min-width:0">${esc(it.cat)}</b><b class="num" style="white-space:nowrap">${brl0(it.prev)}</b></div><div class="small"><span class="pill">${esc(meioNome(it.meio))}</span>${it.quando ? ` <span>🗓 ${esc(it.quando)}</span>` : ''}</div>${it.onde ? `<div class="small muted">${esc(it.onde)}</div>` : ''}${g ? `<div class="small ${g > +it.prev ? 'neg' : 'pos'}">Já gasto: ${brl(g)}${g > +it.prev ? ' (passou do teto)' : ` · resta ${brl(+it.prev - g)}`}</div>` : ''}</div>`; }).join('')}</div>
+    <p class="small muted" style="margin-top:6px">Se um item passar do teto, o excesso sai igualmente dos outros itens da mesma fonte (vale com vale, conta com conta). Quando terminar um item gastando menos, toque em <b>Terminei este item</b> e a sobra vai para os outros.</p>
+    <div class="gitens">${its.map(it => { const g = sum(gastos.filter(l => l.objItem === it.id)), t = TT[it.id] || {teto:+it.prev || 0, ajuste:0}; return `<div class="gi"><div class="row" style="justify-content:space-between;gap:10px;align-items:baseline"><b style="min-width:0">${esc(it.cat)}${t.fechado ? ' <span class="pill ok">terminado</span>' : ''}</b><b class="num" style="white-space:nowrap">${brl0(t.teto)}</b></div>${Math.abs(t.teto - (+it.prev || 0)) > .5 ? `<div class="small ${t.teto < +it.prev ? 'warnc' : 'pos'}">Teto ajustado (era ${brl0(it.prev)}${t.estourou ? `; passou ${brl0(t.estourou)}` : t.sobrou ? `; sobraram ${brl0(t.sobrou)} para os outros` : t.ajuste < 0 ? `; ${brl0(-t.ajuste)} foram cobrir outros itens` : `; recebeu ${brl0(t.ajuste)} de sobras`})</div>` : ''}<div class="small"><span class="pill">${esc(meioNome(it.meio))}</span>${it.quando ? ` <span>🗓 ${esc(it.quando)}</span>` : ''}</div>${it.onde ? `<div class="small muted">${esc(it.onde)}</div>` : ''}${g ? `<div class="small ${g > t.teto + .5 ? 'neg' : 'pos'}">Já gasto: ${brl(g)}${t.estourou ? ` (passou ${brl(t.estourou)} do planejado)` : t.fechado ? '' : ` · resta ${brl(t.teto - g)}`}</div>` : ''}${o.status !== 'concluido' && (g || it.fechado) && !t.estourou ? `<div><button class="lnk small" data-a="fecharItem" data-o="${o.id}" data-i="${it.id}">${it.fechado ? 'Reabrir item' : 'Terminei este item'}</button></div>` : ''}</div>`; }).join('')}</div>
     ${(o.passos || []).length ? `<h3 style="margin-top:16px">Agenda (vira lembrete no dia)</h3><div class="agenda">${o.passos.map(a => `<div class="ag ${a.d < T ? 'passou' : ''}"><b class="dt">${dLabel(a.d)}</b><span>${esc(a.t)}</span></div>`).join('')}</div>` : ''}
     ${o.guia ? `<div class="guia" style="margin-top:6px">${guiaHTML(o.guia)}</div>` : ''}
     <div class="form-actions"><button class="btn" data-a="editObj" data-id="${o.id}">Editar</button><button class="btn" data-a="closeSheet">Fechar</button></div>`;
@@ -2283,6 +2429,7 @@ async function init() {
   db.doc(P + 'config/geral').onSnapshot(snap => { S.cfg = snap.exists ? {...snap.data()} : {}; done('cfg', snap); render(); }, e => console.error('cfg', e));
   claude.use('sample').then(s => { S.sample = s; });
   claude.use('downloads').then(d => { S.dl = d; });
+  claude.use('dictation').then(d => { if (d) ligarDitado(d); });
 }
 init();
 })();
