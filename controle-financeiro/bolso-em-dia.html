@@ -86,7 +86,7 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .tabbar .tb-add{justify-self:center;align-self:start;width:58px;height:58px;margin-top:-22px;border-radius:29px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:0 8px 20px rgba(29,78,208,.35);padding:0}
 .tabbar .tb-add svg{width:28px;height:28px}
 body.sover .tb-add{visibility:hidden} body.sover form[data-f]:not([data-f="chat"]){display:none}
-body.sover .btn[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]),body.sover .lnk[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]){display:none}
+body.sover .btn[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projTabelas"]):not([data-a="porDiaDet"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]),body.sover .lnk[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projTabelas"]):not([data-a="porDiaDet"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]){display:none}
 .hj-card{border-radius:22px;padding:20px;color:#fff;display:flex;flex-direction:column;gap:4px;margin-bottom:16px}
 .hj-card.s-ok{background:#14532D}.hj-card.s-pend{background:#92400E}.hj-card.s-bad{background:#991B1B}.hj-card.s-info{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
 .hj-card .hj-l{margin:0;font-size:1rem;opacity:.92}
@@ -834,8 +834,8 @@ function vHoje() {
   let h = `<header class="ph"><div><p class="eyebrow">${esc(dia)}</p><h1>Oi${nome ? ', ' + esc(nome) : ''}</h1></div><button class="btn sm" data-a="menu">${ico('mais')} Mais</button></header>` + exBanner();
   if (sh == null) h += `<section class="hj-card s-info"><p class="hj-l"><b>Comece por aqui:</b> me diga quanto tem na conta e no vale. Aí eu calculo quanto você pode gastar por dia.</p><div class="row" style="margin-top:10px"><button class="btn pri" data-a="saldoEdit">Informar saldo</button></div></section>`;
   else {
-    const porDia = pj.livre1 != null ? pj.livre1 / pj.dias1 : null, st = porDia == null ? 'ok' : porDia < 0 ? 'bad' : porDia < 30 ? 'pend' : 'ok';
-    h += `<section class="hj-card s-${st}">${porDia == null ? `<p class="hj-l">Você tem na conta</p><div class="hj-v num">${brl0(sh)}</div><p class="hj-l">Cadastre seu salário em <b>Contas</b> para eu dizer quanto pode gastar por dia.</p>` : porDia < 0 ? `<p class="hj-l">Atenção: até ${dCurto(pj.P1)} vai faltar</p><div class="hj-v num">${brl0(-pj.livre1)}</div><p class="hj-l">Segure os gastos e veja em <b>Contas</b> o que dá para adiar.</p>` : pj.dias1 <= 1 ? `<p class="hj-l">Até o dinheiro cair ${ddiff(hoje(), pj.P1) <= 0 ? 'hoje' : 'amanhã'}, você pode gastar até</p><div class="hj-v num">${brl0(pj.livre1)}</div><p class="hj-l">Depois disso, o app refaz a conta com o dinheiro novo.</p>` : `<p class="hj-l">Hoje você pode gastar até</p><div class="hj-v num">${brl0(porDia)}</div><p class="hj-l">por dia, até o dinheiro cair (${dCurto(pj.P1)})</p>`}
+    const pg = podeGastar(), porDia = pj.livre1 != null ? (pg ? pg.porDia : pj.livre1 / pj.dias1) : null, st = porDia == null ? 'ok' : pj.livre1 < 0 ? 'bad' : pg && pg.falta > 0 && pg.porDia < 1 ? 'bad' : pg && (pg.falta > 0 || pg.minL < colchao()) ? 'pend' : porDia < 30 ? 'pend' : 'ok';
+    h += `<section class="hj-card s-${st}">${porDia == null ? `<p class="hj-l">Você tem na conta</p><div class="hj-v num">${brl0(sh)}</div><p class="hj-l">Cadastre seu salário em <b>Contas</b> para eu dizer quanto pode gastar por dia.</p>` : pj.livre1 < 0 ? `<p class="hj-l">Atenção: até ${dCurto(pj.P1)} vai faltar</p><div class="hj-v num">${brl0(-pj.livre1)}</div><p class="hj-l">Segure os gastos e veja em <b>Contas</b> o que dá para adiar.</p>` : !pg && pj.dias1 <= 1 ? `<p class="hj-l">Até o dinheiro cair ${ddiff(hoje(), pj.P1) <= 0 ? 'hoje' : 'amanhã'}, você pode gastar até</p><div class="hj-v num">${brl0(pj.livre1)}</div><p class="hj-l">Depois disso, o app refaz a conta com o dinheiro novo.</p>` : pg ? `<p class="hj-l">${pg.porDia < 1 ? 'Hoje, só o essencial' : 'Hoje você pode gastar até'}</p><div class="hj-v num">${brl0(pg.porDia)}</div><p class="hj-l">${pg.porDia < 1 ? `o dinheiro da conta já tem destino${pg.falta > 0 ? ` (em ${ymLabel(pg.pior)} vai faltar ${brl0(pg.falta)})` : ''}` : `por dia até ${dCurto(pg.fim)}, sem atrapalhar contas, viagens e planos`}</p><button class="lnk" data-a="porDiaDet" style="color:#fff;opacity:.9;text-decoration:underline;align-self:flex-start;padding:4px 0">Como calculei ›</button>` : `<p class="hj-l">Hoje você pode gastar até</p><div class="hj-v num">${brl0(porDia)}</div><p class="hj-l">por dia, até o dinheiro cair (${dCurto(pj.P1)})</p>`}
       <div class="hj-mini"><button data-a="saldoEdit"><span>Na conta</span><b class="num">${brl0(sh)}</b></button><button data-a="saldoEdit"><span>No vale</span><b class="num">${sva == null ? 'informar' : brl0(sva)}</b></button></div></section>`;
   }
   // fazer hoje: agenda, contas e dinheiro que cai
@@ -874,12 +874,121 @@ function vContasHoje() {
   h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#fixos">Cadastrar ou mudar contas fixas</a><a class="btn" href="#cartoes">Ver cartões e parcelas</a></div>`;
   return h;
 }
-A.projIr2 = el => { S.projMes = el.dataset.m; location.hash = '#projecao'; };
+A.projIr2 = el => openSheet('Mês de ' + ymLong(el.dataset.m), mesDetalheHTML(el.dataset.m));
+A.projTabelas = el => { S.projMes = el.dataset.m; closeSheet(); location.hash = '#projecao'; };
+// Detalhe simples de um mês: começa com, entra, sai, fica na conta no fim e, se apertar, de onde cobrir.
+// Quanto dá para gastar por dia de verdade: o que falta do dia a dia planejado no mês,
+// menos o que precisa ficar guardado para nenhum mês futuro ficar no vermelho, mais o que sobra livre de verdade.
+function podeGastar() {
+  const pj = projecao(); if (pj.livre1 == null) return null;
+  const m0 = ymNow(), T = hoje(), fut = fluxo(), [y, mm] = m0.split('-').map(Number);
+  const fim = `${m0}-${pad(new Date(y, mm, 0).getDate())}`, dias = Math.max(1, ddiff(T, fim) + 1);
+  const isVL = lg => lg === MEIOS.va || lg === MEIOS.vr;
+  const linhas = projMes(m0).linhas.filter(l => l.tipo === 'previsto' && !isVL(l.lugar) && !/^Crédito /.test(l.lugar));
+  const cats = {}; linhas.forEach(l => { cats[l.cat] = (cats[l.cat] || 0) + l.v; });
+  const dia = sum(linhas, l => l.v);
+  const piorX = fut.reduce((a, b) => b.livre < a.livre ? b : a), minL = piorX.livre;
+  const falta = Math.max(0, -minL), extra = Math.max(0, minL - colchao());
+  let total = Math.max(0, dia - falta) + extra;
+  const caixa = Math.max(0, pj.livre1);  // até o salário cair, só dá para usar o que está na conta
+  let porDia = total / dias, limCaixa = false;
+  if (pj.P1 && pj.P1 <= fim && porDia > caixa / pj.dias1) { porDia = caixa / pj.dias1; limCaixa = true; }
+  return {porDia:Math.max(0, porDia), total, dia, cats, falta, extra, minL, pior:piorX.m, fim, dias, caixa, limCaixa, pj};
+}
+A.porDiaDet = () => {
+  const g = podeGastar(); if (!g) return;
+  const pj = g.pj, linha = (a, b, c = '') => `<div class="row small" style="gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1">${a}${c ? ` <span class="muted">· ${c}</span>` : ''}</span><b class="num">${b}</b></div>`;
+  let h = `<p class="small" style="margin-top:0">Não é o saldo dividido pelos dias: o app já separa o que tem destino (contas, faturas, viagens e os meses que vêm pela frente).</p>`;
+  h += `<h3 style="margin:12px 0 2px">1. Dia a dia que ainda falta neste mês</h3>`;
+  h += Object.entries(g.cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => linha(esc(k), brl0(v))).join('') || '<p class="small muted">Nada planejado para o resto do mês.</p>';
+  h += linha('<b>Total planejado para gastar até ' + dCurto(g.fim) + '</b>', brl0(g.dia));
+  h += `<h3 style="margin:16px 0 2px">2. Meses que vêm pela frente</h3>`;
+  if (g.falta > 0) h += `<p class="small" style="margin:4px 0">Mesmo gastando só o planejado, em <b>${ymLabel(g.pior)}</b> a conta fica em <b class="neg">${brl0(g.minL)}</b>. Por isso ${brl0(Math.min(g.falta, g.dia))} ${g.falta >= g.dia ? '(todo o dia a dia que sobrava)' : ''} precisa ficar guardado desde já.</p><button class="btn sm" data-a="projIr2" data-m="${g.pior}">Ver como cobrir ${ymLabel(g.pior)}</button>`;
+  else if (g.extra > 0) h += `<p class="small" style="margin:4px 0">Até ${ymLabel(fluxo().slice(-1)[0].m)}, o mês mais apertado é <b>${ymLabel(g.pior)}</b>, fechando com ${brl0(g.minL)}. Guardando ${brl0(colchao())} de folga, sobram <b class="pos">${brl0(g.extra)}</b> livres de verdade, que entram na conta de hoje.</p>`;
+  else h += `<p class="small" style="margin:4px 0">O mês mais apertado é <b>${ymLabel(g.pior)}</b>, fechando com ${brl0(g.minL)} (abaixo da folga de ${brl0(colchao())}). Não sobra nada além do planejado.</p>`;
+  h += `<h3 style="margin:16px 0 2px">3. Resultado</h3>`;
+  h += linha('Dia a dia planejado', brl0(g.dia)) + (g.falta > 0 ? linha('− Guardar para ' + ymLabel(g.pior), '− ' + brl0(Math.min(g.falta, g.dia))) : '') + (g.extra > 0 ? linha('+ Livre de verdade', '+ ' + brl0(g.extra)) : '');
+  h += linha(`<b>Pode gastar até ${dCurto(g.fim)}</b>`, brl0(g.total), g.dias + ' dia' + (g.dias > 1 ? 's' : ''));
+  h += linha('<b>Por dia</b>', `<span style="font-size:1.1rem">${brl0(g.porDia)}</span>`);
+  if (g.limCaixa) h += `<p class="small warnc" style="margin:8px 0 0">Até o dinheiro cair (${dCurto(pj.P1)}) só tem ${brl0(g.caixa)} livre na conta, então o limite por dia ficou menor.</p>`;
+  h += `<p class="small muted" style="margin-top:10px">Mercado e restaurante no vale não entram aqui: o vale é separado. Gastos no cartão de crédito caem na fatura do mês que vem e já mudam a conta dos próximos meses.</p>`;
+  openSheet('Como calculei o valor do dia', h);
+};
+
+function mesDetalheHTML(m) {
+  const fut = fluxo(), i = fut.findIndex(x => x.m === m), x = fut[i]; if (!x) return '<p class="muted">Mês fora da projeção.</p>';
+  const m0 = ymNow(), p = projMes(m), isVL = lg => lg === MEIOS.va || lg === MEIOS.vr, hojeT = hoje();
+  const inicio = i === 0 ? saldoHoje() : fut[i - 1].livre;
+  // entradas
+  let ent = [];
+  if (m === m0) ent = eventosFuturos(1).filter(e => e.d.slice(0, 7) === m0 && e.tipo === 'receita').map(e => ({d:e.desc, v:e.v, q:dCurto(e.d)}));
+  else {
+    fixosAtivos(m).forEach(f => { if (f.tipo === 'receita' && walletRec(f) === 'conta' && !pagoFixo(f, m)) ent.push({d:f.desc, v:valorFixo(f, m), q:'dia ' + (f.dia || 1)}); });
+    S.lanc.forEach(l => { if (l.mes === m && l.tipo === 'receita' && !isRep(l) && walletRec(l) === 'conta') ent.push({d:l.desc, v:+l.valor || 0, q:'já entrou'}); });
+    empsAtivos(m).forEach(e => { if (e.direcao === 'receber' && !empPagoNoMes(e, m)) ent.push({d:e.desc, v:+e.parcela || 0, q:''}); });
+  }
+  const dEnt = x.entra - sum(ent, e => e.v); if (Math.abs(dEnt) > 1) ent.push({d:'Outras entradas', v:dEnt, q:''});
+  // saídas agrupadas
+  const G = {contas:{t:'Contas fixas e parcelas', it:{}}, cart:{t:'Faturas dos cartões', it:{}}, dia:{t:'Dia a dia (previsão)', it:{}}, plan:{t:'Viagens e planos', it:{}}};
+  const pos = (g, k, v) => { if (v > 0.5) G[g].it[k] = (G[g].it[k] || 0) + v; };
+  if (m === m0) {
+    eventosFuturos(1).filter(e => e.d.slice(0, 7) === m0 && e.tipo !== 'receita').forEach(e => pos(/^Fatura /.test(e.desc) ? 'cart' : 'contas', e.desc, e.v));
+    p.linhas.filter(l => (l.tipo === 'previsto' || l.tipo === 'objetivo') && !/^Crédito /.test(l.lugar) && !isVL(l.lugar)).forEach(l => pos(l.tipo === 'objetivo' ? 'plan' : 'dia', l.tipo === 'objetivo' ? l.desc : l.cat, l.v));
+  } else p.linhas.filter(l => !isVL(l.lugar)).forEach(l => {
+    if (l.tipo === 'objetivo') pos('plan', l.desc, l.v);
+    else if (/^Crédito /.test(l.lugar)) pos('cart', l.lugar.replace('Crédito ', 'Cartão '), l.v);
+    else if (l.tipo === 'previsto') pos('dia', l.cat, l.v);
+    else pos('contas', l.desc, l.v);
+  });
+  if (x.cobre > 0.5) pos('dia', 'Vale não dá: completa com a conta', x.cobre);
+  const totG = g => sum(Object.values(G[g].it), v => v);
+  const dSai = (x.sai + x.cobre) - ['contas', 'cart', 'dia', 'plan'].reduce((t, g) => t + totG(g), 0); if (dSai > 1) pos('contas', 'Outras saídas', dSai);
+  const linha = (a, b, c = '') => `<div class="row small" style="gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0">${a}${c ? ` <span class="muted">· ${c}</span>` : ''}</span><b class="num">${b}</b></div>`;
+  const grupo = g => { const it = Object.entries(G[g].it).sort((a, b) => b[1] - a[1]); if (!it.length) return ''; return `<details style="margin-top:4px"><summary class="row" style="cursor:pointer;padding:8px 0;list-style:none"><span style="flex:1">${G[g].t} <span class="small" style="color:var(--accent)">ver</span></span><b class="num">− ${brl0(totG(g))}</b></summary>${it.map(([k, v]) => linha(esc(k), brl0(v))).join('')}</details>`; };
+  const cor = x.livre < 0 ? 'var(--neg)' : x.saude === 'pend' ? 'var(--warn)' : 'var(--pos)';
+  let h = '';
+  if (x.semSaldo) h += `<p class="small warnc">Informe o saldo da conta na tela Hoje para estes números ficarem exatos.</p>`;
+  h += `<section style="padding:14px;border-radius:14px;background:var(--surface-2);margin-bottom:14px">
+    <div class="row"><span>${i === 0 ? 'Na conta hoje' : 'Começa o mês com'}</span><span class="sp"></span><b class="num">${inicio == null ? '—' : brl0(inicio)}</b></div>
+    <div class="row" style="margin-top:6px"><span class="pos">+ Vai entrar</span><span class="sp"></span><b class="num pos">${brl0(x.entra)}</b></div>
+    <div class="row" style="margin-top:6px"><span>− Vai sair da conta</span><span class="sp"></span><b class="num">${brl0(x.sai + x.cobre)}</b></div>
+    <div class="row" style="margin-top:10px;padding-top:10px;border-top:2px solid var(--line)"><b>Fica na conta no fim de ${ymLabel(m)}</b><span class="sp"></span><b class="num" style="font-size:1.25rem;color:${cor}">${brl0(x.livre)}</b></div>
+    <p class="small muted" style="margin:6px 0 0">${x.sobra >= 0 ? `Neste mês entra ${brl0(x.sobra)} a mais do que sai.` : `Neste mês sai ${brl0(-x.sobra)} a mais do que entra (usa o que sobrou antes).`}${x.va > 0 ? ` No vale fica ${brl0(x.va)}.` : ''}</p></section>`;
+  h += `<h3 style="margin:6px 0 2px">O que entra na conta</h3>${ent.length ? ent.sort((a, b) => b.v - a.v).map(e => linha(esc(e.d), '+ ' + brl0(e.v), e.q)).join('') : '<p class="small muted">Nada previsto.</p>'}`;
+  h += `<h3 style="margin:16px 0 2px">O que sai da conta</h3>${['contas', 'cart', 'dia', 'plan'].map(grupo).join('') || '<p class="small muted">Nada previsto.</p>'}`;
+  // como cobrir
+  const meta = colchao(), falta = x.livre < 0 ? -x.livre : 0, paraTranquilo = Math.max(0, meta - x.livre);
+  if (paraTranquilo > 1) {
+    const alvo = falta || paraTranquilo, op = [];
+    // 1) gastar menos no dia a dia até esse mês
+    const meses = fut.slice(0, i + 1).map(f => f.m), varM = meses.map(mm => { const pp = projMes(mm); return sum(pp.linhas.filter(l => l.tipo === 'previsto' && !isVL(l.lugar) && !/^Crédito /.test(l.lugar)), l => l.v); });
+    const varTot = sum(varM, v => v);
+    if (varTot > 1) { const porMes = alvo / meses.length, cats = Object.entries(G.dia.it).filter(([k]) => !/^Vale não/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 3), tc = sum(cats, c => c[1]);
+      op.push(`<b>Gastar menos no dia a dia:</b> ${meses.length > 1 ? `${brl0(porMes)} a menos por mês, de ${ymLabel(meses[0])} até ${ymLabel(m)}` : `${brl0(alvo)} a menos neste mês`} (${Math.round(alvo / varTot * 100)}% do previsto).${cats.length && tc ? ` Por exemplo, em ${ymLabel(m)}: ${cats.map(([k, v]) => `${esc(k)} −${brl0(porMes * v / tc)}`).join(', ')}.` : ''}`); }
+    // 2) planos entre agora e esse mês
+    const planos = {}; meses.forEach(mm => projMes(mm).linhas.filter(l => l.tipo === 'objetivo').forEach(l => { const k = l.cat.replace('Objetivo: ', ''); planos[k] = (planos[k] || 0) + l.v; }));
+    const pl = Object.entries(planos).sort((a, b) => b[1] - a[1])[0];
+    if (pl && pl[1] > alvo * 0.5) op.push(`<b>Gastar menos em “${esc(pl[0])}”:</b> ainda está previsto ${brl0(pl[1])} até ${ymLabel(m)}. Gastando ${brl0(Math.min(alvo, pl[1]))} a menos (ou empurrando um item para depois), o mês fecha ${falta ? 'no azul' : 'tranquilo'}.`);
+    // 3) reserva / investimentos
+    const inv = S.inv.map(v => ({n:v.nome || 'investimento', v:saldoInv(v)})).filter(v => v.v > 1).sort((a, b) => b.v - a.v), invT = sum(inv, v => v.v);
+    if (invT > 1) op.push(`<b>Usar a reserva:</b> resgatar ${brl0(Math.min(alvo, invT))} de ${esc(inv[0].n)}${inv.length > 1 ? ' (ou dos outros investimentos)' : ''} no começo de ${ymLabel(m)}. Hoje tem ${brl0(invT)} guardado.`);
+    // 4) o mês seguinte
+    const prox = fut[i + 1];
+    if (prox && prox.livre > meta) op.push(`<b>O aperto passa em ${ymLabel(prox.m)}:</b> lá entra ${brl0(prox.entra)}${prox.nota[0] && /^\+/.test(prox.nota[0]) ? ` (${esc(prox.nota[0].replace(/^\+\s*/, ''))})` : ''} e a conta volta para ${brl0(prox.livre)}. Deixe compras que podem esperar para depois do dia 1 de ${ymLabel(prox.m)}.`);
+    if (!op.length) op.push('Revise as contas fixas e os planos deste período: o que entra não cobre o que está previsto.');
+    h += `<section style="margin-top:16px;padding:14px;border-radius:14px;border:2px solid ${cor}">
+      <h3 style="margin:0 0 6px">${falta ? `Vai faltar ${brl0(falta)}: como cobrir` : `Para ficar tranquilo (ter ${brl0(meta)} de folga)`}</h3>
+      <p class="small muted" style="margin:0 0 8px">${falta ? `Escolha uma (ou junte) das opções abaixo para cobrir ${brl0(falta)}${paraTranquilo > falta ? ` e, se der, mais ${brl0(paraTranquilo - falta)} para ter folga` : ''}.` : `Faltam ${brl0(paraTranquilo)} para ter ${brl0(meta)} de folga no fim do mês.`}</p>
+      <ol class="small" style="margin:0;padding-left:18px;line-height:1.55">${op.map(o => `<li style="margin-bottom:6px">${o}</li>`).join('')}</ol></section>`;
+  } else h += `<p class="small" style="margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--pos-soft)">✅ Mês tranquilo: fecha com ${brl0(x.livre)} na conta, acima da folga de ${brl0(meta)}.</p>`;
+  h += `<div class="row" style="margin-top:14px"><button class="lnk small" data-a="projTabelas" data-m="${m}">Ver tabelas completas deste mês</button></div>`;
+  return h;
+}
 function vPlanos() {
   const fut = fluxo(), T = hoje();
   let h = header('Planos', 'Seus próximos meses, viagens e compras', '');
-  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Quanto sobra no fim de cada mês</h2><p>Verde: tranquilo · Amarelo: apertado · Vermelho: vai faltar. Toque num mês para ver tudo.</p></div></div>
-    ${fut.map(x => `<button class="pl-m" data-a="projIr2" data-m="${x.m}"><i style="background:${x.saude === 'bad' ? 'var(--neg)' : x.saude === 'pend' ? 'var(--warn)' : 'var(--pos)'}"></i><b style="width:64px">${ymLabel(x.m)}</b><span class="n">${esc((x.nota[0] || '').replace(/^[+−]\s*/, ''))}</span><b class="num ${x.livre < 0 ? 'neg' : ''}">${brl0(x.livre)}</b></button>`).join('')}</section>`;
+  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Quanto fica na conta no fim de cada mês</h2><p>O valor da direita é o que deve sobrar na conta no último dia do mês, já somando o que sobrou dos meses anteriores. Verde: tranquilo · Amarelo: apertado · Vermelho: vai faltar. <b>Toque num mês</b> para ver o que entra, o que sai e como cobrir.</p></div></div>
+    ${fut.map(x => `<button class="pl-m" data-a="projIr2" data-m="${x.m}"><i style="background:${x.saude === 'bad' ? 'var(--neg)' : x.saude === 'pend' ? 'var(--warn)' : 'var(--pos)'}"></i><b style="width:64px">${ymLabel(x.m)}</b><span class="n"><span style="display:block;color:${x.sobra < 0 ? 'var(--neg)' : 'var(--pos)'}">${x.sobra < 0 ? 'no mês sai ' + brl0(-x.sobra) + ' a mais' : 'no mês sobra ' + brl0(x.sobra)}</span>${x.nota[0] ? `<small style="display:block;overflow:hidden;text-overflow:ellipsis">${esc(x.nota[0].replace(/^[+−]\s*/, ''))}</small>` : ''}</span><b class="num ${x.livre < 0 ? 'neg' : ''}">${brl0(x.livre)}</b></button>`).join('')}</section>`;
   const objs = S.objs.filter(o => o.status !== 'concluido').sort((a, b) => String(a.alvo || '').localeCompare(String(b.alvo || '')));
   h += `<div class="card-h" style="margin:6px 0 10px"><h2>Viagens e compras</h2><button class="btn sm pri" data-a="novoObj">+ Novo plano</button></div>`;
   h += objs.length ? `<div class="cards3">${objs.map(o => { const prev = objPrevisto(o), g = sum(S.lanc.filter(l => l.objId === o.id)) + objGuardado(o), prox = (o.passos || []).find(a => a.d >= T);
@@ -2157,7 +2266,7 @@ Por categoria: ${cats || 'nada'}.
 Contas pendentes: ${r.pend.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') || 'nenhuma'}.
 Cartões: ${fat || 'nenhum'}.
 Próximos 12 meses (sobra prevista em dinheiro, sem vales): ${(() => { const hv = histVar(); return Array.from({length:12}, (_, i) => { const m = addM(ymNow(), i); return `${ymLabel(m)} ${brl0(projMes(m, hv).sobraSemVA)}`; }).join('; '); })()}.
-Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(); return pj.livre1 != null ? ` Livre até o próximo salário (${pj.P1}): ${brl(pj.livre1)} (${brl(pj.livre1 / pj.dias1)}/dia).` : ''; })()}
+Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(), g = podeGastar(); return pj.livre1 != null ? ` Na conta, sem as contas até o próximo salário (${pj.P1}): ${brl(pj.livre1)}. Pode gastar de verdade (dia a dia planejado que falta no mês${g && g.falta ? `, menos ${brl(Math.min(g.falta, g.dia))} que precisa ficar guardado porque em ${ymLabel(g.pior)} a conta fica em ${brl(g.minL)}` : g && g.extra ? `, mais ${brl(g.extra)} livres de verdade` : ''}): ${g ? brl(g.total) + ' até ' + g.fim + ' = ' + brl(g.porDia) + '/dia' : ''}. Use este valor por dia quando perguntarem quanto pode gastar.` : ''; })()}
 Investido: ${brl(sum(S.inv, saldoInv))}. Objetivos: ${S.objs.map(o => `${o.nome} (${o.alvo || 'sem data'}): previsto ${brl(objPrevisto(o))}, guardado ${brl(objGuardado(o))}, gasto até agora ${brl(sum(S.lanc.filter(l => l.objId === o.id)))}; itens: ${(o.itens || []).map(it => `${it.cat} ${brl0(it.prev)}${it.meio ? ' via ' + lugarMeio(it.meio) : ''}`).join(', ')}`).join(' | ') || 'nenhum'}.
 Receitas extras previstas: ${S.fixos.filter(f => f.tipo === 'receita' && f.fim && f.fim >= ymNow()).map(f => `${f.desc} ${brl0(f.valor)} em ${f.inicio}`).join('; ') || 'nenhuma'}.
 Últimos lançamentos:\n${ult || 'nenhum'}`;
@@ -2256,7 +2365,7 @@ document.addEventListener('submit', e => { const f = e.target; const h = F[f.dat
 // Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
 const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
 const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
-const OK_VER = new Set(["instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
+const OK_VER = new Set(["instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
 const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
