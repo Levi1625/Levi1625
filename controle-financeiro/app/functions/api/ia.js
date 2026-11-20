@@ -49,7 +49,8 @@ export async function onRequestPost({ request, env }) {
     { type: "text", text: body.json ? `${texto}\n\nResponda somente com o JSON pedido, sem texto antes ou depois.` : texto },
   ];
 
-  const modelo = env.MODELO || "claude-opus-5-5";
+  // Padrão: o modelo mais barato (Haiku 5.5). Para trocar, crie a variável MODELO no Cloudflare.
+  const modelo = env.MODELO || "claude-haiku-5-5";
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const params = {
     model: modelo,
@@ -74,7 +75,7 @@ export async function onRequestPost({ request, env }) {
   if (msg.stop_reason === "refusal") return resposta({ erro: "A IA não respondeu este pedido." }, 422);
 
   const out = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-  const p = PRECO[msg.model] || PRECO[modelo] || PRECO["claude-opus-5-5"];
+  const p = PRECO[msg.model] || PRECO[modelo] || PRECO["claude-haiku-5-5"];
   const u = msg.usage || {};
   const custo = ((u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) * 1.25 + (u.cache_read_input_tokens || 0) * 0.1) * p.in / 1e6 + (u.output_tokens || 0) * p.out / 1e6;
 
