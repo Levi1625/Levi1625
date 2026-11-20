@@ -58,7 +58,9 @@
   let emitirT = null; const emitir = () => { clearTimeout(emitirT); emitirT = setTimeout(() => subs.forEach(s => { try { s.cb(s.col ? snapCol(s.col) : snapDoc(s.path)); } catch (e) { console.error(e); } }), 0); };
   const salvarLocal = () => { gravar('store', store); gravar('since', since); gravar('fila', fila); };
 
-  async function enviarFila() {
+  let enviando = null, deNovo = false;
+  function enviarFila() { if (enviando) { deNovo = true; return enviando; } enviando = (async () => { do { deNovo = false; await enviarFilaAgora(); } while (deNovo); enviando = null; })(); return enviando; }
+  async function enviarFilaAgora() {
     for (const [p, op] of Object.entries(fila)) {
       try { if (op.del) await api('DELETE', '/api/doc?path=' + encodeURIComponent(p)); else await api('PUT', '/api/doc', {path:p, data:op.data}); if (fila[p] === op) delete fila[p]; }
       catch (e) { if (e.status === 400 || e.status === 413) { delete fila[p]; console.error('descartado', p, e.message); } else if (e.status === 401) { telaLogin('Sua sessão expirou. Entre de novo.'); break; } else break; }
@@ -78,7 +80,8 @@
     } catch (e) { if (e.status === 401) telaLogin('Sua sessão expirou. Entre de novo.'); }
     sincronizando = false;
   }
-  function escrever(p, op) { if (op.del) delete store[p]; else store[p] = clone(op.data); fila[p] = op; salvarLocal(); emitir(); enviarFila().catch(() => {}); return Promise.resolve(); }
+  let salvarT = null;
+  function escrever(p, op) { if (op.del) delete store[p]; else store[p] = clone(op.data); fila[p] = op; clearTimeout(salvarT); salvarT = setTimeout(salvarLocal, 300); emitir(); enviarFila().catch(() => {}); return Promise.resolve(); }
   const novoId = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(36).padStart(2, '0')).join('').slice(0, 20);
   const docRef = p => ({id:p.split('/')[1], path:p,
     set: d => escrever(p, {data:d}), delete: () => escrever(p, {del:true}), get: async () => snapDoc(p),
