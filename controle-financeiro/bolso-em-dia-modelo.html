@@ -385,12 +385,12 @@ function parseValor(s) {
 const CATS_DESP = [
   {n:'Moradia', g:'essencial', k:'aluguel,condominio,iptu,reforma,manutencao,diarista,faxina,seguro residencial'},
   {n:'Contas da casa', g:'essencial', k:'luz,energia,enel,cemig,light,copel,celesc,coelba,agua,sabesp,copasa,gas,internet,vivo,claro,tim,oi,telefone,celular,net,fibra'},
-  {n:'Mercado', g:'essencial', k:'mercado,supermercado,atacadao,assai,carrefour,pao de acucar,extra,feira,hortifruti,sacolao,acougue,dia,guanabara,big,sams'},
+  {n:'Mercado', g:'essencial', k:'mercado,mercadao,supermercado,atacadao,atacadista,assai,carrefour,pao de acucar,extra,feira,dafeira,hortifruti,sacolao,acougue,swift,emporio,oxxo,dia,guanabara,big,sams'},
   {n:'Transporte', g:'essencial', k:'uber,99,gasolina,combustivel,posto,etanol,alcool,estacionamento,onibus,metro,trem,pedagio,sem parar,ipva,seguro carro,oficina,mecanico,lavagem,lava jato,lavajato,lava rapido,bilhete,recarga,patinete,pneu,autopecas,auto pecas'},
   {n:'Saúde', g:'essencial', k:'farmacia,drogaria,drogasil,raia,pague menos,panvel,remedio,medico,consulta,plano de saude,unimed,amil,dentista,exame,terapia,psicologo,hospital,laboratorio,otica'},
   {n:'Educação', g:'essencial', k:'curso,faculdade,escola,livro,mensalidade,udemy,alura,ingles,material escolar,pos'},
   {n:'Delivery', g:'estilo', k:'ifood,rappi,keeta,99food,ze delivery,aiqfome,delivery,nupay ifood'},
-  {n:'Restaurantes e lanches', g:'estilo', k:'restaurante,lanche,almoco,jantar,cafe,padaria,paes,pizza,hamburguer,burger,mcdonalds,mc donalds,bk,subway,sushi,acai,sorvete,marmita,cafeteria,starbucks,coxinha,pastel,chocoffee,cacau show,emporio,doceria,mr mix'},
+  {n:'Restaurantes e lanches', g:'estilo', k:'restaurante,lanche,almoco,jantar,cafe,padaria,paes,pizza,hamburguer,burger,mcdonalds,mc donalds,bk,subway,sushi,acai,sorvete,marmita,cafeteria,starbucks,coxinha,pastel,chocoffee,cacau show,doceria,mr mix,gelateria,chococenter,casa de bolos,suco,coco'},
   {n:'Bares e saídas', g:'estilo', k:'bar,botequim,boteco,choperia,schoperia,chopp,cerveja,adega,balada,quiosque,casino,pub,happy hour'},
   {n:'Lazer', g:'estilo', k:'cinema,show,festa,jogo,ingresso,teatro,passeio,parque,steam,playstation,xbox,futebol,clube,regatas,praia,barraca,boliche,estrela santista'},
   {n:'Assinaturas', g:'estilo', k:'streaming,streamer,disney+,star+,netflix,spotify,prime video,amazon prime,disney,hbo,max,globoplay,youtube,icloud,google one,chatgpt,claude,deezer,apple,assinatura,paramount,crunchyroll'},
@@ -1761,7 +1761,7 @@ A.importarExtrato = () => {
     <p class="muted small">No app do banco, exporte o extrato ou a fatura (CSV ou OFX) ou tire um print. Eu leio, coloco a categoria, pulo o que já está lançado e marco as contas fixas como pagas. Você confere antes de gravar.</p>
     <div class="f2"><label class="fld"><span>De onde é o extrato</span><select id="imp-orig" name="orig">${opts}</select></label>
     <label class="fld" id="imp-fat-w" hidden><span>Fatura de</span><input id="imp-fat" name="fat" type="month" value="${ymNow()}"></label></div>
-    <label class="fld"><span>Arquivo (CSV, OFX ou print)</span><input id="imp-file" name="file" type="file" accept=".csv,.ofx,.txt,text/csv,image/*"></label>
+    <label class="fld"><span>Arquivo (CSV, OFX ou prints: pode escolher vários de uma vez)</span><input id="imp-file" name="file" type="file" multiple accept=".csv,.ofx,.txt,text/csv,image/*"></label>
     <label class="fld"><span>Ou cole aqui o texto do extrato</span><textarea id="imp-txt" name="txt" rows="4" placeholder="Copie e cole as linhas do extrato"></textarea></label>
     <div class="form-actions"><button class="btn pri" type="submit">Ler extrato</button></div></form>`, sh => { const s = $('#imp-orig', sh); const u = () => { $('#imp-fat-w', sh).hidden = !s.value.startsWith('cc:'); }; s.addEventListener('change', u); u(); });
 };
@@ -1779,8 +1779,9 @@ function parseCSVExtrato(t) {
   return out;
 }
 const parseExtratoTexto = t => /<STMTTRN>/i.test(t) ? parseOFX(t) : parseCSVExtrato(t);
-async function lerComIA(input, images) {
-  const prompt = `Extraia todas as transações deste extrato bancário ou fatura de cartão brasileiro. Hoje é ${hoje()}; se o ano não aparecer, use o mais provável. Responda só com JSON: {"itens":[{"data":"AAAA-MM-DD","desc":"texto da transação","valor":-12.34}]}, com valor NEGATIVO para saídas e compras e POSITIVO para entradas. Ignore saldos e totais.${input ? '\n\nEXTRATO:\n' + input.slice(0, 30000) : ''}`;
+async function lerComIA(input, images, orig) {
+  const vale = orig === 'va' || orig === 'vr';
+  const prompt = `Extraia todas as transações deste ${vale ? 'extrato de cartão de vale alimentação/refeição (ex.: iFood Benefícios, Alelo, VR, Pluxee, Caju)' : 'extrato bancário ou fatura de cartão brasileiro'}. ${images && images.length > 1 ? 'São vários prints seguidos da mesma tela: a data de cada transação é o cabeçalho de dia logo acima dela (às vezes no print anterior). Não repita a mesma transação se ela aparecer em dois prints. ' : ''}Hoje é ${hoje()}; se o ano não aparecer, use o mais provável. Responda só com JSON: {"itens":[{"data":"AAAA-MM-DD","desc":"texto da transação","valor":-12.34}]}, com valor NEGATIVO para saídas e compras e POSITIVO para entradas${vale ? ' (Recarga é entrada)' : ''}. Ignore saldos e totais.${input ? '\n\nEXTRATO:\n' + input.slice(0, 30000) : ''}`;
   const r = await S.sample.json(prompt, images ? {images} : {modelTier:'default'});
   return (Array.isArray(r?.itens) ? r.itens : []).map(x => ({data:parseDataBR(x.data), valor:typeof x.valor === 'number' ? x.valor : parseValor(x.valor), desc:String(x.desc || '').slice(0, 80)})).filter(x => x.data && x.valor && !isNaN(x.valor));
 }
@@ -1798,7 +1799,9 @@ function montarImport(raw, orig, fat) {
     const meio = cc ? 'credito' : orig === 'va' || orig === 'vr' ? orig : /pix/.test(nd) ? 'pix' : /boleto|pagamento de conta|pag conta/.test(nd) ? 'boleto' : /debito|compra no cartao/.test(nd) ? 'debito' : 'pix';
     const mes = cc ? fat : x.data.slice(0, 7);
     const pm = desc.match(/parcela\s*(\d+)\s*\/\s*(\d+)/i);
-    const cat = autoCat(desc.replace(/\s*-?\s*parcela.*$/i, ''), tipo) || (tipo === 'receita' ? (orig === 'va' ? 'Vale alimentação' : orig === 'vr' ? 'Vale refeição' : 'Outras receitas') : 'Outros');
+    let cat = autoCat(desc.replace(/\s*-?\s*parcela.*$/i, ''), tipo) || (tipo === 'receita' ? (orig === 'va' ? 'Vale alimentação' : orig === 'vr' ? 'Vale refeição' : 'Outras receitas') : 'Outros');
+    // No vale só passa comida: o que não for reconhecido vira Mercado ou Restaurantes.
+    if (tipo === 'despesa' && (orig === 'va' || orig === 'vr') && !vaCats().includes(cat)) cat = /merc|atacad|emporio|swift|acougue|hortifruti|feira|sacolao|carrefour|assai|oxxo/i.test(norm(desc)) ? 'Mercado' : 'Restaurantes e lanches';
     const it = {i, tipo, valor, desc:desc.replace(/\s+/g, ' ').trim(), data:x.data, mes, meio, cartaoId:cc ? cc.id : null, cat, ign, parc:pm ? `${pm[1]}/${pm[2]}` : ''};
     if (!ign) {
       const dup = S.lanc.find(l => !usados.has(l.id) && l.tipo === tipo && Math.abs(+l.valor - valor) < .015 && (cc ? l.cartaoId === cc.id && l.mes === fat : Math.abs(ddiff(l.data || '', x.data)) <= 3));
@@ -1829,7 +1832,12 @@ F.impLer = async f => {
     } else if (file && file.type.startsWith('image/')) {
       const lim = S.sample ? await S.sample.limits().catch(() => null) : null;
       if (!lim?.images) { toast('Ler print não está disponível aqui. Use o arquivo CSV ou OFX.'); b.disabled = false; b.textContent = 'Ler extrato'; return; }
-      raw = await lerComIA('', [file]);
+      // Vários prints de uma vez (ex.: o extrato do vale rolando a tela): lê de 3 em 3 e tira o que aparece repetido entre um print e outro.
+      const fotos = [...f.file.files].filter(x => x.type.startsWith('image/')).slice(0, 30), vistos = new Set();
+      for (let i = 0; i < fotos.length; i += 3) {
+        b.textContent = `Lendo ${Math.min(i + 3, fotos.length)} de ${fotos.length}…`;
+        (await lerComIA('', fotos.slice(Math.max(0, i - 1), i + 3), orig)).forEach(x => { const k = `${x.data}|${r2(x.valor)}|${norm(x.desc).replace(/\s+/g, '')}`; if (!vistos.has(k)) { vistos.add(k); raw.push(x); } });
+      }
     } else {
       const t = file ? await file.text() : txt;
       raw = parseExtratoTexto(t);
