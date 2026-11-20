@@ -20,7 +20,10 @@ export async function banco(env) {
     ]);
     // Colunas novas (o app cresce sem perder dados): WhatsApp de cada casa, pausa e limite de IA.
     for (const sql of ["ALTER TABLE casas ADD COLUMN whatsapp TEXT", "ALTER TABLE casas ADD COLUMN callmebot TEXT", "ALTER TABLE casas ADD COLUMN lembretes INTEGER DEFAULT 1",
-      "ALTER TABLE casas ADD COLUMN pausado INTEGER DEFAULT 0", "ALTER TABLE casas ADD COLUMN ia_limite REAL", "ALTER TABLE casas ADD COLUMN cliente TEXT"]) {
+      "ALTER TABLE casas ADD COLUMN pausado INTEGER DEFAULT 0", "ALTER TABLE casas ADD COLUMN ia_limite REAL", "ALTER TABLE casas ADD COLUMN cliente TEXT",
+      "CREATE TABLE IF NOT EXISTS ia_log (id INTEGER PRIMARY KEY AUTOINCREMENT, casa TEXT, email TEXT, quando INTEGER, tipo TEXT, usd REAL, modelo TEXT)",
+      "CREATE INDEX IF NOT EXISTS ia_log_casa ON ia_log (casa, quando)",
+      "CREATE TABLE IF NOT EXISTS ajustes_app (chave TEXT PRIMARY KEY, valor TEXT)"]) {
       try { await env.DB.prepare(sql).run(); } catch (_) { /* coluna já existe */ }
     }
     pronto = true;

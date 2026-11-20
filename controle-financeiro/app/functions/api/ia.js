@@ -80,6 +80,9 @@ export async function onRequestPost({ request, env }) {
   const mes = new Date().toISOString().slice(0, 7), uso = casa.uso || {};
   uso[mes] = { usd: Number(((uso[mes]?.usd || 0) + custo).toFixed(6)), n: (uso[mes]?.n || 0) + 1 };
   await db.prepare("UPDATE casas SET uso = ? WHERE id = ?").bind(JSON.stringify(uso), s.casa).run();
+  const TIPOS = ["lançamento", "pergunta", "correção", "leitura de contracheque", "leitura de extrato", "categoria", "outro"];
+  await db.prepare("INSERT INTO ia_log (casa, email, quando, tipo, usd, modelo) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(s.casa, s.email, Date.now(), TIPOS.includes(body.tipo) ? body.tipo : "outro", Number(custo.toFixed(6)), msg.model || modelo).run();
 
   if (body.json) {
     const value = extrairJSON(out);

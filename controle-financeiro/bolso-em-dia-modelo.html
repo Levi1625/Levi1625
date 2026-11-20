@@ -842,6 +842,8 @@ function vHoje() {
   h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Fazer hoje</h2></div>${fz.length ? `<div class="fz">${fz.sort((a, b) => a.o.localeCompare(b.o)).map(x => x.h).join('')}</div>` : '<p class="muted">Nada para pagar ou fazer hoje.</p>'}</section>`;
   const esq = esquecidos();
   if (esq.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Esqueceu algo?</h2></div><div class="fz">${esq.map(x => `<div class="fz-r"><span class="tx"><span class="t1">${x.t}</span><span class="t2">${x.sub}</span></span>${x.btn}</div>`).join('')}</div></section>`;
+  const cr = credStatus();
+  if (cr && cr.baixo) h += `<section class="card alertas" style="margin-bottom:16px"><div class="al al-bad"><i></i><span class="tx"><b>O crédito da IA está acabando:</b> restam ~${usd2(cr.resta)}${cr.mediaDia > 0 && cr.dias !== Infinity ? ` (dá para ~${Math.floor(cr.dias)} dia${Math.floor(cr.dias) === 1 ? '' : 's'})` : ''}. Sem crédito, o app segue pelas regras grátis.</span></div><div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">${botaoCredito(true)}<button class="btn" data-a="iaAddCred">Já coloquei</button></div></section>`;
   const al = alertasMes(m).filter(a => !a.k && (a.t === 'bad' || a.t === 'warn'));
   if (al.length) h += `<section class="card alertas" style="margin-bottom:16px"><h2 style="margin-bottom:6px">Atenção</h2><div>${al.slice(0, 2).map(a => `<div class="al al-${a.t}"><i></i><span class="tx">${a.h}</span>${a.btn || ''}</div>`).join('')}</div>${al.length > 2 ? `<a class="lnk small" href="#mes">Ver todos os ${al.length} avisos</a>` : ''}</section>`;
   h += `<form class="quick" data-f="rapido" autocomplete="off"><input id="q-rapido" name="q" placeholder="Gastou? Escreva ou fale: mercado 120 vale" aria-label="Lançamento rápido">${micBtn('q-rapido')}<button class="btn pri" type="submit">Lançar</button></form><div class="qprev" id="qprev">${S.qmsg || QDEF}</div>`;
@@ -1601,6 +1603,7 @@ function route() {
   const k = location.hash.replace('#', '');
   S.view = RENDER[k] ? k : 'inicio';
   if (S.view === 'ajuda') S.chatDesde = S.chat.length;
+  if (S.view === 'ajustes') atualizarCred();
   closeSheet(); render(); window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -1883,19 +1886,23 @@ async function aiParse(txt) {
 Mensagem: """${txt.slice(0, 2000)}"""
 Categorias de despesa: ${JSON.stringify(cats)}
 Categorias de receita: ${JSON.stringify(rcats)}
-Cartões de crédito cadastrados: ${JSON.stringify(S.cartoes.map(c => c.nome))}
+Cartões de crédito cadastrados (dia que fecha e dia que vence a fatura): ${JSON.stringify(S.cartoes.map(c => ({nome:c.nome, fecha:c.fecha, vence:c.vence})))}
 Formas de pagamento: pix, debito, va (vale alimentação), vr (vale refeição), dinheiro, boleto, credito.
 Regras: um item por gasto ou receita citado. "valor" em reais como número (se for parcelado, o valor TOTAL). "data" em AAAA-MM-DD; interprete ontem, sexta etc. a partir de hoje; padrão hoje. "nparc" = número de parcelas (padrão 1). Se citar um cartão de crédito ou "crédito", use meio "credito" e "cartao" com o nome exato da lista; um cartão com nome de pessoa (ex.: Sabrina, Mãe, Sogra) só vale se a mensagem disser "cartão" ou "crédito" junto, como "no cartão da Sabrina"; em "roupas sabrina" ou "conta da minha mãe" o nome é só descrição; se citar débito, meio "debito" mesmo que cite o banco. Se não disser a forma de pagamento, meio null. "desc" curta, com inicial maiúscula. Salário, vale, PLR, 13º, férias, reembolso e dinheiro recebido são receitas.
 Se a mensagem disser que é recorrente (todo mês, mensal, assinatura, recorrente, fixo), "recorrente": true; senão false.
 Dinheiro recebido de outra pessoa só para pagar uma conta dela, e o pagamento dessa conta de outra pessoa, usam a categoria "Repasse" (receita e despesa).
-Responda só com JSON: {"itens":[{"tipo":"despesa","valor":0,"desc":"","cat":"","data":"","meio":null,"cartao":null,"nparc":1,"recorrente":false}]}. Sem lançamentos na mensagem: {"itens":[]}.`;
+"inicio": se a pessoa disser em que mês cai a primeira parcela ou a fatura (ex.: "começa em novembro", "o início é em novembro de 2026", "primeira parcela em dezembro", "entra na fatura de janeiro"), coloque esse mês em AAAA-MM; senão null. Nunca invente.
+"desc": o que foi comprado ou recebido, curto. Se a mensagem não disser o que foi (ex.: "1500 em 6x no cartão da mãe"), deixe "" para o app perguntar; não invente nomes como "Compra parcelada".
+"acao": "lancar" quando a mensagem informa um gasto ou recebimento novo; "corrigir" quando pede para mudar, apagar, consertar ou dizer que algo já lançado está errado, ou fala de algo que "você gravou/lançou"; "pergunta" quando é uma dúvida (ex.: "posso comprar?", "quanto gastei?").
+Responda só com JSON: {"acao":"lancar","itens":[{"tipo":"despesa","valor":0,"desc":"","cat":"","data":"","meio":null,"cartao":null,"nparc":1,"recorrente":false,"inicio":null}]}. Sem lançamentos: {"acao":"pergunta" ou "corrigir","itens":[]}.`;
   const r = await S.sample.json(prompt, {modelTier:'quick'});
   const itens = Array.isArray(r?.itens) ? r.itens : Array.isArray(r) ? r : [];
-  return itens.map(it => {
+  const out = itens.map(it => {
     const tipo = it.tipo === 'receita' ? 'receita' : 'despesa';
     const valor = typeof it.valor === 'number' ? it.valor : parseValor(it.valor);
     if (!(valor > 0)) return null;
     const lista = (tipo === 'receita' ? catsRec() : catsDesp()).map(c => c.n);
+    const descDita = !!String(it.desc || '').trim() && !/^(compra( parcelada)?|gasto|despesa|pagamento)$/i.test(String(it.desc).trim());
     const desc = String(it.desc || '').trim().slice(0, 80) || (tipo === 'receita' ? 'Receita' : 'Gasto');
     const cat = lista.includes(it.cat) ? it.cat : (autoCat(desc, tipo) || (tipo === 'receita' ? 'Outras receitas' : 'Outros'));
     const data = /^\d{4}-\d{2}-\d{2}$/.test(it.data || '') ? it.data : hoje();
@@ -1906,8 +1913,10 @@ Responda só com JSON: {"itens":[{"tipo":"despesa","valor":0,"desc":"","cat":"",
     }
     const meioDito = !!meio;
     if (!meio) meio = tipo !== 'receita' && vaCats().includes(cat) ? 'va' : (S.cfg.meioPadrao || 'pix');
-    return {tipo, valor:r2(valor), desc, cat, data, meio, cartaoId, meioDito, nparc:tipo === 'despesa' ? clamp(+it.nparc || 1, 1, 48) : 1, recorrente:!!it.recorrente};
+    return {tipo, valor:r2(valor), desc, descDita, cat, data, meio, cartaoId, meioDito, nparc:tipo === 'despesa' ? clamp(+it.nparc || 1, 1, 48) : 1, recorrente:!!it.recorrente, inicio:/^\d{4}-\d{2}$/.test(it.inicio || '') ? it.inicio : null};
   }).filter(Boolean);
+  out.acao = ['corrigir', 'pergunta'].includes(r?.acao) && !out.length ? r.acao : r?.acao === 'corrigir' ? 'corrigir' : 'lancar';
+  return out;
 }
 function itemDoObj(o, it, txt) {
   const nd = norm((it.desc || '') + ' ' + txt), nc = norm(it.cat || ''), meio = it.cartaoId ? 'cc:' + it.cartaoId : (it.meio === 'va' || it.meio === 'vr') ? it.meio : '';
@@ -1950,8 +1959,10 @@ async function lancarTexto(txt) {
   local.recorrente = RECORR.test(txt);
   if (local.recorrente) local.desc = local.desc.replace(RECORR, ' ').replace(/\s+/g, ' ').trim();
   let itens = null;
-  if (S.sample && (n > 1 || !(local.valor > 0) || (local.catAuto && local.desc))) {
+  if (S.sample) {
     try { itens = await aiParse(txt); } catch (e) { if (AI_OFF.includes(e?.code)) S.sample = null; itens = null; }
+    if (itens && itens.acao === 'corrigir') return {corrigir:true};
+    if (itens && itens.acao === 'pergunta') return {perguntaIA:true};
   }
   if (!itens || (!itens.length && local.valor > 0)) itens = local.valor > 0 ? [local] : [];
   if (!itens.length) { S.pend = {tipo:'valor', txt}; return {pergunta:'valor'}; }
@@ -1965,8 +1976,11 @@ async function lancarTexto(txt) {
     if (objV && !it.objId && it.tipo === 'despesa' && !it.fixoId) it.objId = objV.id;
     out.push(it);
   }
-  const mIni = mesInicioTexto(txt);
-  if (mIni) out.forEach(it => { if (it.tipo === 'despesa' && it._baixa !== 'fatura' && (it.cartaoId || (it.nparc || 1) > 1)) { it.mes = mIni; it.desc = String(it.desc || '').replace(/\s*(?:\b(?:da|do|de|e)\s+)?\b(?:come[cç]a|come[cç]ando|come[cç]ar|primeira parcela|1[ªa]? parcela|a partir de|fatura de|cai em|cair em)\b.*$/i, '').trim() || it.desc; } });
+  out.forEach(it => { if (it.inicio && it.tipo === 'despesa' && it._baixa !== 'fatura' && (it.cartaoId || (it.nparc || 1) > 1)) it.mes = it.inicio; });
+  const mIni = out.some(it => it.inicio) ? null : mesInicioTexto(txt);
+  if (mIni) out.forEach(it => { if (it.tipo === 'despesa' && it._baixa !== 'fatura' && (it.cartaoId || (it.nparc || 1) > 1)) { it.mes = mIni; const limpa = String(it.desc || '').replace(/\s*(?:\b(?:da|do|de|e|o|a)\s+)?\b(?:come[cç]a|come[cç]ando|come[cç]ar|in[ií]cio|inicia|iniciando|primeira parcela|primeira|1[ªa]? parcela|a partir de|fatura de|cai em|cair em|entra em|entra na fatura)\b.*$/i, '').replace(/^(?:\s*\b(?:em|no|na|o|a|de|da|do)\b)+\s*/i, '').trim(); if (limpa.length >= 3) it.desc = limpa.charAt(0).toUpperCase() + limpa.slice(1); else { it.descDita = false; } } });
+  const semDesc = out.filter(it => it.descDita === false && !it.fixoId && it._baixa !== 'fatura');
+  if (semDesc.length) { S.pend = {tipo:'desc', txt, out}; return {pergunta:'desc', itens:semDesc}; }
   const falta = out.filter(it => it.tipo === 'despesa' && it._baixa !== 'fatura' && !it.meioDito);
   if (falta.length) { S.pend = {tipo:'meio', txt, out}; return {pergunta:'meio', itens:falta}; }
   return salvarItens(out, txt);
@@ -1989,7 +2003,7 @@ async function salvarItens(out, txt) {
 }
 const MESES_N = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function mesInicioTexto(txt) {
-  const m = norm(txt).match(/(comeca|comecando|comecar|primeira parcela|1a parcela|1 parcela|a partir de|fatura de|fatura do mes de|cai em|cair em)\s+(?:em\s+|no mes de\s+|de\s+|na\s+)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*(?:\s+de\s+(\d{4}))?/);
+  const m = norm(txt).match(/(comeca|comecando|comecar|inicio|inicia|iniciando|primeira parcela|primeira|1a parcela|1 parcela|a partir de|fatura de|fatura do mes de|cai em|cair em|entra em|entra na fatura de)(?:\s+(?:e|eh|agora|ja|so|vai ser|sera))*\s+(?:em\s+|no mes de\s+|de\s+|na\s+|no\s+)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*(?:\s+de\s+(\d{4}))?/);
   if (!m) return null;
   const mm = MESES_N.indexOf(m[2]) + 1; if (m[3]) return `${m[3]}-${pad(mm)}`;
   const hoje0 = ymNow(); let melhor = null;
@@ -2022,8 +2036,8 @@ A.recalcCartao = async el => {
   } catch (_) { S.chat.push({de:'app', h:'Não consegui terminar agora. Tente de novo.'}); }
   chatRender();
 };
-async function corrigir(txt) {
-  const base = corrigirHTML(txt); if (!base) return null;
+async function corrigir(txt, forcar) {
+  const base = corrigirHTML(txt, forcar); if (!base) return null;
   if (!S.sample) return {h:base};
   const nt = norm(txt), cand = []; const vistos = new Set();
   [...S.lanc].sort((a, b) => (b.criado || '').localeCompare(a.criado || '')).forEach(l => { const k = l.grupo || l.id; if (vistos.has(k) || cand.length >= 40) return; vistos.add(k);
@@ -2066,8 +2080,8 @@ A.corrOk = async el => {
 A.corrNao = () => { const p = S.planoCorr; S.planoCorr = null; S.chat.push({de:'app', h:(p && p.base) || 'Ok.'}); chatRender(); };
 // Pedido de correção ("modificar", "corrigir", "apagar"...): não cria nada, mostra os lançamentos para editar ou apagar.
 const CORRIGIR = /\b(modific|corrig|alter|mudar|muda o|muda a|mude|apag|exclu|remov|errad|consert|edit)/;
-function corrigirHTML(txt) {
-  const nt = norm(txt); if (!CORRIGIR.test(nt)) return null;
+function corrigirHTML(txt, forcar) {
+  const nt = norm(txt); if (!forcar && !CORRIGIR.test(nt)) return null;
   const IGN = ['modificar', 'corrigir', 'alterar', 'apagar', 'excluir', 'remover', 'errado', 'errada', 'gravou', 'lancou', 'lancamento', 'parcelado', 'credito', 'cartao', 'comeca', 'comecando', 'verdade', 'dezembro', 'novembro', 'janeiro', 'isso', 'esse', 'essa', 'para', 'parcela', 'parcelas'];
   const ws = nt.split(/[^a-z0-9]+/).filter(w => w.length > 3 && !IGN.includes(w));
   const vistos = new Set(), achados = [];
@@ -2083,6 +2097,7 @@ function corrigirHTML(txt) {
 }
 function aplicarMeio(itens, v) { itens.forEach(it => { if (it.tipo !== 'despesa' || it.meioDito) return; if (v.startsWith('cc:')) { it.meio = 'credito'; it.cartaoId = v.slice(3); } else { it.meio = v; it.cartaoId = null; } it.meioDito = true; }); }
 function perguntaHTML(r) {
+  if (r.pergunta === 'desc') return `O que foi ${r.itens.length > 1 ? 'cada uma dessas compras' : 'essa compra'} de ${r.itens.map(x => `<b>${brl(x.valor)}</b>${x.nparc > 1 ? ` em ${x.nparc}x` : ''}`).join(', ')}? Ex.: <i>caixão do Henrique</i>, <i>geladeira</i>.`;
   if (r.pergunta === 'valor') return 'Quanto foi? Escreva só o valor (ex.: <i>45</i>) ou mande a frase completa de novo.';
   const it = r.itens, sug = it.every(x => vaCats().includes(x.cat)) ? 'va' : (S.cfg.meioPadrao || 'pix');
   const ops = [['pix', 'Pix'], ['debito', 'Débito'], ['va', 'Vale'], ['dinheiro', 'Dinheiro'], ...S.cartoes.map(c => ['cc:' + c.id, 'Crédito ' + c.nome])].sort((a, b) => (b[0] === sug) - (a[0] === sug));
@@ -2170,9 +2185,17 @@ async function enviarChat(txt) {
       if (mc) { msg.h = mc; S.chatBusy = false; chatRender(); return; }
       const corr = CORRIGIR.test(norm(txt)) ? await corrigir(txt) : null;
       if (corr) { msg.h = corr.h; S.chatBusy = false; chatRender(); return; }
-      if (S.pend?.tipo === 'meio' && contaValores(txt) === 0) { const pm = parseRapido('x 1 ' + txt); if (pm.meioDito) { aplicarMeio(S.pend.out, pm.cartaoId ? 'cc:' + pm.cartaoId : pm.meio); r = await salvarItens(S.pend.out, S.pend.txt); } }
+      if (S.pend?.tipo === 'desc' && contaValores(txt) === 0 && !CORRIGIR.test(norm(txt))) {
+        const d = txt.trim().replace(/^(foi|era|é|e)\s+/i, '').slice(0, 80); const cap = d.charAt(0).toUpperCase() + d.slice(1);
+        const pend = S.pend; pend.out.forEach(it => { if (it.descDita === false) { it.desc = cap; it.descDita = true; const c2 = autoCat(cap, it.tipo); if (c2) it.cat = c2; } });
+        const falta = pend.out.filter(it => it.tipo === 'despesa' && it._baixa !== 'fatura' && !it.meioDito);
+        if (falta.length) { S.pend = {tipo:'meio', txt:pend.txt, out:pend.out}; r = {pergunta:'meio', itens:falta}; } else r = await salvarItens(pend.out, pend.txt);
+      }
+      if (!r && S.pend?.tipo === 'meio' && contaValores(txt) === 0) { const pm = parseRapido('x 1 ' + txt); if (pm.meioDito) { aplicarMeio(S.pend.out, pm.cartaoId ? 'cc:' + pm.cartaoId : pm.meio); r = await salvarItens(S.pend.out, S.pend.txt); } }
       if (!r && S.pend?.tipo === 'valor' && /^\s*(r\$\s*)?[\d.,]+\s*(reais)?\s*$/i.test(txt)) r = await lancarTexto(S.pend.txt + ' ' + txt);
       if (!r) r = await lancarTexto(txt);
+      if (r && r.corrigir) { const c2 = await corrigir(txt, true); msg.h = c2 ? c2.h : 'Não achei o que corrigir.'; S.chatBusy = false; chatRender(); return; }
+      if (r && r.perguntaIA) { S.chatBusy = false; S.chat.pop(); S.chat.pop(); chatRender(); return enviarChat(txt + ' ?'); }
       if (r && r.pergunta) msg.h = perguntaHTML(r);
       else if (!r || r.erro) msg.h = 'Não achei o valor. Tente assim: <i>mercado 120</i> ou <i>uber 23,50 ontem</i>.';
       else { msg.ids = r.ids; msg.fixos = r.fixos; msg.revs = r.revs; msg.h = resHTML(r); }
@@ -2193,6 +2216,7 @@ F.rapido = async f => {
     if (cartaoTexto(txt)) { inp.value = ''; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:await mudarCartaoTexto(txt)}); chatRender(); btn.disabled = false; return; }
     if (CORRIGIR.test(norm(txt))) { inp.value = ''; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); const mc = {de:'app', h:'<span class="muted">Procurando o lançamento…</span>'}; S.chat.push(mc); chatRender(); const corr = await corrigir(txt); mc.h = corr ? corr.h : 'Não entendi.'; chatRender(); btn.disabled = false; return; }
     const r = await lancarTexto(txt);
+    if (r && (r.corrigir || r.perguntaIA)) { inp.value = ''; previewRapido(); A.novo(); btn.disabled = false; return enviarChat(r.perguntaIA ? txt + ' ?' : txt); }
     if (r && r.pergunta) { inp.value = ''; S.qmsg = null; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:perguntaHTML(r)}); chatRender(); }
     else if (!r || r.erro) { toast('Não achei o valor. Ex.: mercado 120'); previewRapido(); }
     else {
@@ -2576,10 +2600,64 @@ function casaHTML() {
     <div class="list">${c.membros().map(e => `<div class="li" style="cursor:default"><span class="tx"><span class="t1">${esc(e)}${e === eu ? ' <span class="pill">você</span>' : ''}</span></span>${e !== eu ? `<button class="lnk small" data-a="casaTirar" data-e="${esc(e)}">Tirar</button>` : ''}</div>`).join('')}</div>
     <form class="quick" data-f="casaAdd" style="margin-top:10px"><input name="e" type="email" placeholder="E-mail da pessoa" aria-label="E-mail da pessoa" required><button class="btn pri" type="submit">Dar acesso</button></form>
     <div class="row" style="margin-top:8px"><span class="sp"></span><button class="lnk small" data-a="sair">Sair desta conta</button></div></section>
-  <section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>IA do Claude</h2><p>${c.ia() ? 'Ligada: entra só quando precisa (frase difícil, perguntas como “posso comprar?”, foto de contracheque ou extrato). O resto usa as regras grátis.' : 'Desligada: tudo funciona com as regras grátis (o quê + valor + como pagou). Perguntas e leitura de fotos ficam indisponíveis.'}</p></div></div>
+  <section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>IA do Claude</h2><p>${c.ia() ? 'Ligada: lê cada mensagem que você escreve ou fala, para entender do seu jeito, responde perguntas como “posso comprar?” e lê fotos de contracheque ou extrato. Se a IA falhar ou o crédito acabar, as regras grátis assumem.' : 'Desligada: tudo funciona com as regras grátis (o quê + valor + como pagou). Perguntas e leitura de fotos ficam indisponíveis.'}</p></div></div>
     ${(() => { const u = c.usoIA(); return `<p class="small">Gasto com a IA neste mês: <b>US$ ${u.usd.toFixed(2).replace('.', ',')}</b> (~${brl(u.usd * 5.5)}) em ${u.n} uso${u.n === 1 ? '' : 's'}${u.limite != null ? ` · limite do mês: US$ ${(+u.limite).toFixed(2).replace('.', ',')}` : ''}. ${u.limite != null && u.usd >= u.limite ? '<b class="neg">O limite acabou: até o mês que vem, tudo funciona pelas regras grátis.</b>' : ''}</p>`; })()}
-    <div class="row" style="margin-top:10px"><button class="btn ${c.ia() ? '' : 'pri'}" data-a="iaToggle">${c.ia() ? 'Desligar a IA (só regras grátis)' : 'Ligar a IA do Claude'}</button></div></section>`;
+    <div id="iaCred">${credBoxHTML()}</div>
+    <div class="row" style="margin-top:10px"><button class="btn" data-a="iaGastos">Ver onde a IA gastou</button><button class="btn ${c.ia() ? '' : 'pri'}" data-a="iaToggle">${c.ia() ? 'Desligar a IA (só regras grátis)' : 'Ligar a IA do Claude'}</button></div></section>`;
 }
+// Créditos da chave da Anthropic (só quem administra): o app soma o que cada uso custou e desconta do que você colocou lá.
+const LINK_CREDITO = 'https://console.anthropic.com/settings/billing';
+const usd2 = v => { v = +v || 0; return 'US$ ' + v.toFixed(v && Math.abs(v) < 0.01 ? 4 : 2).replace('.', ','); };
+function credStatus() {
+  const c = S.iaDet && S.iaDet.creditos; if (!c || !c.lista || !c.lista.length) return null;
+  const dias = c.mediaDia > 0 ? Math.max(0, c.resta) / c.mediaDia : Infinity;
+  return {...c, dias, baixo:c.resta < 1 || dias < 7, pct:c.colocado > 0 ? Math.max(0, Math.min(100, c.resta / c.colocado * 100)) : 0};
+}
+const botaoCredito = (pri) => `<a class="btn ${pri ? 'pri' : ''}" href="${LINK_CREDITO}" target="_blank" rel="noopener">Colocar crédito na Anthropic ↗</a>`;
+function credBoxHTML() {
+  if (!window.__admin) return '';
+  const c = credStatus();
+  if (!S.iaDet) return '<p class="small muted">Carregando o saldo da IA…</p>';
+  if (!c) return `<div class="al al-warn" style="margin-top:8px"><i></i><span class="tx">Para eu acompanhar o seu saldo na Anthropic, abra o link, veja quanto tem lá (<b>Credit balance</b>) e informe aqui uma vez.</span></div>
+    <form class="quick" data-f="iaSaldo" style="margin-top:8px"><input name="v" inputmode="decimal" placeholder="Saldo hoje em US$ (ex.: 5,00)" aria-label="Saldo na Anthropic em dólares" required><button class="btn pri" type="submit">Salvar</button></form>
+    <div class="row" style="margin-top:8px">${botaoCredito(false)}</div>`;
+  const cor = c.baixo ? 'var(--neg)' : c.pct < 40 ? 'var(--warn)' : 'var(--pos)';
+  return `<div style="margin-top:10px;padding:12px;border-radius:12px;background:var(--bg2, rgba(127,127,127,.08))">
+    <div class="row"><span class="small muted">Saldo estimado na Anthropic</span><span class="sp"></span><b class="num" style="color:${cor}">${usd2(c.resta)}</b></div>
+    <div style="height:10px;border-radius:6px;background:rgba(127,127,127,.2);margin:8px 0;overflow:hidden"><div style="height:100%;width:${c.pct.toFixed(0)}%;background:${cor}"></div></div>
+    <p class="small" style="margin:0">Colocado: <b>${usd2(c.colocado)}</b> · já usado: <b>${usd2(c.usado)}</b> (~${brl(c.usado * 5.5)})${c.mediaDia > 0 ? ` · média ${usd2(c.mediaDia)}/dia · dá para <b>${c.dias === Infinity ? 'muito tempo' : Math.floor(c.dias) + ' dia' + (Math.floor(c.dias) === 1 ? '' : 's')}</b>` : ''}</p>
+    ${c.baixo ? `<p class="small neg" style="margin:6px 0 0"><b>Está acabando. Coloque mais crédito para a IA não parar</b> (sem crédito, o app segue funcionando pelas regras grátis).</p>` : ''}
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">${botaoCredito(c.baixo)}<button class="btn" data-a="iaAddCred">Coloquei mais crédito</button></div></div>`;
+}
+async function atualizarCred() {
+  if (!window.__casa || !window.__casa.iaDetalhe) return;
+  const antes = !!(credStatus() || {}).baixo;
+  try { S.iaDet = await window.__casa.iaDetalhe(); } catch (_) { return; }
+  const el = document.getElementById('iaCred'); if (el) el.innerHTML = credBoxHTML();
+  if (antes !== !!(credStatus() || {}).baixo && S.view === 'inicio') render();
+}
+A.iaAddCred = () => openSheet('Coloquei mais crédito', `<p class="small">Quanto você colocou agora na Anthropic, em dólares? (Ex.: comprou US$ 5 → escreva 5.) Eu somo ao saldo.</p>
+  <form class="quick" data-f="iaCredito"><input name="v" inputmode="decimal" placeholder="US$ colocados (ex.: 5)" aria-label="Dólares colocados" required autofocus><button class="btn pri" type="submit">Somar</button></form>
+  <p class="small muted" style="margin-top:14px">O saldo daqui é uma conta do app (o que você colocou − o que cada uso custou). Se ficar diferente do que aparece no site da Anthropic, corrija com o valor de lá:</p>
+  <form class="quick" data-f="iaSaldo"><input name="v" inputmode="decimal" placeholder="Saldo que aparece lá (US$)" aria-label="Saldo atual na Anthropic"><button class="btn" type="submit">Corrigir saldo</button></form>
+  <div class="row" style="margin-top:12px">${botaoCredito(false)}</div>`);
+F.iaCredito = async fm => { const v = parseValor(fm.v.value); if (!(v > 0)) return toast('Escreva o valor em dólares.'); try { await window.__casa.iaCredito(v); closeSheet(); toast(`Somei ${usd2(v)} ao saldo da IA`); atualizarCred(); } catch (e) { toast(e?.message || 'Não consegui salvar.'); } };
+F.iaSaldo = async fm => { const v = parseValor(fm.v.value); if (!(v >= 0) || fm.v.value.trim() === '') return toast('Escreva o saldo em dólares.'); try { await window.__casa.iaSaldo(v); closeSheet(); toast(`Saldo da IA: ${usd2(v)}`); atualizarCred(); } catch (e) { toast(e?.message || 'Não consegui salvar.'); } };
+A.iaGastos = async () => {
+  openSheet('Onde a IA gastou', '<p class="muted">Carregando…</p>');
+  let d; try { d = await window.__casa.iaDetalhe(); S.iaDet = d; } catch (e) { return openSheet('Onde a IA gastou', `<p class="neg">${esc(e?.message || 'Não consegui carregar.')}</p>`); }
+  const c = credStatus(), tot = (d.porTipo || []).reduce((t, x) => t + (+x.usd || 0), 0), maxDia = Math.max(1e-9, ...(d.porDia || []).map(x => +x.usd || 0));
+  const quando = ms => new Date(ms).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+  let h = '';
+  if (d.admin) h += `<div id="iaCred">${credBoxHTML()}</div>`;
+  h += `<h3 style="margin:16px 0 6px">Neste mês: ${usd2(tot)} <span class="small muted">(~${brl(tot * 5.5)})</span></h3>`;
+  h += (d.porTipo || []).length ? `<div class="list">${d.porTipo.map(x => `<div class="li" style="cursor:default"><span class="tx"><span class="t1">${esc(x.tipo)}</span><span class="t2">${x.n} uso${x.n === 1 ? '' : 's'} · ${tot ? Math.round(x.usd / tot * 100) : 0}%</span></span><b class="num">${usd2(x.usd)}</b></div>`).join('')}</div>` : '<p class="muted small">Nenhum uso da IA neste mês ainda.</p>';
+  if ((d.porDia || []).length) h += `<h3 style="margin:16px 0 6px">Por dia (últimos 30)</h3><div>${d.porDia.slice().reverse().map(x => `<div class="row small" style="gap:8px;margin:3px 0"><span style="width:44px">${x.dia.slice(8)}/${x.dia.slice(5, 7)}</span><span style="flex:1;height:8px;border-radius:4px;background:rgba(127,127,127,.15);overflow:hidden"><span style="display:block;height:100%;width:${Math.max(2, x.usd / maxDia * 100).toFixed(0)}%;background:var(--accent)"></span></span><span class="num" style="width:110px;text-align:right">${usd2(x.usd)} · ${x.n}×</span></div>`).join('')}</div>`;
+  if (d.admin && c && (c.porCasa || []).length > 1) h += `<h3 style="margin:16px 0 6px">Por casa (este mês)</h3><div class="list">${c.porCasa.map(x => `<div class="li" style="cursor:default"><span class="tx"><span class="t1">${esc(x.nome || x.id)}</span><span class="t2">${x.n} usos</span></span><b class="num">${usd2(x.usd)}</b></div>`).join('')}</div>`;
+  if ((d.ultimos || []).length) h += `<h3 style="margin:16px 0 6px">Últimos usos</h3><div class="list">${d.ultimos.map(x => `<div class="li" style="cursor:default"><span class="tx"><span class="t1">${esc(x.tipo)}</span><span class="t2">${quando(x.quando)}${x.email ? ' · ' + esc(String(x.email).split('@')[0]) : ''}</span></span><span class="num small">${usd2(x.usd)}</span></div>`).join('')}</div>`;
+  h += `<p class="small muted" style="margin-top:14px">Valores calculados pelo app a partir de cada uso (preço do modelo × tamanho do pedido). O saldo oficial fica no site da Anthropic.</p>`;
+  openSheet('Onde a IA gastou', h);
+};
 A.iaToggle = () => window.__casa?.setIA(!window.__casa.ia());
 function whatsHTML() {
   const w = window.__casa.whats();
@@ -2726,6 +2804,7 @@ async function init() {
   });
   db.doc(P + 'config/geral').onSnapshot(snap => { S.cfg = snap.exists ? {...snap.data()} : {}; done('cfg', snap); render(); }, e => console.error('cfg', e));
   claude.use('sample').then(s => { S.sample = s; });
+  if (window.__admin) { atualizarCred(); setInterval(atualizarCred, 60000); }
   claude.use('downloads').then(d => { S.dl = d; });
   claude.use('dictation').then(d => { if (d) ligarDitado(d); });
 }

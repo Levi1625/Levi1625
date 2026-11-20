@@ -106,6 +106,9 @@
       whats: () => ({numero:casa && casa.whatsapp || '', temChave:!!(casa && casa.temChaveWhats), ligado:!casa || casa.lembretes !== false}),
       setWhats: async (numero, chave, ligado) => { const r = await api('POST', '/api/casa', {acao:'whats', numero, chave, lembretes:ligado}); casa = r.casa; },
       testarWhats: () => api('POST', '/api/casa', {acao:'testarWhats'}),
+      iaDetalhe: () => api('GET', '/api/iauso'),
+      iaCredito: usd => api('POST', '/api/iauso', {usd}),
+      iaSaldo: saldo => api('POST', '/api/iauso', {saldo}),
     };
     if (eu.admin) window.__admin = {
       listar: () => api('GET', '/api/admin'),
@@ -146,7 +149,9 @@
   const blobB64 = b => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(b); });
   async function ia(input, opts, json) {
     const images = opts && opts.images ? await Promise.all(opts.images.map(async b => ({media_type:b.type || 'image/jpeg', data:await blobB64(b)}))) : [];
-    const out = await api('POST', '/api/ia', {input, json, images, rapido:opts && opts.modelTier === 'quick'});
+    const txt = Array.isArray(input) ? input.map(m => m.content).join(' ') : String(input || '');
+    const tipo = /converte mensagens/.test(txt) ? 'lançamento' : /corrigir lançamentos/.test(txt) ? 'correção' : /contracheque|holerite/i.test(txt) ? 'leitura de contracheque' : /extrato|fatura/i.test(txt) && images.length ? 'leitura de extrato' : /categoriza/.test(txt) ? 'categoria' : json ? 'outro' : 'pergunta';
+    const out = await api('POST', '/api/ia', {input, json, images, tipo, rapido:opts && opts.modelTier === 'quick'});
     if (out.custo_usd > 0 && casa) { const m = new Date().toISOString().slice(0, 7); casa.uso = casa.uso || {}; const u = casa.uso[m] || {usd:0, n:0}; casa.uso[m] = {usd:u.usd + out.custo_usd, n:u.n + 1}; }
     return out;
   }
