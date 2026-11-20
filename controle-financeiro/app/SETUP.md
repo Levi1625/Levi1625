@@ -66,6 +66,23 @@ No **Chrome** do celular, abra o endereço e toque em **⋮ → Instalar app** (
 1. No app do Claude: **Ajustes → Baixar backup (.json)**.
 2. No app próprio: **Ajustes → Restaurar backup (.json)**.
 
+## 6. Lembretes no WhatsApp (todo dia às 8h35)
+1. No Cloudflare, projeto `bolso-em-dia` **→ Settings → Variables and Secrets → Add**:
+
+| Tipo | Nome | Valor |
+|---|---|---|
+| **Secret** | `CALLMEBOT_APIKEY` | o número da chave que o CallMeBot mandou no WhatsApp |
+| Text | `WHATSAPP` | `558888326967` (o número no formato que o CallMeBot ativou) |
+| Text | `LEMBRETES_EMAIL` | o seu e-mail do app |
+| **Secret** | `LEMBRETES_CHAVE` | uma senha inventada, longa, só com letras e números (ex.: 20 caracteres). Anote. |
+
+2. **Deployments → ⋯ → Retry deployment**.
+3. Crie uma conta grátis em https://cron-job.org e toque em **Create cronjob**:
+   - Title: `Bolso em Dia`
+   - URL: `https://bolso-em-dia-26l.pages.dev/api/lembretes?chave=SUA_CHAVE&enviar=1` (troque `SUA_CHAVE` pela senha do passo 1)
+   - Execution schedule: **Every day at 8:35**, fuso **America/Sao_Paulo**
+   - **Create**. Toque em **Test run** para ver chegar no WhatsApp (se não houver nada no dia, não chega mensagem).
+
 ## Esqueci a senha
 Outra pessoa da casa tira e coloca seu e-mail de novo em **Ajustes**. Depois você toca em **Primeiro acesso** e cria uma senha nova. Se você for o único da casa, crie a variável `RESET_SENHA` com o seu e-mail no Cloudflare, faça **Retry deployment**, crie a senha nova e depois apague a variável.
 
