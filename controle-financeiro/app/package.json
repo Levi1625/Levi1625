@@ -1,0 +1,12 @@
+{
+  "name": "bolso-em-dia-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "jose": "^6.2.18"
+  }
+}

@@ -1451,8 +1451,9 @@ function vAjustes() {
   <section class="card"><div class="card-h"><div><h2>Categorias</h2><p>Palavras-chave fazem a categorização automática. O app também aprende com as suas correções.</p></div></div>
     <div class="list">${catsDesp().map((c, i) => `<button class="li" data-a="editCat" data-i="${i}"><span class="ic" style="background:color-mix(in srgb, ${GRUPOS[c.g]?.c || 'var(--muted)'} 14%, var(--surface));color:${GRUPOS[c.g]?.c || 'var(--muted)'}">${catInicial(c.n)}</span><span class="tx"><span class="t1">${esc(c.n)}</span><span class="t2">${esc(GRUPOS[c.g]?.n || '')} · ${esc(String(c.k || '').split(',').slice(0, 5).join(', '))}</span></span></button>`).join('')}</div>
     <div class="form-actions"><button class="btn" data-a="editCat" data-i="-1">+ Nova categoria</button></div></section>
+  ${window.__casa ? casaHTML() : ''}
   <section class="card"><div class="card-h"><div><h2>Backup e importação</h2><p>Seus dados ficam salvos na sua conta Claude. Faça um backup de vez em quando.</p></div></div>
-    <div class="row"><button class="btn" data-a="exportJSON">Baixar backup (.json)</button><button class="btn" data-a="exportCSV">Baixar lançamentos (.csv)</button><button class="btn" data-a="importarExtrato">Importar extrato do banco</button><button class="btn" data-a="importar">Importar planilha (CSV)</button></div>
+    <div class="row"><button class="btn" data-a="exportJSON">Baixar backup (.json)</button><button class="btn" data-a="restaurarJSON">Restaurar backup (.json)</button><button class="btn" data-a="exportCSV">Baixar lançamentos (.csv)</button><button class="btn" data-a="importarExtrato">Importar extrato do banco</button><button class="btn" data-a="importar">Importar planilha (CSV)</button></div>
     ${temExemplos() ? '<div class="row" style="margin-top:12px"><button class="btn dang" data-a="apagarExemplos">Apagar dados de exemplo</button></div>' : ''}</section>
   <section class="card"><div class="card-h"><h2>Dicas de uso</h2></div><ul class="insights small">
     <li><span>No celular, abra este link no navegador e use <b>Adicionar à tela inicial</b>. Ele vira um ícone como um app.</span></li>
@@ -2327,6 +2328,32 @@ async function baixar(filename, data) {
   try { await S.dl.save({filename, data}); } catch (e) { if (e?.code !== 'declined') toast('Não foi possível baixar o arquivo.'); }
 }
 A.exportJSON = () => baixar(`bolso-em-dia-backup-${hoje()}.json`, JSON.stringify({versao:1, exportado:new Date().toISOString(), config:S.cfg, lancamentos:S.lanc, fixos:S.fixos, cartoes:S.cartoes, emprestimos:S.emps, investimentos:S.inv, objetivos:S.objs}, null, 1));
+function casaHTML() {
+  const c = window.__casa, eu = c.email();
+  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Quem usa este controle</h2><p>Todas as pessoas abaixo veem e lançam nos mesmos dados (ex.: você e a Sabrina). Cada uma entra com o próprio e-mail.</p></div></div>
+    <div class="list">${c.membros().map(e => `<div class="li" style="cursor:default"><span class="tx"><span class="t1">${esc(e)}${e === eu ? ' <span class="pill">você</span>' : ''}</span></span>${e !== eu ? `<button class="lnk small" data-a="casaTirar" data-e="${esc(e)}">Tirar</button>` : ''}</div>`).join('')}</div>
+    <form class="quick" data-f="casaAdd" style="margin-top:10px"><input name="e" type="email" placeholder="E-mail da pessoa" aria-label="E-mail da pessoa" required><button class="btn pri" type="submit">Dar acesso</button></form>
+    <div class="row" style="margin-top:8px"><span class="sp"></span><button class="lnk small" data-a="sair">Sair desta conta</button></div></section>
+  <section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>IA do Claude</h2><p>${c.ia() ? 'Ligada: entra só quando precisa (frase difícil, perguntas como “posso comprar?”, foto de contracheque ou extrato). O resto usa as regras grátis.' : 'Desligada: tudo funciona com as regras grátis (o quê + valor + como pagou). Perguntas e leitura de fotos ficam indisponíveis.'}</p></div></div>
+    ${(() => { const u = c.usoIA(); return `<p class="small">Gasto com a IA neste mês: <b>US$ ${u.usd.toFixed(2).replace('.', ',')}</b> (~${brl(u.usd * 5.5)}) em ${u.n} uso${u.n === 1 ? '' : 's'}. É cobrado no cartão cadastrado na Anthropic, separado de qualquer plano do Claude.</p>`; })()}
+    <div class="row" style="margin-top:10px"><button class="btn ${c.ia() ? '' : 'pri'}" data-a="iaToggle">${c.ia() ? 'Desligar a IA (só regras grátis)' : 'Ligar a IA do Claude'}</button></div></section>`;
+}
+A.iaToggle = () => window.__casa?.setIA(!window.__casa.ia());
+F.casaAdd = async fm => { try { await window.__casa.add(fm.e.value); toast('Acesso liberado. A pessoa entra com esse e-mail.'); render(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
+A.casaTirar = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar'; return; } try { await window.__casa.remove(el.dataset.e); toast('Acesso removido'); render(); } catch (_) {} };
+A.sair = () => window.__casa?.sair();
+A.restaurarJSON = () => openSheet('Restaurar backup', `<form class="form" data-f="restaurarJSON"><p class="small">Escolha um arquivo de backup do Bolso em Dia (.json). Os lançamentos, contas, cartões e objetivos do arquivo são gravados aqui com os mesmos códigos: o que já existir com o mesmo código é atualizado, nada é duplicado.</p><label class="fld"><span>Arquivo</span><input id="rb-f" name="f" type="file" accept=".json,application/json" required></label><div class="form-actions"><button class="btn pri" type="submit">Restaurar</button></div></form>`);
+F.restaurarJSON = async fm => {
+  const f = fm.f.files[0]; if (!f) return toast('Escolha o arquivo.');
+  let b; try { b = JSON.parse(await f.text()); } catch (_) { return toast('Arquivo inválido.'); }
+  const mapa = {lancamentos:COLS.lanc, fixos:COLS.fixos, cartoes:COLS.cartoes, emprestimos:COLS.emps, investimentos:COLS.inv, objetivos:COLS.objs};
+  const btn = fm.querySelector('[type=submit]'); btn.disabled = true; let n = 0;
+  try {
+    for (const [k, col] of Object.entries(mapa)) for (const x of (Array.isArray(b[k]) ? b[k] : [])) { if (!x || !x.id) continue; await put(col, x.id, strip(x)); n++; if (n % 25 === 0) btn.textContent = `Restaurando… ${n}`; }
+    if (b.config && typeof b.config === 'object') await saveCfg(b.config);
+    toast(`${n} itens restaurados`); closeSheet();
+  } catch (_) { btn.disabled = false; btn.textContent = 'Restaurar'; }
+};
 A.exportCSV = () => { const q = s => `"${String(s ?? '').replace(/"/g, '""')}"`;
   const rows = [['data', 'mes_competencia', 'tipo', 'descricao', 'categoria', 'valor', 'pagamento', 'parcela', 'fixo'].join(';')].concat([...S.lanc].sort((a, b) => (a.data || '').localeCompare(b.data || '')).map(l => [l.data, l.mes, l.tipo, q(l.desc), q(l.cat), String(l.valor).replace('.', ','), q(l.cartaoId ? cartao(l.cartaoId)?.nome : MEIOS[l.meio] || l.meio), l.nparc > 1 ? `${l.parc}/${l.nparc}` : '', isFixo(l) ? 'sim' : ''].join(';')));
   baixar(`lancamentos-${hoje()}.csv`, '﻿' + rows.join('\n')); };
