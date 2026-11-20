@@ -1089,11 +1089,21 @@ function vCartoes() {
   }).sort((a, b) => a.fim.localeCompare(b.fim));
   const totMes = sum(ativos, a => a.vp);
   h += `<section class="card"><div class="card-h"><div><h2>Compras parceladas em andamento</h2><p>${ativos.length} parcelamento${ativos.length === 1 ? '' : 's'} · ${brl(totMes)} por mês · ${brl(sum(ativos, a => a.rest))} ainda a pagar</p></div></div>
-    ${ativos.length ? `<div class="tbl-wrap"><table><thead><tr><th>Compra</th><th>Parcela</th><th>Valor/mês</th><th>Falta</th><th>Termina</th></tr></thead><tbody>${ativos.map(a => `<tr><td>${esc(a.f.desc)}<div class="small muted">${esc(cartao(a.f.cartaoId)?.nome || MEIOS[a.f.meio] || '')}</div></td><td>${Math.min(a.pagas + 1, a.n)}/${a.n}</td><td>${brl(a.vp)}</td><td>${brl(a.rest)}</td><td>${ymLabel(a.fim)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nenhuma compra parcelada em aberto.</div>'}
+    ${ativos.length ? `<div class="tbl-wrap"><table><thead><tr><th>Compra</th><th>Parcela</th><th>Valor/mês</th><th>Falta</th><th>Termina</th><th></th></tr></thead><tbody>${ativos.map(a => `<tr><td>${esc(a.f.desc)}<div class="small muted">${esc(cartao(a.f.cartaoId)?.nome || MEIOS[a.f.meio] || '')}</div></td><td>${Math.min(a.pagas + 1, a.n)}/${a.n}</td><td>${brl(a.vp)}</td><td>${brl(a.rest)}</td><td>${ymLabel(a.fim)}</td><td>${a.f.cartaoId && a.fim > mesFatura(hoje(), cartao(a.f.cartaoId) || {}) ? `<button class="btn sm" data-a="antecipar" data-g="${esc(a.f.grupo)}">Antecipar</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nenhuma compra parcelada em aberto.</div>'}
   </section>`;
   return h;
 }
 
+A.antecipar = el => {
+  const G = S.lanc.filter(l => l.grupo === el.dataset.g); if (!G.length) return; const c = cartao(G[0].cartaoId), ab = mesFatura(hoje(), c);
+  const fut = G.filter(l => l.mes > ab); if (!fut.length) return toast('Não há parcelas futuras.');
+  openSheet('Antecipar ' + G[0].desc, `<form class="form" data-f="antecipar"><input type="hidden" name="g" value="${esc(el.dataset.g)}"><p class="muted">${fut.length} parcela${fut.length > 1 ? 's' : ''} futura${fut.length > 1 ? 's' : ''} (${brl(sum(fut))}) passam para a fatura de ${ymLong(ab)}.</p><label class="fld big"><span>Valor cobrado na antecipação (com desconto)</span><input id="ant-v" name="v" inputmode="decimal" value="${fv(sum(fut))}" autofocus></label><p class="hint">O app tira essas parcelas dos próximos meses e coloca o valor na fatura atual.</p><div class="form-actions"><button class="btn pri" type="submit">Confirmar antecipação</button></div></form>`);
+};
+F.antecipar = async f => {
+  const G = S.lanc.filter(l => l.grupo === f.g.value), c = cartao(G[0].cartaoId), ab = mesFatura(hoje(), c), fut = G.filter(l => l.mes > ab).sort((a, b) => a.mes.localeCompare(b.mes));
+  const total = parseValor(f.v.value), bruto = sum(fut); const fator = bruto ? (total > 0 ? total : bruto) / bruto : 1;
+  try { for (const l of fut) await put(COLS.lanc, l.id, {...strip(l), mes:ab, valor:r2(l.valor * fator), obs:`Antecipada (era ${ymLabel(l.mes)})`}); toast(`${fut.length} parcelas antecipadas para ${ymLabel(ab)}`); closeSheet(); } catch (_) {}
+};
 /* ---------- EMPRÉSTIMOS ---------- */
 function vEmprestimos() {
   let h = header('Empréstimos e dívidas', 'O que você deve e o que te devem', '') + exBanner();
