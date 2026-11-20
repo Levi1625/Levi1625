@@ -1700,7 +1700,9 @@ async function lancarTexto(txt) {
   if (!itens || (!itens.length && local.valor > 0)) itens = local.valor > 0 ? [local] : [];
   if (!itens.length) return {erro:true};
   const ids = [], fixos = [];
-  const nt = norm(txt), objV = S.objs.find(o => o.status !== 'concluido' && (/\bviagem\b/.test(nt) || norm(o.nome).split(' ').some(w => w.length > 4 && nt.includes(w))) && (o.tipo === 'viagem' || nt.includes(norm(o.nome).split(' ')[0])));
+  const nt = norm(txt), ativosObj = S.objs.filter(o => o.status !== 'concluido');
+  let objV = ativosObj.find(o => norm(o.nome).split(/[^a-z0-9]+/).some(w => w.length > 4 && w !== 'viagem' && nt.includes(w)));
+  if (!objV && /\bviagem\b/.test(nt)) objV = ativosObj.filter(o => o.tipo === 'viagem').sort((a, b) => Math.abs(monthsBetween(ymNow(), a.alvo || '2099-12')) - Math.abs(monthsBetween(ymNow(), b.alvo || '2099-12')))[0];
   for (const it of itens) {
     if (objV && !it.objId && it.tipo === 'despesa') { it.objId = objV.id; const nd = norm(it.desc + ' ' + it.cat); const item = (objV.itens || []).find(x => norm(x.cat).split(/[^a-z]+/).some(w => w.length > 3 && nd.includes(w.slice(0, 5)))); if (item) it.objItem = item.id; }
     if (it.recorrente && it.tipo === 'despesa') {
