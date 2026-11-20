@@ -37,16 +37,45 @@ export function montar(dados, HOJE) {
     for (const p of o.passos || []) { if (p.d === HOJE) hoje.push(`${p.t} (${o.nome})`); else if (p.d === AMANHA) amanha.push(`${p.t} (${o.nome})`); }
     for (const it of o.itens || []) if (it.quando && it.quando.includes(ddmm)) hoje.push(`${it.cat}: até ${brl(it.prev)} · sai de ${ORIGEM(it.meio)}${it.onde ? " · " + it.onde : ""}`);
   }
-  if (!contas.length && !caiHoje.length && !hoje.length && !amanha.length) return null;
+  // Guardar para objetivos (caixinhas) no dia em que o dinheiro cai.
+  const guardar = [];
+  if (caiHoje.length) for (const o of dados.objetivos || []) {
+    if (o.status === "concluido" || !o.alvo || o.alvo <= M) continue;
+    const movs = o.movs || [], usa = o.guardar === true || movs.some((mv) => mv.em && mv.t !== "passar" && +mv.v > 0);
+    if (!usa) continue;
+    const prev = (o.itens || []).reduce((t, it) => t + (+it.prev || 0), 0), g = movs.reduce((t, mv) => t + (+mv.v || 0), 0);
+    const gasto = lanc.filter((l) => l.objId === o.id).reduce((t, l) => t + (+l.valor || 0), 0);
+    const feito = movs.filter((mv) => (mv.d || "").slice(0, 7) === M && +mv.v > 0 && mv.t !== "passar").reduce((t, mv) => t + (+mv.v || 0), 0);
+    const [ya, ma] = M.split("-").map(Number), [yb, mb] = o.alvo.split("-").map(Number), meses = Math.max(1, (yb - ya) * 12 + (mb - ma));
+    const resto = (Math.max(0, prev - gasto - g) + feito) / meses - feito;
+    if (resto >= 1) guardar.push(`• ${o.nome}: ${brl(resto)} (escreva no app: guardei ${Math.round(resto)} ${o.nome.split(/[ (]/)[0].toLowerCase()})`);
+  }
+  // Resumo da semana aos domingos.
+  const semana = [];
+  if (new Date(HOJE + "T12:00:00Z").getUTCDay() === 0) {
+    const ini = addDia(HOJE, -6), fim7 = addDia(HOJE, 7);
+    const gastos = lanc.filter((l) => l.tipo !== "receita" && l.data >= ini && l.data <= HOJE && l.cat !== "Repasse" && !l.fixoId);
+    const tot = gastos.reduce((t, l) => t + (+l.valor || 0), 0), porCat = {};
+    gastos.forEach((l) => { porCat[l.cat || "Outros"] = (porCat[l.cat || "Outros"] || 0) + (+l.valor || 0); });
+    const top = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, v]) => `${c} ${brl(v)}`).join(" · ");
+    const prox = (dados.fixos || []).filter((f) => (f.tipo || "despesa") === "despesa" && !f.repasse && !f.cartaoId && ativo(f) && !pago(f)).map((f) => ({ d: `${M}-${String(dia(f)).padStart(2, "0")}`, desc: f.desc, v: valor(f) })).filter((x) => x.d > HOJE && x.d <= fim7);
+    const guard = (dados.objetivos || []).filter((o) => o.status !== "concluido").reduce((t, o) => t + (o.movs || []).reduce((s2, mv) => s2 + (+mv.v || 0), 0), 0);
+    semana.push(`📊 Resumo da semana`, `• Gastos do dia a dia: ${brl(tot)}${top ? ` (${top})` : ""}`);
+    if (prox.length) semana.push(`• Contas nos próximos 7 dias: ${prox.map((x) => `${x.desc} ${brl(x.v)} dia ${+x.d.slice(8)}`).join(" · ")}`);
+    if (guard > 0) semana.push(`• Guardado nas caixinhas: ${brl(guard)}`);
+  }
+  if (!contas.length && !caiHoje.length && !hoje.length && !amanha.length && !guardar.length && !semana.length) return null;
 
   const L = [];
   if (hoje.length) L.push(`📅 Hoje (${ddmm})`, ...hoje.map((t) => "• " + t));
   if (amanha.length) L.push("⏭️ Amanhã", ...amanha.map((t) => "• " + t));
   if (caiHoje.length) L.push("💰 Deve cair hoje", ...caiHoje.map((f) => `• ${f.desc} ${brl(valor(f))} → quando cair, escreva no app: recebi ${f.desc.split(/[:(–-]/)[0].trim().toLowerCase()} ${valor(f).toFixed(2).replace(".", ",")}`));
+  if (guardar.length) L.push("🏦 Guardar hoje (o dinheiro caiu)", ...guardar);
   if (contas.length) {
     L.push("💸 Contas", ...contas.map((c) => `• ${c.dia === D ? "Hoje" : c.dia < D ? `ATRASADA (dia ${c.dia})` : `Dia ${c.dia} (em ${c.dia - D} dia${c.dia - D > 1 ? "s" : ""})`}: ${c.desc} ${brl(c.v)}`));
     L.push(`Total: ${brl(contas.reduce((s, c) => s + c.v, 0))}`);
   }
+  if (semana.length) L.push(...semana);
   L.push("✍️ Depois de pagar ou gastar, lance o valor real no app (ex.: paguei aluguel 2478 · roupas sabrina 950 viagem).");
   return L.join("\n");
 }
