@@ -122,6 +122,9 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;font-size:.9rem}
 .banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--warn-soft);color:var(--ink);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:.9rem}
 .banner b{color:var(--warn)}
+.card.alerta{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn-soft) 55%,var(--surface))}
+.badge{position:absolute;top:0;right:calc(50% - 20px);min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--neg);color:#fff;font-size:.66rem;font-weight:700;display:grid;place-items:center}
+.tabbar a{position:relative}
 
 /* quick add */
 .quick{display:flex;gap:8px;margin-bottom:6px}
@@ -557,15 +560,25 @@ const VIEWS = [
   ['emprestimos','Empréstimos'], ['investimentos','Investimentos'], ['objetivos','Objetivos'], ['anual','Visão anual'], ['ajustes','Ajustes'],
 ];
 function renderNav() {
-  $('#sidenav').innerHTML = VIEWS.map(([k, n], i) => `${i === 7 ? '<div class="nav-sep"></div>' : ''}<a class="nav-a" href="#${k}" ${S.view === k ? 'aria-current="page"' : ''}>${ico(k)}${n}</a>`).join('');
+  $('#sidenav').innerHTML = VIEWS.map(([k, n], i) => `${i === 7 ? '<div class="nav-sep"></div>' : ''}<a class="nav-a" href="#${k}" ${S.view === k ? 'aria-current="page"' : ''}>${ico(k)}${n}${k === 'fixos' && S.db && alertasContas().length ? `<span class="pill bad" style="margin-left:auto">${alertasContas().length}</span>` : ''}</a>`).join('');
   const tb = [['inicio','Início'], ['extrato','Extrato'], ['fixos','Fixos'], ['objetivos','Objetivos']];
   const inTb = tb.some(([k]) => k === S.view);
-  $('#tabbar').innerHTML = tb.map(([k, n]) => `<a href="#${k}" ${S.view === k ? 'aria-current="page"' : ''}>${ico(k)}${n}</a>`).join('') +
+  const nAl = S.db ? alertasContas().length : 0;
+  $('#tabbar').innerHTML = tb.map(([k, n]) => `<a href="#${k}" ${S.view === k ? 'aria-current="page"' : ''}>${ico(k)}${n}${k === 'fixos' && nAl ? `<span class="badge" aria-label="${nAl} contas para pagar">${nAl}</span>` : ''}</a>`).join('') +
     `<button data-a="menu" ${!inTb ? 'aria-current="page"' : ''}>${ico('mais')}Mais</button>`;
 }
 const mesNav = () => `<div class="mesnav"><button class="ib" data-a="mes" data-d="-1" aria-label="Mês anterior">‹</button><div class="mesnav-l">${ymLong(S.mes)}</div><button class="ib" data-a="mes" data-d="1" aria-label="Próximo mês">›</button>${S.mes !== ymNow() ? '<button class="lnk" data-a="mesHoje">Hoje</button>' : ''}</div>`;
 const header = (titulo, sub, extra = mesNav()) => `<header class="ph"><div><p class="eyebrow">${sub}</p><h1>${titulo}</h1></div>${extra}</header>`;
 const exBanner = () => temExemplos() ? `<div class="banner"><span><b>Dados de exemplo.</b> Estes números são fictícios, só para você ver o app funcionando.</span><span class="sp"></span><button class="btn sm" data-a="apagarExemplos">Apagar exemplos e começar</button></div>` : '';
+function alertasContas() {
+  const m = ymNow(), d = new Date().getDate();
+  return pendentesMes(m).filter(p => p.tipo === 'despesa' && p.dia - d <= 3).map(p => ({...p, falta:p.dia - d}));
+}
+function alertaBanner() {
+  const al = alertasContas(); if (!al.length) return '';
+  const quando = f => f < 0 ? `<b class="neg">atrasada ${-f} dia${f < -1 ? 's' : ''}</b>` : f === 0 ? '<b class="warnc">vence hoje</b>' : `vence em ${f} dia${f > 1 ? 's' : ''}`;
+  return `<section class="card alerta" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:8px"><div><h2>Contas para pagar</h2><p>${al.length} conta${al.length > 1 ? 's' : ''} · ${brl(sum(al))}</p></div></div><div class="list">${al.map(p => `<div class="li" style="cursor:default"><span class="tx"><span class="t1">${esc(p.desc)} · <span class="num">${brl(p.valor)}</span></span><span class="t2">dia ${p.dia} · ${quando(p.falta)}</span></span><button class="btn sm" data-a="pagar" data-kind="${p.kind}" data-id="${p.ref.id}" data-m="${ymNow()}">Paguei</button></div>`).join('')}</div></section>`;
+}
 const catInicial = c => esc((c || '?').replace(/[^A-Za-zÀ-ú0-9]/g, '').slice(0, 2));
 function catColor(cat, tipo) {
   if (tipo === 'receita') return ['var(--pos-soft)', 'var(--pos)'];
@@ -604,7 +617,7 @@ function vInicio() {
   const med = mediaCat(m);
   const cats = Object.entries(r.porCat).sort((a, b) => b[1] - a[1]);
   const maxCat = Math.max(1, ...cats.map(c => c[1]), ...cats.map(([c]) => +(S.cfg.orc || {})[c] || 0));
-  let h = header('Início', 'Resumo do mês') + exBanner();
+  let h = header('Início', 'Resumo do mês') + exBanner() + alertaBanner();
   h += `<form class="quick" data-f="rapido" autocomplete="off"><input id="q-rapido" name="q" placeholder="Ex.: ifood 45 · uber 23,50 ontem · tênis 600 nubank 3x · +3500 salário" aria-label="Lançamento rápido"><button class="btn pri" type="submit">Lançar</button></form><div class="qprev" id="qprev">${S.qmsg || QDEF}</div>`;
   h += `<div class="kpis">
     <div class="kpi"><div class="eyebrow">Receitas</div><div class="v pos">${brl(r.rec)}</div><div class="s">${r.pendR > 0 ? `+ ${brl(r.pendR)} a receber` : `${r.R.length} entrada${r.R.length === 1 ? '' : 's'}`}</div></div>
@@ -1257,11 +1270,11 @@ function lancDePendente(kind, ref, m, valor, data) {
   return {tipo:ref.direcao === 'receber' ? 'receita' : 'despesa', valor:valor ?? +ref.parcela, desc:`${ref.desc} (${parcNum(ref, m)}/${ref.n})`, cat:ref.direcao === 'receber' ? 'Outras receitas' : (ref.cat || 'Dívidas & juros'), data:data || `${m}-${pad(Math.min(+ref.dia || 1, diasNoMes(m)))}`, meio:'boleto', empId:ref.id, mes:m};
 }
 A.pagar = el => {
-  const kind = el.dataset.kind, m = S.mes;
+  const kind = el.dataset.kind, m = el.dataset.m || S.mes;
   const ref = kind === 'fixo' ? S.fixos.find(f => f.id === el.dataset.id) : S.emps.find(e => e.id === el.dataset.id);
   if (!ref) return;
   const base = lancDePendente(kind, ref, m);
-  openSheet(base.tipo === 'receita' ? 'Confirmar recebimento' : 'Confirmar pagamento', `<form class="form" data-f="pagar"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${ref.id}">
+  openSheet(base.tipo === 'receita' ? 'Confirmar recebimento' : 'Confirmar pagamento', `<form class="form" data-f="pagar"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="m" value="${m}"><input type="hidden" name="id" value="${ref.id}">
     <p class="muted">${esc(ref.desc)} · ${ymLong(m)}</p>
     <label class="fld big"><span>Valor ${base.tipo === 'receita' ? 'recebido' : 'pago'}</span><input id="p-valor" name="valor" inputmode="decimal" value="${fv(base.valor)}" autofocus></label>
     <label class="fld"><span>Data</span><input id="p-data" name="data" type="date" value="${base.data}"></label>
@@ -1269,7 +1282,7 @@ A.pagar = el => {
     <div class="form-actions"><button class="btn pri" type="submit">Confirmar</button></div></form>`);
 };
 F.pagar = async f => {
-  const d = Object.fromEntries(new FormData(f)); const m = S.mes;
+  const d = Object.fromEntries(new FormData(f)); const m = d.m || S.mes;
   const ref = d.kind === 'fixo' ? S.fixos.find(x => x.id === d.id) : S.emps.find(x => x.id === d.id);
   const v = parseValor(d.valor); if (!(v > 0)) return toast('Informe o valor.');
   try { await criarLanc(lancDePendente(d.kind, ref, m, v, d.data)); toast('Registrado'); closeSheet(); } catch (_) {}
