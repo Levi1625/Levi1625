@@ -38,6 +38,7 @@ export async function onRequestPost({ request, env }) {
   let body;
   try { body = await request.json(); } catch (_) { return resposta({ erro: "Pedido inválido." }, 400); }
   const texto = Array.isArray(body.input) ? body.input.map((m) => m.content).join("\n\n") : String(body.input || "");
+  if (s.papel === "ve" && (body.json || (Array.isArray(body.images) && body.images.length))) return resposta({ erro: "Seu acesso é só para ver e fazer perguntas." }, 403);
   if (!texto.trim() || texto.length > 60000) return resposta({ erro: "Pedido vazio ou grande demais." }, 400);
   const imagens = (Array.isArray(body.images) ? body.images : []).slice(0, 4)
     .filter((im) => /^image\/(png|jpeg|gif|webp)$/.test(im.media_type) && typeof im.data === "string");

@@ -1,5 +1,5 @@
 // POST /api/entrar {email, senha}
-import { json, banco, normEmail, conferirSenha, criarSessao, mesmaOrigem } from "../../lib/server.js";
+import { json, banco, normEmail, conferirSenha, criarSessao, mesmaOrigem, repararDono } from "../../lib/server.js";
 export async function onRequestPost({ request, env }) {
   if (!mesmaOrigem(request)) return json({ erro: "Origem inválida." }, 403);
   const db = await banco(env);
@@ -14,5 +14,6 @@ export async function onRequestPost({ request, env }) {
     return json({ erro: "Senha errada." }, 401);
   }
   await db.prepare("UPDATE usuarios SET falhas = 0, bloqueio = 0 WHERE email = ?").bind(email).run();
+  await repararDono(db, email);
   return json({ ok: true }, 200, { "set-cookie": await criarSessao(db, email, request) });
 }

@@ -5,5 +5,5 @@ export async function onRequestGet({ request, env }) {
   const db = await banco(env), since = Math.max(0, +new URL(request.url).searchParams.get("since") || 0), agora = Date.now();
   const r = await db.prepare("SELECT path, data, upd, del FROM docs WHERE casa = ? AND upd >= ? ORDER BY upd").bind(s.casa, since).all();
   const docs = (r.results || []).map((d) => ({ path: d.path, del: !!d.del, data: d.del ? null : JSON.parse(d.data) }));
-  return json({ agora, docs, casa: await lerCasa(db, s.casa) });
+  return json({ agora, docs, papel: s.papel, casa: await lerCasa(db, s.casa) });
 }

@@ -1,17 +1,28 @@
-// POST /api/casa {acao: "add" | "remove" | "ia", email?, valor?}
-import { json, banco, sessao, lerCasa, normEmail, mesmaOrigem, enviarWhats } from "../../lib/server.js";
+// POST /api/casa {acao: "add" | "remove" | "papel" | "ia" | "whats" | "testarWhats", email?, valor?}
+// Só o dono da casa (quem criou) pode mexer nas pessoas e nos ajustes. Ninguém tira o dono.
+import { json, banco, sessao, lerCasa, normEmail, mesmaOrigem, enviarWhats, PAPEIS } from "../../lib/server.js";
 export async function onRequestPost({ request, env }) {
   if (!mesmaOrigem(request)) return json({ erro: "Origem inválida." }, 403);
   const s = await sessao(request, env); if (!s) return json({ erro: "Entre no app." }, 401); if (s.pausado) return json({ erro: "Acesso pausado." }, 403);
   const db = await banco(env), b = await request.json().catch(() => ({}));
+  if (s.papel !== "dono") return json({ erro: "Só o dono do controle pode mudar isso." }, 403);
   const c = await lerCasa(db, s.casa); let membros = c.membros;
-  if (b.acao === "add") {
+  const papeis = Object.fromEntries(Object.entries(c.papeis).filter(([e, p]) => PAPEIS.includes(p)));
+  const salvarPapeis = () => db.prepare("UPDATE casas SET papeis = ? WHERE id = ?").bind(JSON.stringify(papeis), s.casa).run();
+  if (b.acao === "papel") {
+    const e = normEmail(b.email); if (!membros.includes(e) || normEmail(c.dono) === e) return json({ erro: "Pessoa inválida." }, 400);
+    if (!PAPEIS.includes(b.valor)) return json({ erro: "Escolha inválida." }, 400);
+    papeis[e] = b.valor; await salvarPapeis(); await db.prepare("UPDATE casas SET upd = ? WHERE id = ?").bind(Date.now(), s.casa).run();
+    return json({ ok: true, casa: await lerCasa(db, s.casa) });
+  } else if (b.acao === "add") {
     const e = normEmail(b.email); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return json({ erro: "E-mail inválido." }, 400);
     const outra = await db.prepare("SELECT casa FROM usuarios WHERE email = ? AND hash IS NOT NULL").bind(e).first();
     if (outra && outra.casa !== s.casa) return json({ erro: "Esse e-mail já usa outro controle." }, 409);
     if (!membros.includes(e)) membros = [...membros, e];
+    papeis[e] = PAPEIS.includes(b.papel) ? b.papel : "ve"; await salvarPapeis();
   } else if (b.acao === "remove") {
-    const e = normEmail(b.email); if (e === s.email) return json({ erro: "Você não pode tirar a si mesmo." }, 400);
+    const e = normEmail(b.email); if (e === s.email || e === normEmail(c.dono)) return json({ erro: "O dono do controle não pode ser tirado." }, 400);
+    delete papeis[e]; await salvarPapeis();
     membros = membros.filter((x) => x !== e);
     await db.batch([db.prepare("DELETE FROM sessoes WHERE email = ?").bind(e), db.prepare("DELETE FROM usuarios WHERE email = ?").bind(e)]);
   } else if (b.acao === "ia") {

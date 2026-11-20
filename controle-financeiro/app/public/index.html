@@ -3,7 +3,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1D3FBF">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>window.__versao = '20/11 17:49';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -94,6 +97,8 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .fab{display:none!important}
 .tabbar .tb-add{justify-self:center;align-self:start;width:58px;height:58px;margin-top:-22px;border-radius:29px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:0 8px 20px rgba(29,78,208,.35);padding:0}
 .tabbar .tb-add svg{width:28px;height:28px}
+body.sover .tb-add{visibility:hidden} body.sover form[data-f]:not([data-f="chat"]){display:none}
+body.sover .btn[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]),body.sover .lnk[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]){display:none}
 .hj-card{border-radius:22px;padding:20px;color:#fff;display:flex;flex-direction:column;gap:4px;margin-bottom:16px}
 .hj-card.s-ok{background:#14532D}.hj-card.s-pend{background:#92400E}.hj-card.s-bad{background:#991B1B}.hj-card.s-info{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
 .hj-card .hj-l{margin:0;font-size:1rem;opacity:.92}
@@ -481,11 +486,13 @@ function dbErr(e) {
   else toast('Não consegui salvar agora. Verifique a conexão e tente de novo.');
 }
 async function put(col, id, data) {
+  if (soVer()) { const e = new Error(AVISO_VER); e.code = 'permission_denied'; throw e; }
   if (!S.db) { toast('Ainda conectando aos seus dados…'); throw new Error('no db'); }
   const ref = id ? S.db.doc(`${col}/${id}`) : S.db.collection(col).doc();
   try { await ref.set(clean(data)); return ref.id; } catch (e) { dbErr(e); throw e; }
 }
 async function del(col, id) {
+  if (soVer()) { const e = new Error(AVISO_VER); e.code = 'permission_denied'; throw e; }
   try { await S.db.doc(`${col}/${id}`).delete(); } catch (e) { dbErr(e); throw e; }
 }
 const strip = o => { const {id, ...rest} = o; return rest; };
@@ -851,6 +858,7 @@ function vHoje() {
   h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Fazer hoje</h2></div>${fz.length ? `<div class="fz">${fz.sort((a, b) => a.o.localeCompare(b.o)).map(x => x.h).join('')}</div>` : '<p class="muted">Nada para pagar ou fazer hoje.</p>'}</section>`;
   const esq = esquecidos();
   if (esq.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Esqueceu algo?</h2></div><div class="fz">${esq.map(x => `<div class="fz-r"><span class="tx"><span class="t1">${x.t}</span><span class="t2">${x.sub}</span></span>${x.btn}</div>`).join('')}</div></section>`;
+  if (mostrarInstalar()) h += instalarHTML(false);
   const cr = credStatus();
   if (cr && cr.baixo) h += `<section class="card alertas" style="margin-bottom:16px"><div class="al al-bad"><i></i><span class="tx"><b>O crédito da IA está acabando:</b> restam ~${usd2(cr.resta)}${cr.mediaDia > 0 && cr.dias !== Infinity ? ` (dá para ~${Math.floor(cr.dias)} dia${Math.floor(cr.dias) === 1 ? '' : 's'})` : ''}. Sem crédito, o app segue pelas regras grátis.</span></div><div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">${botaoCredito(true)}<button class="btn" data-a="iaAddCred">Já coloquei</button></div></section>`;
   const al = alertasMes(m).filter(a => !a.k && (a.t === 'bad' || a.t === 'warn'));
@@ -891,15 +899,15 @@ function vPlanos() {
   h += `<p style="margin-top:16px"><a class="lnk" href="#projecao">Ver o planejamento completo (tabelas e médias)</a></p>`;
   return h;
 }
-const PERGUNTAS = ['Quanto posso gastar hoje?', 'Posso comprar algo de R$ 300?', 'Onde estou gastando mais este mês?', 'Vou conseguir pagar tudo até o salário?', 'Como estão os meus planos de viagem?'];
+const PERGUNTAS = ['Quanto posso gastar hoje?', 'Posso comprar algo de R$ 300?', 'Quanto ainda falta pagar este mês?', 'Quanto sobra na conta depois de pagar tudo do mês?', 'Onde estou gastando mais este mês?', 'Vou conseguir pagar tudo até o salário?', 'Como estão os meus planos de viagem?'];
 A.perguntaPronta = el => { const q = el.dataset.q; if (/algo de/.test(q)) { const i = $('#s-rapido'); if (i) { i.value = 'Posso comprar um tênis de 300 no débito?'; i.focus(); i.select(); } return; } enviarChat(q); };
 function vAjuda() {
   let h = header('Ajuda', 'Pergunte qualquer coisa sobre o seu dinheiro', '');
   if (!S.sample) h += `<p class="muted" style="margin:-6px 0 12px">A IA está desligada ou indisponível agora: os lançamentos funcionam, mas as perguntas não.</p>`;
   h += `<div class="perg">${PERGUNTAS.map(q => `<button data-a="perguntaPronta" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
     <div class="chatlog ajuda-log" id="chatlog"></div>
-    <form class="quick" data-f="chat" autocomplete="off" style="margin:12px 0 6px"><input id="s-rapido" name="q" placeholder="Escreva sua pergunta ou um gasto" aria-label="Mensagem">${micBtn('s-rapido')}<button class="btn pri" type="submit">Enviar</button></form>
-    <p class="hint">Também dá para lançar e corrigir por aqui: “mercado 120 vale”, “apagar o lançamento da farmácia”.</p>`;
+    <form class="quick" data-f="chat" autocomplete="off" style="margin:12px 0 6px"><input id="s-rapido" name="q" placeholder="${soVer() ? 'Escreva sua pergunta' : 'Escreva sua pergunta ou um gasto'}" aria-label="Mensagem">${micBtn('s-rapido')}<button class="btn pri" type="submit">Enviar</button></form>
+    <p class="hint">${soVer() ? 'Seu acesso é para ver e perguntar. Ex.: “posso comprar um tênis de 300?”, “quanto falta pagar este mês?”.' : 'Também dá para lançar e corrigir por aqui: “mercado 120 vale”, “apagar o lançamento da farmácia”.'}</p>`;
   return h;
 }
 function vInicio() {
@@ -1578,7 +1586,7 @@ function vAjustes() {
   <section class="card"><div class="card-h"><div><h2>Categorias</h2><p>Palavras-chave fazem a categorização automática. O app também aprende com as suas correções.</p></div></div>
     <div class="list">${catsDesp().map((c, i) => `<button class="li" data-a="editCat" data-i="${i}"><span class="ic" style="background:color-mix(in srgb, ${GRUPOS[c.g]?.c || 'var(--muted)'} 14%, var(--surface));color:${GRUPOS[c.g]?.c || 'var(--muted)'}">${catInicial(c.n)}</span><span class="tx"><span class="t1">${esc(c.n)}</span><span class="t2">${esc(GRUPOS[c.g]?.n || '')} · ${esc(String(c.k || '').split(',').slice(0, 5).join(', '))}</span></span></button>`).join('')}</div>
     <div class="form-actions"><button class="btn" data-a="editCat" data-i="-1">+ Nova categoria</button></div></section>
-  ${window.__casa ? casaHTML() + whatsHTML() : ''}
+  ${window.__casa ? casaHTML() + (ehDono() ? whatsHTML() : '') : ''}${instalarHTML(true)}
   ${window.__admin ? '<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Clientes</h2><p>Só você vê: libere, pause ou tire pessoas que usam o app, cada uma com o próprio controle.</p></div></div><button class="btn pri" data-a="clientes">Abrir clientes</button></section>' : ''}
   <section class="card"><div class="card-h"><div><h2>Backup e importação</h2><p>Seus dados ficam salvos na sua conta Claude. Faça um backup de vez em quando.</p></div></div>
     <div class="row"><button class="btn" data-a="exportJSON">Baixar backup (.json)</button><button class="btn" data-a="restaurarJSON">Restaurar backup (.json)</button><button class="btn" data-a="exportCSV">Baixar lançamentos (.csv)</button><button class="btn" data-a="importarExtrato">Importar extrato do banco</button><button class="btn" data-a="importar">Importar planilha (CSV)</button></div>
@@ -1598,6 +1606,7 @@ const RENDER = {inicio:vHoje, contas:vContasHoje, planos:vPlanos, ajuda:vAjuda, 
 let _raf = 0;
 function render() { _flx = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
+  document.body.classList.toggle('sover', soVer());
   renderNav();
   const main = $('#main');
   if (S.blocked) { main.innerHTML = `<div class="loading"><h2>Este controle financeiro é privado</h2><p style="margin-top:8px">Só o dono consegue ver e editar os dados.</p></div>`; return; }
@@ -2160,7 +2169,7 @@ Por categoria: ${cats || 'nada'}.
 Contas pendentes: ${r.pend.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') || 'nenhuma'}.
 Cartões: ${fat || 'nenhum'}.
 Próximos 12 meses (sobra prevista em dinheiro, sem vales): ${(() => { const hv = histVar(); return Array.from({length:12}, (_, i) => { const m = addM(ymNow(), i); return `${ymLabel(m)} ${brl0(projMes(m, hv).sobraSemVA)}`; }).join('; '); })()}.
-Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pj = projecao(); return pj.livre1 != null ? ` Livre até o próximo salário (${pj.P1}): ${brl(pj.livre1)} (${brl(pj.livre1 / pj.dias1)}/dia).` : ''; })()}
+Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(); return pj.livre1 != null ? ` Livre até o próximo salário (${pj.P1}): ${brl(pj.livre1)} (${brl(pj.livre1 / pj.dias1)}/dia).` : ''; })()}
 Investido: ${brl(sum(S.inv, saldoInv))}. Objetivos: ${S.objs.map(o => `${o.nome} (${o.alvo || 'sem data'}): previsto ${brl(objPrevisto(o))}, guardado ${brl(objGuardado(o))}, gasto até agora ${brl(sum(S.lanc.filter(l => l.objId === o.id)))}; itens: ${(o.itens || []).map(it => `${it.cat} ${brl0(it.prev)}${it.meio ? ' via ' + lugarMeio(it.meio) : ''}`).join(', ')}`).join(' | ') || 'nenhum'}.
 Receitas extras previstas: ${S.fixos.filter(f => f.tipo === 'receita' && f.fim && f.fim >= ymNow()).map(f => `${f.desc} ${brl0(f.valor)} em ${f.inicio}`).join('; ') || 'nenhuma'}.
 Últimos lançamentos:\n${ult || 'nenhum'}`;
@@ -2172,7 +2181,7 @@ function chatHTML() {
 }
 A.verHistorico = () => { S.chatDesde = 0; chatRender(); };
 function chatHTMLDe(desde) {
-  if (S.chat.length <= desde && S.view === 'ajuda') return `<div class="bub ai"><p style="margin:0">Toque numa pergunta acima ou escreva a sua. Também dá para lançar e corrigir por aqui.</p></div>`;
+  if (S.chat.length <= desde && S.view === 'ajuda') return `<div class="bub ai"><p style="margin:0">Toque numa pergunta acima ou escreva a sua.${soVer() ? '' : ' Também dá para lançar e corrigir por aqui.'}</p></div>`;
   if (S.chat.length <= desde) return `<div class="bub ai"><p style="margin:0">Diga <b>o que</b> gastou, <b>quanto</b> e <b>de onde saiu</b>. Ex.: <i>“mercado 120 no vale”</i>, <i>“tv 2000 10x nubank”</i>, <i>“recebi salário 2300”</i>.</p></div>`;
   if (!S.chat.length) return `<div class="bub ai">Me conta o que gastou ou recebeu, do jeito que falaria. Pode ser mais de um:<br><i>“almoço 32 e uber 18”</i>, <i>“mercado 230 no vale”</i>, <i>“geladeira 3200 nubank 10x”</i>, <i>“recebi 2518 de salário”</i>.<br>Também pode perguntar: <i>“quanto gastei com mercado esse mês?”</i>, <i>“posso comprar uma TV de 2000 em 10x no nubank?”</i>, <i>“se eu gastar 300 no débito hoje, chego até o salário?”</i></div>`;
   return S.chat.map((c, i) => i < desde ? '' : c.de === 'eu' ? `<div class="bub eu">${esc(c.t)}</div>` : `<div class="bub ai">${c.h}${c.ids && c.ids.length ? (c.undone ? '<div class="small muted" style="margin-top:6px">Desfeito.</div>' : `<div style="margin-top:8px"><button class="lnk small" data-a="desfazerChat" data-i="${i}">Desfazer</button></div>`) : ''}</div>`).join('');
@@ -2182,7 +2191,7 @@ async function enviarChat(txt) {
   txt = txt.trim(); if (!txt || S.chatBusy) return;
   S.chat.push({de:'eu', t:txt}); const msg = {de:'app', h:'<span class="muted">Anotando…</span>'}; S.chat.push(msg); S.chatBusy = true; chatRender();
   try {
-    if (PERG.test(txt)) {
+    if (PERG.test(txt) || soVer()) {
       if (!S.sample) { msg.h = 'Para responder perguntas preciso do Claude, que não está disponível nesta tela. Os números estão no Início e na Visão anual.'; }
       else {
         msg.h = '<span class="muted">Pensando…</span>'; chatRender();
@@ -2211,7 +2220,7 @@ async function enviarChat(txt) {
     }
   } catch (e) {
     if (AI_OFF.includes(e?.code)) S.sample = null;
-    msg.h = e?.code === 'rate_limited' ? 'Muitas mensagens seguidas. Espere um pouco e tente de novo.' : 'Não consegui registrar agora. Confira a conexão e tente de novo.';
+    msg.h = e?.code === 'rate_limited' ? 'Muitas mensagens seguidas. Espere um pouco e tente de novo.' : (PERG.test(txt) || soVer()) ? `Não consegui responder agora${e?.message ? ' (' + esc(String(e.message).replace(/\.$/, '')) + ')' : ''}. Tente de novo em instantes.` : 'Não consegui registrar agora. Confira a conexão e tente de novo.';
   }
   S.chatBusy = false; chatRender();
 }
@@ -2251,9 +2260,16 @@ function previewSheetRapido() {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-a]'); if (!el) return;
   const fn = A[el.dataset.a]; if (!fn) return;
-  e.preventDefault(); e.stopPropagation(); fn(el, e);
+  e.preventDefault(); e.stopPropagation();
+  if (soVer() && !OK_VER.has(el.dataset.a)) { toast(AVISO_VER); return; }
+  fn(el, e);
 });
-document.addEventListener('submit', e => { const f = e.target; const h = F[f.dataset.f]; if (h) { e.preventDefault(); h(f); } });
+document.addEventListener('submit', e => { const f = e.target; const h = F[f.dataset.f]; if (h) { e.preventDefault(); if (soVer() && f.dataset.f !== 'chat') { toast(AVISO_VER); return; } h(f); } });
+// Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
+const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
+const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
+const OK_VER = new Set(["instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
+const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
 A.mesHoje = () => { S.mes = ymNow(); render(); };
@@ -2603,16 +2619,41 @@ async function baixar(filename, data) {
   try { await S.dl.save({filename, data}); } catch (e) { if (e?.code !== 'declined') toast('Não foi possível baixar o arquivo.'); }
 }
 A.exportJSON = () => baixar(`bolso-em-dia-backup-${hoje()}.json`, JSON.stringify({versao:1, exportado:new Date().toISOString(), config:S.cfg, lancamentos:S.lanc, fixos:S.fixos, cartoes:S.cartoes, emprestimos:S.emps, investimentos:S.inv, objetivos:S.objs}, null, 1));
+// Instalar como app (Android: botão; iPhone: Safari → Compartilhar → Adicionar à Tela de Início).
+function instalarHTML(sempre) {
+  const I = window.__instalar; if (!I) return '';
+  if (!sempre && (I.instalado() || !I.celular())) return '';
+  const versao = window.__versao ? `<p class="small muted" style="margin:8px 0 0">Versão do app: ${esc(window.__versao)}. Ele se atualiza sozinho quando você abre: não precisa apagar e baixar de novo.</p>` : '';
+  let corpo;
+  if (I.instalado()) corpo = `<p class="small" style="margin:0">✅ Já está instalado neste aparelho.</p>`;
+  else if (I.ios()) corpo = `<ol class="small" style="margin:0;padding-left:18px;line-height:1.6">${I.safari() ? '' : '<li><b>Abra este endereço no Safari</b> (no iPhone, só o Safari instala): bolso-em-dia-26l.pages.dev</li>'}
+      <li>Toque no botão <b>Compartilhar</b> (o quadrado com uma seta para cima ⬆️, embaixo da tela).</li>
+      <li>Role a lista e toque em <b>Adicionar à Tela de Início</b>.</li><li>Toque em <b>Adicionar</b>. O ícone aparece junto com os outros apps.</li></ol>`;
+  else if (I.pode()) corpo = `<button class="btn pri" data-a="instalarApp">Instalar o app neste celular</button>`;
+  else corpo = `<p class="small" style="margin:0">No Chrome: toque nos <b>3 pontinhos ⋮</b> no canto de cima e em <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>).</p>`;
+  return `<section class="card" style="margin-bottom:16px"${sempre ? '' : ' id="inst-banner"'}><div class="card-h"><div><h2>Instalar como app</h2><p>Abre com um toque, em tela cheia, como os outros aplicativos.</p></div>${sempre ? '' : '<button class="lnk small" data-a="instalarDepois">Agora não</button>'}</div>${corpo}${versao}</section>`;
+}
+A.instalarApp = async () => { if (await window.__instalar?.abrir()) toast('Pronto! O app foi para a tela do celular.'); render(); };
+A.instalarDepois = () => { try { localStorage.setItem('bolso:instalarDepois', String(Date.now())); } catch (_) {} render(); };
+const mostrarInstalar = () => { try { return Date.now() - (+localStorage.getItem('bolso:instalarDepois') || 0) > 7 * 864e5; } catch (_) { return true; } };
+window.addEventListener('bolso-instalar', () => render());
+
 function casaHTML() {
-  const c = window.__casa, eu = c.email();
-  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Quem usa este controle</h2><p>Todas as pessoas abaixo veem e lançam nos mesmos dados (ex.: você e a Sabrina). Cada uma entra com o próprio e-mail.</p></div></div>
-    <div class="list">${c.membros().map(e => `<div class="li" style="cursor:default"><span class="tx"><span class="t1">${esc(e)}${e === eu ? ' <span class="pill">você</span>' : ''}</span></span>${e !== eu ? `<button class="lnk small" data-a="casaTirar" data-e="${esc(e)}">Tirar</button>` : ''}</div>`).join('')}</div>
-    <form class="quick" data-f="casaAdd" style="margin-top:10px"><input name="e" type="email" placeholder="E-mail da pessoa" aria-label="E-mail da pessoa" required><button class="btn pri" type="submit">Dar acesso</button></form>
+  const c = window.__casa, eu = c.email(), dono = ehDono(), donoEmail = c.dono();
+  const NOMEPAPEL = {dono:'dono', edita:'pode lançar', ve:'só ver'};
+  const linha = e => { const p = e === donoEmail ? 'dono' : c.papelDe(e);
+    return `<div class="li" style="cursor:default;flex-wrap:wrap"><span class="tx"><span class="t1">${esc(e)}${e === eu ? ' <span class="pill">você</span>' : ''}</span><span class="t2">${p === 'dono' ? 'Dono: manda em tudo e ninguém pode tirar' : p === 'edita' ? 'Pode ver, lançar e corrigir' : 'Só vê e faz perguntas para a IA'}</span></span>
+      ${p === 'dono' ? '<span class="pill ok">dono</span>' : dono ? `<span class="row" style="gap:6px"><button class="btn sm" data-a="casaPapel" data-e="${esc(e)}" data-v="${p === 've' ? 'edita' : 've'}">${p === 've' ? 'Deixar lançar' : 'Deixar só ver'}</button><button class="lnk small" data-a="casaTirar" data-e="${esc(e)}">Tirar</button></span>` : `<span class="pill">${NOMEPAPEL[p]}</span>`}</div>`; };
+  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Quem usa este controle</h2><p>${dono ? 'Você é o dono: só você coloca e tira pessoas, escolhe o que cada uma pode fazer e mexe nos ajustes. Ninguém pode tirar você.' : `Quem manda neste controle é ${esc(donoEmail)}. Seu acesso: <b>${NOMEPAPEL[papel()]}</b>.`}</p></div></div>
+    <div class="list">${c.membros().sort((a, b) => (b === donoEmail) - (a === donoEmail)).map(linha).join('')}</div>
+    ${dono ? `<form class="form" data-f="casaAdd" style="margin-top:10px;gap:8px"><div class="f2"><label class="fld"><span>E-mail da pessoa</span><input name="e" type="email" placeholder="email@exemplo.com" required></label>
+      <label class="fld"><span>O que ela pode fazer</span><select name="papel"><option value="ve">Só ver e perguntar para a IA</option><option value="edita">Ver, lançar e corrigir</option></select></label></div>
+      <div class="row"><button class="btn pri" type="submit">Dar acesso</button></div></form>` : ''}
     <div class="row" style="margin-top:8px"><span class="sp"></span><button class="lnk small" data-a="sair">Sair desta conta</button></div></section>
   <section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>IA do Claude</h2><p>${c.ia() ? 'Ligada: lê cada mensagem que você escreve ou fala, para entender do seu jeito, responde perguntas como “posso comprar?” e lê fotos de contracheque ou extrato. Se a IA falhar ou o crédito acabar, as regras grátis assumem.' : 'Desligada: tudo funciona com as regras grátis (o quê + valor + como pagou). Perguntas e leitura de fotos ficam indisponíveis.'}</p></div></div>
     ${(() => { const u = c.usoIA(); return `<p class="small">Gasto com a IA neste mês: <b>US$ ${u.usd.toFixed(2).replace('.', ',')}</b> (~${brl(u.usd * 5.5)}) em ${u.n} uso${u.n === 1 ? '' : 's'}${u.limite != null ? ` · limite do mês: US$ ${(+u.limite).toFixed(2).replace('.', ',')}` : ''}. ${u.limite != null && u.usd >= u.limite ? '<b class="neg">O limite acabou: até o mês que vem, tudo funciona pelas regras grátis.</b>' : ''}</p>`; })()}
     <div id="iaCred">${credBoxHTML()}</div>
-    <div class="row" style="margin-top:10px"><button class="btn" data-a="iaGastos">Ver onde a IA gastou</button><button class="btn ${c.ia() ? '' : 'pri'}" data-a="iaToggle">${c.ia() ? 'Desligar a IA (só regras grátis)' : 'Ligar a IA do Claude'}</button></div></section>`;
+    <div class="row" style="margin-top:10px"><button class="btn" data-a="iaGastos">Ver onde a IA gastou</button>${dono ? `<button class="btn ${c.ia() ? '' : 'pri'}" data-a="iaToggle">${c.ia() ? 'Desligar a IA (só regras grátis)' : 'Ligar a IA do Claude'}</button>` : ''}</div></section>`;
 }
 // Créditos da chave da Anthropic (só quem administra): o app soma o que cada uso custou e desconta do que você colocou lá.
 const LINK_CREDITO = 'https://console.anthropic.com/settings/billing';
@@ -2697,8 +2738,9 @@ F.cliAdd = async fm => { try { await window.__admin.add(fm.email.value, fm.nome.
 A.cliPausar = async el => { try { await window.__admin.pausar(el.dataset.id, el.dataset.v === '1'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 A.cliLimite = async el => { const v = prompt('Limite de IA por mês, em dólares (ex.: 0,50). Deixe vazio para o padrão.', el.dataset.l || ''); if (v === null) return; try { await window.__admin.limite(el.dataset.id, v.trim() === '' ? null : parseValor(v)); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 A.cliRemover = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Toque de novo: apaga tudo'; return; } try { await window.__admin.remover(el.dataset.id); toast('Cliente removido'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
-F.casaAdd = async fm => { try { await window.__casa.add(fm.e.value); toast('Acesso liberado. A pessoa entra com esse e-mail.'); render(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
-A.casaTirar = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar'; return; } try { await window.__casa.remove(el.dataset.e); toast('Acesso removido'); render(); } catch (_) {} };
+F.casaAdd = async fm => { try { await window.__casa.add(fm.e.value, fm.papel.value); toast('Acesso liberado. A pessoa entra com esse e-mail em Primeiro acesso.'); render(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
+A.casaTirar = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar'; return; } try { await window.__casa.remove(el.dataset.e); toast('Acesso removido'); render(); } catch (e) { toast(e?.message || 'Não consegui tirar.'); } };
+A.casaPapel = async el => { try { await window.__casa.setPapel(el.dataset.e, el.dataset.v); toast(el.dataset.v === 've' ? 'Agora essa pessoa só vê e pergunta' : 'Agora essa pessoa pode lançar'); render(); } catch (e) { toast(e?.message || 'Não consegui mudar.'); } };
 A.sair = () => window.__casa?.sair();
 A.restaurarJSON = () => openSheet('Restaurar backup', `<form class="form" data-f="restaurarJSON"><p class="small">Escolha um arquivo de backup do Bolso em Dia (.json). Os lançamentos, contas, cartões e objetivos do arquivo são gravados aqui com os mesmos códigos: o que já existir com o mesmo código é atualizado, nada é duplicado.</p><label class="fld"><span>Arquivo</span><input id="rb-f" name="f" type="file" accept=".json,application/json" required></label><div class="form-actions"><button class="btn pri" type="submit">Restaurar</button></div></form>`);
 F.restaurarJSON = async fm => {
@@ -2778,6 +2820,7 @@ Escreva em português do Brasil, em texto simples sem markdown, de 4 a 6 sugest�
 /* ================= inicialização ================= */
 const _autoFeito = new Set();
 async function autoCredito() {
+  if (soVer()) return;
   if (!S.db || !S.canWrite || !Object.keys(COLS).every(k => S.loaded[k])) return;
   const T = hoje(), m0 = ymNow();
   for (const m of [addM(m0, -1), m0]) for (const f of fixosAtivos(m)) {
@@ -2813,6 +2856,7 @@ async function init() {
   });
   db.doc(P + 'config/geral').onSnapshot(snap => { S.cfg = snap.exists ? {...snap.data()} : {}; done('cfg', snap); render(); }, e => console.error('cfg', e));
   claude.use('sample').then(s => { S.sample = s; });
+  try { if (sessionStorage.getItem('bolso:atualizou')) { sessionStorage.removeItem('bolso:atualizou'); setTimeout(() => toast('App atualizado para a versão nova ✅'), 800); } } catch (_) {}
   if (window.__admin) { atualizarCred(); setInterval(atualizarCred, 60000); }
   claude.use('downloads').then(d => { S.dl = d; });
   claude.use('dictation').then(d => { if (d) ligarDitado(d); });

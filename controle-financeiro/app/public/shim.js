@@ -4,6 +4,9 @@
    O app chama window.claude.use(nome), igual ao artefato do Claude. */
 (function () {
   'use strict';
+  // Endereço de uma versão antiga (ex.: 3ef6f369.bolso-em-dia.pages.dev) nunca recebe atualização: manda para o endereço principal.
+  const antigo = location.hostname.match(/^[0-9a-f]{8}\.(.+\.pages\.dev)$/);
+  if (antigo) { location.replace('https://' + antigo[1] + location.pathname + location.hash); return; }
   let resolverLogin; const logado = new Promise(r => { resolverLogin = r; });
   let eu = null, casa = null;
 
@@ -63,7 +66,7 @@
   async function enviarFilaAgora() {
     for (const [p, op] of Object.entries(fila)) {
       try { if (op.del) await api('DELETE', '/api/doc?path=' + encodeURIComponent(p)); else await api('PUT', '/api/doc', {path:p, data:op.data}); if (fila[p] === op) delete fila[p]; }
-      catch (e) { if (e.status === 400 || e.status === 413) { delete fila[p]; console.error('descartado', p, e.message); } else if (e.status === 401) { telaLogin('Sua sessão expirou. Entre de novo.'); break; } else break; }
+      catch (e) { if (e.status === 400 || e.status === 413 || (e.status === 403 && /só para ver|pausado/.test(e.message || ''))) { delete fila[p]; console.error('descartado', p, e.message); } else if (e.status === 401) { telaLogin('Sua sessão expirou. Entre de novo.'); break; } else break; }
     }
     salvarLocal();
   }
@@ -76,12 +79,13 @@
       let mudou = !sincronizado;
       for (const d of r.docs) { if (d.path in fila) continue; if (d.del) { if (d.path in store) { delete store[d.path]; mudou = true; } } else if (JSON.stringify(store[d.path]) !== JSON.stringify(d.data)) { store[d.path] = d.data; mudou = true; } }
       since = r.agora; casa = r.casa || casa; sincronizado = true; salvarLocal();
+      if (r.papel && eu && r.papel !== eu.papel) { try { localStorage.removeItem('bolso:ultimo'); } catch (_) {} location.reload(); return; }
       if (mudou) emitir();
     } catch (e) { if (e.status === 401) telaLogin('Sua sessão expirou. Entre de novo.'); }
     sincronizando = false;
   }
   let salvarT = null;
-  function escrever(p, op) { if (op.del) delete store[p]; else store[p] = clone(op.data); fila[p] = op; clearTimeout(salvarT); salvarT = setTimeout(salvarLocal, 300); emitir(); enviarFila().catch(() => {}); return Promise.resolve(); }
+  function escrever(p, op) { if (eu && eu.papel === 've') { const e = new Error('Seu acesso é só para ver.'); e.code = 'permission_denied'; return Promise.reject(e); } if (op.del) delete store[p]; else store[p] = clone(op.data); fila[p] = op; clearTimeout(salvarT); salvarT = setTimeout(salvarLocal, 300); emitir(); enviarFila().catch(() => {}); return Promise.resolve(); }
   const novoId = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(36).padStart(2, '0')).join('').slice(0, 20);
   const docRef = p => ({id:p.split('/')[1], path:p,
     set: d => escrever(p, {data:d}), delete: () => escrever(p, {del:true}), get: async () => snapDoc(p),
@@ -97,7 +101,11 @@
     window.__casa = {
       email: () => eu.email,
       membros: () => (casa && casa.membros || []).slice(),
-      add: async e => { const r = await api('POST', '/api/casa', {acao:'add', email:e}); casa = r.casa; },
+      add: async (e, papel) => { const r = await api('POST', '/api/casa', {acao:'add', email:e, papel}); casa = r.casa; },
+      papel: () => eu && eu.papel || 'dono',
+      papelDe: e => (casa && casa.papeis || {})[e] || 've',
+      dono: () => casa && casa.dono || '',
+      setPapel: async (e, valor) => { const r = await api('POST', '/api/casa', {acao:'papel', email:e, valor}); casa = r.casa; },
       remove: async e => { const r = await api('POST', '/api/casa', {acao:'remove', email:e}); casa = r.casa; },
       sair: async () => { await api('POST', '/api/sair').catch(() => {}); location.reload(); },
       ia: () => !casa || casa.ia !== false,
@@ -128,9 +136,9 @@
       if (!ultimo) { telaLogin('Sem internet agora. Conecte e tente de novo.'); return; }
       r = ultimo; // sem internet: abre com a cópia guardada no celular
     }
-    eu = {email:r.email, nome:r.nome, admin:!!r.admin}; casa = r.casa;
-    try { localStorage.setItem('bolso:ultimo', JSON.stringify({email:r.email, nome:r.nome, admin:!!r.admin, casa:r.casa})); } catch (_) {}
-    store = ler('store', {}); since = ler('since', 0); fila = ler('fila', {});
+    eu = {email:r.email, nome:r.nome, admin:!!r.admin, papel:r.papel || 'dono'}; casa = r.casa;
+    try { localStorage.setItem('bolso:ultimo', JSON.stringify({email:r.email, nome:r.nome, admin:!!r.admin, papel:eu.papel, casa:r.casa})); } catch (_) {}
+    store = ler('store', {}); since = ler('since', 0); fila = eu.papel === 've' ? {} : ler('fila', {});
     publicarCasa(); tirarLogin(); resolverLogin();
     sincronizar();
     setInterval(() => { if (document.visibilityState === 'visible') sincronizar(); }, 15000);
@@ -195,5 +203,25 @@
   }};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
-  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  /* ---------- instalar como app e atualizar sozinho ---------- */
+  let pedidoInstalar = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalar = e; window.dispatchEvent(new Event('bolso-instalar')); });
+  window.__instalar = {
+    instalado: () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
+    ios: () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+    safari: () => !/crios|fxios|edgios|opios/i.test(navigator.userAgent),
+    celular: () => /android|iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+    pode: () => !!pedidoInstalar,
+    abrir: async () => { if (!pedidoInstalar) return false; pedidoInstalar.prompt(); const r = await pedidoInstalar.userChoice.catch(() => ({})); pedidoInstalar = null; return r.outcome === 'accepted'; },
+  };
+  if ('serviceWorker' in navigator) window.addEventListener('load', async () => {
+    try {
+      const tinha = !!navigator.serviceWorker.controller; let recarregou = false;
+      const reg = await navigator.serviceWorker.register('sw.js', {updateViaCache:'none'});
+      // Quando sai uma versão nova, o app troca sozinho (sem precisar apagar e instalar de novo).
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (!tinha || recarregou) return; recarregou = true; try { sessionStorage.setItem('bolso:atualizou', '1'); } catch (_) {} location.reload(); });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+      setInterval(() => reg.update().catch(() => {}), 20 * 60e3);
+    } catch (_) {}
+  });
 })();

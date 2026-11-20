@@ -4,6 +4,7 @@ const valido = (p) => { const [c, id, x] = String(p || "").split("/"); return !x
 export async function onRequestPut({ request, env }) {
   if (!mesmaOrigem(request)) return json({ erro: "Origem inválida." }, 403);
   const s = await sessao(request, env); if (!s) return json({ erro: "Entre no app." }, 401); if (s.pausado) return json({ erro: "Acesso pausado." }, 403);
+  if (s.papel === "ve") return json({ erro: "Seu acesso é só para ver.", code: "permission_denied" }, 403);
   const b = await request.json().catch(() => null); const col = b && valido(b.path);
   if (!col || !b.data || typeof b.data !== "object") return json({ erro: "Documento inválido.", code: "invalid_argument" }, 400);
   const txt = JSON.stringify(b.data); if (txt.length > 400000) return json({ erro: "Documento grande demais.", code: "invalid_argument" }, 413);
@@ -14,6 +15,7 @@ export async function onRequestPut({ request, env }) {
 export async function onRequestDelete({ request, env }) {
   if (!mesmaOrigem(request)) return json({ erro: "Origem inválida." }, 403);
   const s = await sessao(request, env); if (!s) return json({ erro: "Entre no app." }, 401); if (s.pausado) return json({ erro: "Acesso pausado." }, 403);
+  if (s.papel === "ve") return json({ erro: "Seu acesso é só para ver.", code: "permission_denied" }, 403);
   const path = new URL(request.url).searchParams.get("path"); if (!valido(path)) return json({ erro: "Documento inválido." }, 400);
   await (await banco(env)).prepare("UPDATE docs SET del = 1, data = NULL, upd = ? WHERE casa = ? AND path = ?").bind(Date.now(), s.casa, path).run();
   return json({ ok: true });

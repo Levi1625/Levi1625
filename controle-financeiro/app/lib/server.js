@@ -20,7 +20,7 @@ export async function banco(env) {
     ]);
     // Colunas novas (o app cresce sem perder dados): WhatsApp de cada casa, pausa e limite de IA.
     for (const sql of ["ALTER TABLE casas ADD COLUMN whatsapp TEXT", "ALTER TABLE casas ADD COLUMN callmebot TEXT", "ALTER TABLE casas ADD COLUMN lembretes INTEGER DEFAULT 1",
-      "ALTER TABLE casas ADD COLUMN pausado INTEGER DEFAULT 0", "ALTER TABLE casas ADD COLUMN ia_limite REAL", "ALTER TABLE casas ADD COLUMN cliente TEXT",
+      "ALTER TABLE casas ADD COLUMN pausado INTEGER DEFAULT 0", "ALTER TABLE casas ADD COLUMN papeis TEXT", "ALTER TABLE casas ADD COLUMN ia_limite REAL", "ALTER TABLE casas ADD COLUMN cliente TEXT",
       "CREATE TABLE IF NOT EXISTS ia_log (id INTEGER PRIMARY KEY AUTOINCREMENT, casa TEXT, email TEXT, quando INTEGER, tipo TEXT, usd REAL, modelo TEXT)",
       "CREATE INDEX IF NOT EXISTS ia_log_casa ON ia_log (casa, quando)",
       "CREATE TABLE IF NOT EXISTS ajustes_app (chave TEXT PRIMARY KEY, valor TEXT)"]) {
@@ -67,8 +67,37 @@ export async function sessao(request, env) {
   if (!m) return null;
   const s = await db.prepare("SELECT s.email, s.expira, u.nome, u.casa FROM sessoes s JOIN usuarios u ON u.email = s.email WHERE s.token = ?").bind(m[1]).first();
   if (!s || s.expira < Date.now() || !s.casa) return null;
-  const c = await db.prepare("SELECT pausado FROM casas WHERE id = ?").bind(s.casa).first();
-  return { email: s.email, nome: s.nome, casa: s.casa, token: m[1], pausado: !!(c && c.pausado) };
+  const c = await db.prepare("SELECT pausado, dono, papeis FROM casas WHERE id = ?").bind(s.casa).first();
+  const papel = s.email === adminEmail(env) && c && normEmail(c.dono) === s.email ? "dono" : papelDe(c, s.email);
+  return { email: s.email, nome: s.nome, casa: s.casa, token: m[1], pausado: !!(c && c.pausado), papel };
+}
+
+// Papel de cada pessoa na casa: "dono" (quem criou: manda em tudo e ninguém tira), "edita" (lança e corrige) ou "ve" (só vê e pergunta para a IA).
+export const PAPEIS = ["edita", "ve"];
+export function papelDe(c, email) {
+  if (!c) return "ve";
+  if (normEmail(c.dono) === normEmail(email)) return "dono";
+  const p = (typeof c.papeis === "string" ? JSON.parse(c.papeis || "{}") : c.papeis || {})[normEmail(email)];
+  return PAPEIS.includes(p) ? p : "ve";
+}
+
+// Se o dono foi tirado da própria casa (ou criou uma casa vazia por engano), devolve o dono para a casa com os dados dele.
+export async function repararDono(db, email) {
+  email = normEmail(email);
+  const minhas = (await db.prepare("SELECT id, membros FROM casas WHERE dono = ?").bind(email).all()).results || [];
+  if (!minhas.length) return null;
+  const conta = async (id) => +((await db.prepare("SELECT COUNT(*) AS n FROM docs WHERE casa = ? AND del = 0").bind(id).first()) || {}).n || 0;
+  const u = await db.prepare("SELECT casa FROM usuarios WHERE email = ?").bind(email).first();
+  const n = {}; for (const c of minhas) n[c.id] = await conta(c.id);
+  let alvo = minhas.reduce((a, c) => (n[c.id] > n[a.id] ? c : a), minhas[0]).id;
+  if (u && u.casa && u.casa !== alvo) { const nAtual = u.casa in n ? n[u.casa] : await conta(u.casa); if (nAtual >= n[alvo]) alvo = u.casa; }
+  for (const c of minhas) {
+    const m = JSON.parse(c.membros || "[]");
+    if (c.id === alvo) { if (!m.includes(email)) await db.prepare("UPDATE casas SET membros = ?, upd = ? WHERE id = ?").bind(JSON.stringify([email, ...m]), Date.now(), c.id).run(); }
+    else if (n[c.id] === 0 && m.every((x) => x === email)) await db.prepare("DELETE FROM casas WHERE id = ?").bind(c.id).run(); // casa vazia criada por engano
+  }
+  if (u && u.casa !== alvo) await db.prepare("UPDATE usuarios SET casa = ? WHERE email = ?").bind(alvo, email).run();
+  return alvo;
 }
 
 export async function lerCasa(db, id) {
@@ -80,7 +109,7 @@ export async function lerCasa(db, id) {
     const r = await db.prepare(`SELECT email, nome FROM usuarios WHERE email IN (${membros.map(() => "?").join(",")})`).bind(...membros).all();
     for (const u of r.results || []) nomes[u.email] = u.nome || u.email.split("@")[0];
   }
-  return { id: c.id, dono: c.dono, membros, ia: c.ia !== 0, uso: JSON.parse(c.uso || "{}"), nomes,
+  return { id: c.id, dono: c.dono, membros, papeis: Object.fromEntries(membros.map((e) => [e, papelDe(c, e)])), ia: c.ia !== 0, uso: JSON.parse(c.uso || "{}"), nomes,
     whatsapp: c.whatsapp || "", temChaveWhats: !!c.callmebot, lembretes: c.lembretes !== 0, pausado: !!c.pausado, iaLimite: c.ia_limite == null ? null : +c.ia_limite, cliente: c.cliente || "" };
 }
 
