@@ -1847,6 +1847,8 @@ async function lancarTexto(txt) {
     if (objV && !it.objId && it.tipo === 'despesa' && !it.fixoId) it.objId = objV.id;
     out.push(it);
   }
+  const mIni = mesInicioTexto(txt);
+  if (mIni) out.forEach(it => { if (it.tipo === 'despesa' && it._baixa !== 'fatura' && (it.cartaoId || (it.nparc || 1) > 1)) { it.mes = mIni; it.desc = String(it.desc || '').replace(/\s*(?:\b(?:da|do|de|e)\s+)?\b(?:come[cç]a|come[cç]ando|come[cç]ar|primeira parcela|1[ªa]? parcela|a partir de|fatura de|cai em|cair em)\b.*$/i, '').trim() || it.desc; } });
   const falta = out.filter(it => it.tipo === 'despesa' && it._baixa !== 'fatura' && !it.meioDito);
   if (falta.length) { S.pend = {tipo:'meio', txt, out}; return {pergunta:'meio', itens:falta}; }
   return salvarItens(out, txt);
@@ -1867,6 +1869,32 @@ async function salvarItens(out, txt) {
   S.pend = null;
   return {itens:out, ids, fixos, revs};
 }
+const MESES_N = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+function mesInicioTexto(txt) {
+  const m = norm(txt).match(/(comeca|comecando|comecar|primeira parcela|1a parcela|1 parcela|a partir de|fatura de|fatura do mes de|cai em|cair em)\s+(?:em\s+|no mes de\s+|de\s+|na\s+)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*(?:\s+de\s+(\d{4}))?/);
+  if (!m) return null;
+  const mm = MESES_N.indexOf(m[2]) + 1; if (m[3]) return `${m[3]}-${pad(mm)}`;
+  const hoje0 = ymNow(); let melhor = null;
+  for (const y of [+hoje0.slice(0, 4) - 1, +hoje0.slice(0, 4), +hoje0.slice(0, 4) + 1]) { const c = `${y}-${pad(mm)}`; if (!melhor || Math.abs(monthsBetween(hoje0, c)) < Math.abs(monthsBetween(hoje0, melhor))) melhor = c; }
+  return melhor;
+}
+// Pedido de correção ("modificar", "corrigir", "apagar"...): não cria nada, mostra os lançamentos para editar ou apagar.
+const CORRIGIR = /\b(modific|corrig|alter|mudar|muda o|muda a|mude|apag|exclu|remov|errad|consert|edit)/;
+function corrigirHTML(txt) {
+  const nt = norm(txt); if (!CORRIGIR.test(nt)) return null;
+  const IGN = ['modificar', 'corrigir', 'alterar', 'apagar', 'excluir', 'remover', 'errado', 'errada', 'gravou', 'lancou', 'lancamento', 'parcelado', 'credito', 'cartao', 'comeca', 'comecando', 'verdade', 'dezembro', 'novembro', 'janeiro', 'isso', 'esse', 'essa', 'para', 'parcela', 'parcelas'];
+  const ws = nt.split(/[^a-z0-9]+/).filter(w => w.length > 3 && !IGN.includes(w));
+  const vistos = new Set(), achados = [];
+  [...S.lanc].sort((a, b) => (b.criado || '').localeCompare(a.criado || '')).forEach(l => {
+    const chave = l.grupo || l.id; if (vistos.has(chave)) return;
+    const d = norm(l.desc || ''); const pts = ws.filter(w => d.includes(w)).length; if (!pts) return;
+    vistos.add(chave); achados.push({l, pts});
+  });
+  achados.sort((a, b) => b.pts - a.pts);
+  const top = achados.slice(0, 5);
+  if (!top.length) return 'Não lancei nada novo. Não achei esse lançamento pelo nome: procure em <b>Lançamentos</b> e toque nele para corrigir ou apagar.';
+  return `Não lancei nada novo. Achei ${top.length > 1 ? 'estes lançamentos' : 'este lançamento'}:<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${top.map(({l}) => { const g = l.grupo ? S.lanc.filter(x => x.grupo === l.grupo).sort((a, b) => (a.mes || '').localeCompare(b.mes || '')) : null; return `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(l.desc)}</b> <span class="muted small">· ${g ? `${g.length}x de ${brl(l.valor)} (total ${brl(l.total || sum(g))}) · 1ª parcela em ${ymLabel(g[0].mes)}` : `${brl(l.valor)} · ${ymLabel(l.mes)}`} · ${l.cartaoId ? 'Crédito ' + esc(cartao(l.cartaoId)?.nome || '') : esc(MEIOS[l.meio] || '')}</span><div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="editLanc" data-id="${(g ? g[0] : l).id}">Abrir e editar</button>${g ? `<button class="btn sm dang" data-a="delGrupo" data-g="${l.grupo}">Apagar as ${g.length} parcelas</button>` : `<button class="btn sm dang" data-a="delLanc" data-id="${l.id}">Apagar</button>`}</div></div>`; }).join('')}</div><div class="small muted" style="margin-top:8px">Para trocar o mês das parcelas: apague e lance de novo dizendo quando começa, ex.: <i>caixão 1500 6x cartão da mãe começa em novembro</i>.</div>`;
+}
 function aplicarMeio(itens, v) { itens.forEach(it => { if (it.tipo !== 'despesa' || it.meioDito) return; if (v.startsWith('cc:')) { it.meio = 'credito'; it.cartaoId = v.slice(3); } else { it.meio = v; it.cartaoId = null; } it.meioDito = true; }); }
 function perguntaHTML(r) {
   if (r.pergunta === 'valor') return 'Quanto foi? Escreva só o valor (ex.: <i>45</i>) ou mande a frase completa de novo.';
@@ -1881,7 +1909,7 @@ function avisosItens(itens, ids = []) {
     if (it._prevAtual) av.push(`🔄 Previsão de <b>${esc(it._baixa)}</b> dos próximos meses atualizada de ${brl(it._prevAtual[0])} para ${brl(it._prevAtual[1])}. O mês a mês já foi recalculado.`);
     if (it.tipo !== 'despesa') return;
     if (it.objId && it.objItem) { const o = S.objs.find(x => x.id === it.objId), t = o && objTetos(o)[it.objItem]; if (t) { const g = t.gasto + (novo ? it.valor : 0); if (g > t.prev + .5) av.push(`⚠️ <b>${esc(t.nome)}</b> passou ${brl(g - t.prev)} do teto. O excesso sai igualmente dos outros itens de ${esc(o.nome)} que ainda vão ser gastos (veja o Guia).`); } }
-    else if (!it.fixoId && !it.objId) { const m = it.data.slice(0, 7), aj = ajusteMes(m), lim = +orcDoMes(m)[it.cat] || 0, g = (aj.gasto[it.cat] || 0) + (novo ? it.valor : 0); if (lim && g > lim) av.push(`⚠️ <b>${esc(it.cat)}</b> passou ${brl(g - lim)} do limite do mês. Tirei igualmente dos outros gastos do mês que ainda têm folga (se não houver folga, sai do livre).`); }
+    else if (!it.fixoId && !it.objId && (it.nparc || 1) === 1 && !it.cartaoId) { const m = it.data.slice(0, 7), aj = ajusteMes(m), lim = +orcDoMes(m)[it.cat] || 0, g = (aj.gasto[it.cat] || 0) + (novo ? it.valor : 0); if (lim && g > lim) av.push(`⚠️ <b>${esc(it.cat)}</b> passou ${brl(g - lim)} do limite do mês. Tirei igualmente dos outros gastos do mês que ainda têm folga (se não houver folga, sai do livre).`); }
   });
   return av.length ? `<div class="small" style="margin-top:8px;display:flex;flex-direction:column;gap:4px">${av.join('')}</div>` : '';
 }
@@ -1892,7 +1920,7 @@ A.respMeio = async el => {
   try { const r = await salvarItens(p.out, p.txt); msg.ids = r.ids; msg.fixos = r.fixos; msg.revs = r.revs; msg.h = resHTML(r); } catch (_) { msg.h = 'Não consegui registrar agora. Tente de novo.'; }
   chatRender();
 };
-const descItem = it => `${it.tipo === 'receita' ? '+ ' : ''}<b class="num">${brl(it.valor)}</b> ${esc(it.desc)} <span class="muted">· ${esc(it.cat)} · ${it.cartaoId ? 'Crédito ' + esc(cartao(it.cartaoId)?.nome || '') : MEIOS[it.meio] || ''}${it.nparc > 1 ? ` · ${it.nparc}×` : ''}${it._baixa === 'fatura' ? ' · fatura marcada como paga' : it._baixa ? ` · ${it.tipo === 'receita' ? 'recebido' : 'pago'}: ${esc(it._baixa)}${it.refMes && it.refMes !== ymNow() ? ' (' + ymLabel(it.refMes) + ')' : ''}` : it.fixoId ? ' · todo mês' : ''}${it.data !== hoje() ? ' · ' + dLabel(it.data) : ''}</span>`;
+const descItem = it => `${it.tipo === 'receita' ? '+ ' : ''}<b class="num">${brl(it.valor)}</b> ${esc(it.desc)} <span class="muted">· ${esc(it.cat)} · ${it.cartaoId ? 'Crédito ' + esc(cartao(it.cartaoId)?.nome || '') : MEIOS[it.meio] || ''}${it.nparc > 1 ? ` · ${it.nparc}×` : ''}${it.cartaoId || it.nparc > 1 ? ` · 1ª na fatura de ${ymLabel(it.mes || (it.cartaoId ? mesFatura(it.data, cartao(it.cartaoId)) : it.data.slice(0, 7)))}` : ''}${it._baixa === 'fatura' ? ' · fatura marcada como paga' : it._baixa ? ` · ${it.tipo === 'receita' ? 'recebido' : 'pago'}: ${esc(it._baixa)}${it.refMes && it.refMes !== ymNow() ? ' (' + ymLabel(it.refMes) + ')' : ''}` : it.fixoId ? ' · todo mês' : ''}${it.data !== hoje() ? ' · ' + dLabel(it.data) : ''}</span>`;
 function simulacaoCompra(txt) {
   const p = parseRapido(txt); if (!(p.valor > 0)) return '';
   const nt = norm(txt), hv = histVar(), n = clamp(p.nparc || 1, 1, 48);
@@ -1944,6 +1972,8 @@ async function enviarChat(txt) {
       }
     } else {
       let r = null;
+      const corr = corrigirHTML(txt);
+      if (corr) { msg.h = corr; S.chatBusy = false; chatRender(); return; }
       if (S.pend?.tipo === 'meio' && contaValores(txt) === 0) { const pm = parseRapido('x 1 ' + txt); if (pm.meioDito) { aplicarMeio(S.pend.out, pm.cartaoId ? 'cc:' + pm.cartaoId : pm.meio); r = await salvarItens(S.pend.out, S.pend.txt); } }
       if (!r && S.pend?.tipo === 'valor' && /^\s*(r\$\s*)?[\d.,]+\s*(reais)?\s*$/i.test(txt)) r = await lancarTexto(S.pend.txt + ' ' + txt);
       if (!r) r = await lancarTexto(txt);
@@ -1964,6 +1994,8 @@ F.rapido = async f => {
   if (PERG.test(txt)) { inp.value = ''; previewRapido(); A.novo(); enviarChat(txt); return; }
   const btn = f.querySelector('[type=submit]'); btn.disabled = true; $('#qprev').innerHTML = '<span class="chip">Anotando…</span>';
   try {
+    const corr = corrigirHTML(txt);
+    if (corr) { inp.value = ''; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:corr}); chatRender(); btn.disabled = false; return; }
     const r = await lancarTexto(txt);
     if (r && r.pergunta) { inp.value = ''; S.qmsg = null; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:perguntaHTML(r)}); chatRender(); }
     else if (!r || r.erro) { toast('Não achei o valor. Ex.: mercado 120'); previewRapido(); }
