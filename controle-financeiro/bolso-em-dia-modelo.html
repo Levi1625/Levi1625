@@ -2342,7 +2342,7 @@ function casaHTML() {
 A.iaToggle = () => window.__casa?.setIA(!window.__casa.ia());
 function whatsHTML() {
   const w = window.__casa.whats();
-  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Lembretes no WhatsApp</h2><p>Todo dia às 8h35: contas que vencem, dinheiro que cai e a agenda das viagens e do plano. Dias sem nada não mandam mensagem.</p></div>${w.numero && w.temChave ? `<span class="pill ${w.ligado ? 'ok' : ''}">${w.ligado ? 'ligado' : 'desligado'}</span>` : ''}</div>
+  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Lembretes no WhatsApp</h2><p>Toda manhã: contas que vencem, dinheiro que cai e a agenda das viagens e do plano. Dias sem nada não mandam mensagem.</p></div>${w.numero && w.temChave ? `<span class="pill ${w.ligado ? 'ok' : ''}">${w.ligado ? 'ligado' : 'desligado'}</span>` : ''}</div>
     <details${w.numero ? '' : ' open'}><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Como ativar (uma vez só)</summary><ol class="small" style="margin:8px 0;padding-left:18px">
       <li>Abra <b>callmebot.com</b> → "WhatsApp" e salve nos contatos o número do CallMeBot que aparece lá.</li>
       <li>Mande para ele, no WhatsApp: <i>I allow callmebot to send me messages</i>.</li>

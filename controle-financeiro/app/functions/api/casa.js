@@ -28,7 +28,7 @@ export async function onRequestPost({ request, env }) {
   } else if (b.acao === "testarWhats") {
     const c2 = await db.prepare("SELECT whatsapp, callmebot FROM casas WHERE id = ?").bind(s.casa).first();
     if (!c2 || !c2.whatsapp || !c2.callmebot) return json({ erro: "Salve o número e a chave do CallMeBot primeiro." }, 400);
-    const r = await enviarWhats(c2.whatsapp, c2.callmebot, "✅ Bolso em Dia: teste de lembrete. Daqui pra frente, os avisos do dia chegam aqui às 8h35.");
+    const r = await enviarWhats(c2.whatsapp, c2.callmebot, "✅ Bolso em Dia: teste de lembrete. Daqui pra frente, os avisos do dia chegam aqui toda manhã.");
     return json(r.ok ? { ok: true } : { erro: "O CallMeBot não aceitou: " + r.resposta }, r.ok ? 200 : 502);
   } else return json({ erro: "Ação inválida." }, 400);
   await db.prepare("UPDATE casas SET membros = ?, upd = ? WHERE id = ?").bind(JSON.stringify(membros), Date.now(), s.casa).run();
