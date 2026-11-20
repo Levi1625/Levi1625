@@ -67,6 +67,8 @@ No **Chrome** do celular, abra o endereço e toque em **⋮ → Instalar app** (
 2. No app próprio: **Ajustes → Restaurar backup (.json)**.
 
 ## 6. Lembretes no WhatsApp (todo dia às 8h35)
+Cada pessoa cadastra o próprio número e a apikey do CallMeBot em **Ajustes → Lembretes no WhatsApp** (tem o passo a passo na tela e o botão **Mandar teste**). As variáveis `WHATSAPP` e `CALLMEBOT_APIKEY` abaixo são opcionais: valem só para a sua casa, se você não cadastrar em Ajustes.
+
 1. No Cloudflare, projeto `bolso-em-dia` **→ Settings → Variables and Secrets → Add**:
 
 | Tipo | Nome | Valor |
@@ -82,6 +84,14 @@ No **Chrome** do celular, abra o endereço e toque em **⋮ → Instalar app** (
    - URL: `https://bolso-em-dia-26l.pages.dev/api/lembretes?chave=SUA_CHAVE&enviar=1` (troque `SUA_CHAVE` pela senha do passo 1)
    - Execution schedule: **Every day at 8:35**, fuso **America/Sao_Paulo**
    - **Create**. Toque em **Test run** para ver chegar no WhatsApp (se não houver nada no dia, não chega mensagem).
+
+## 7. Clientes (repassar ou vender)
+Só quem administra (o primeiro e-mail de `EMAILS_PERMITIDOS`, ou a variável `ADMIN_EMAIL`) vê **Ajustes → Clientes**:
+- **Liberar**: coloque o e-mail da pessoa e mande o endereço do app. Ela toca em **Primeiro acesso** e ganha um controle vazio, separado e privado.
+- **Pausar / Reativar**: bloqueia o acesso sem apagar nada (ex.: falta de pagamento).
+- **Limite de IA**: quanto a IA de cada cliente pode gastar por mês na sua chave (padrão US$ 0,50; mude o padrão com a variável `IA_LIMITE_PADRAO`).
+- **Remover**: apaga o controle e todos os dados daquele cliente.
+Todos recebem automaticamente cada melhoria do app.
 
 ## Esqueci a senha
 Outra pessoa da casa tira e coloca seu e-mail de novo em **Ajustes**. Depois você toca em **Primeiro acesso** e cria uma senha nova. Se você for o único da casa, crie a variável `RESET_SENHA` com o seu e-mail no Cloudflare, faça **Retry deployment**, crie a senha nova e depois apague a variável.

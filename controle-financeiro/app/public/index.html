@@ -1460,7 +1460,8 @@ function vAjustes() {
   <section class="card"><div class="card-h"><div><h2>Categorias</h2><p>Palavras-chave fazem a categorização automática. O app também aprende com as suas correções.</p></div></div>
     <div class="list">${catsDesp().map((c, i) => `<button class="li" data-a="editCat" data-i="${i}"><span class="ic" style="background:color-mix(in srgb, ${GRUPOS[c.g]?.c || 'var(--muted)'} 14%, var(--surface));color:${GRUPOS[c.g]?.c || 'var(--muted)'}">${catInicial(c.n)}</span><span class="tx"><span class="t1">${esc(c.n)}</span><span class="t2">${esc(GRUPOS[c.g]?.n || '')} · ${esc(String(c.k || '').split(',').slice(0, 5).join(', '))}</span></span></button>`).join('')}</div>
     <div class="form-actions"><button class="btn" data-a="editCat" data-i="-1">+ Nova categoria</button></div></section>
-  ${window.__casa ? casaHTML() : ''}
+  ${window.__casa ? casaHTML() + whatsHTML() : ''}
+  ${window.__admin ? '<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Clientes</h2><p>Só você vê: libere, pause ou tire pessoas que usam o app, cada uma com o próprio controle.</p></div></div><button class="btn pri" data-a="clientes">Abrir clientes</button></section>' : ''}
   <section class="card"><div class="card-h"><div><h2>Backup e importação</h2><p>Seus dados ficam salvos na sua conta Claude. Faça um backup de vez em quando.</p></div></div>
     <div class="row"><button class="btn" data-a="exportJSON">Baixar backup (.json)</button><button class="btn" data-a="restaurarJSON">Restaurar backup (.json)</button><button class="btn" data-a="exportCSV">Baixar lançamentos (.csv)</button><button class="btn" data-a="importarExtrato">Importar extrato do banco</button><button class="btn" data-a="importar">Importar planilha (CSV)</button></div>
     ${temExemplos() ? '<div class="row" style="margin-top:12px"><button class="btn dang" data-a="apagarExemplos">Apagar dados de exemplo</button></div>' : ''}</section>
@@ -2344,10 +2345,39 @@ function casaHTML() {
     <form class="quick" data-f="casaAdd" style="margin-top:10px"><input name="e" type="email" placeholder="E-mail da pessoa" aria-label="E-mail da pessoa" required><button class="btn pri" type="submit">Dar acesso</button></form>
     <div class="row" style="margin-top:8px"><span class="sp"></span><button class="lnk small" data-a="sair">Sair desta conta</button></div></section>
   <section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>IA do Claude</h2><p>${c.ia() ? 'Ligada: entra só quando precisa (frase difícil, perguntas como “posso comprar?”, foto de contracheque ou extrato). O resto usa as regras grátis.' : 'Desligada: tudo funciona com as regras grátis (o quê + valor + como pagou). Perguntas e leitura de fotos ficam indisponíveis.'}</p></div></div>
-    ${(() => { const u = c.usoIA(); return `<p class="small">Gasto com a IA neste mês: <b>US$ ${u.usd.toFixed(2).replace('.', ',')}</b> (~${brl(u.usd * 5.5)}) em ${u.n} uso${u.n === 1 ? '' : 's'}. É cobrado no cartão cadastrado na Anthropic, separado de qualquer plano do Claude.</p>`; })()}
+    ${(() => { const u = c.usoIA(); return `<p class="small">Gasto com a IA neste mês: <b>US$ ${u.usd.toFixed(2).replace('.', ',')}</b> (~${brl(u.usd * 5.5)}) em ${u.n} uso${u.n === 1 ? '' : 's'}${u.limite != null ? ` · limite do mês: US$ ${(+u.limite).toFixed(2).replace('.', ',')}` : ''}. ${u.limite != null && u.usd >= u.limite ? '<b class="neg">O limite acabou: até o mês que vem, tudo funciona pelas regras grátis.</b>' : ''}</p>`; })()}
     <div class="row" style="margin-top:10px"><button class="btn ${c.ia() ? '' : 'pri'}" data-a="iaToggle">${c.ia() ? 'Desligar a IA (só regras grátis)' : 'Ligar a IA do Claude'}</button></div></section>`;
 }
 A.iaToggle = () => window.__casa?.setIA(!window.__casa.ia());
+function whatsHTML() {
+  const w = window.__casa.whats();
+  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Lembretes no WhatsApp</h2><p>Todo dia às 8h35: contas que vencem, dinheiro que cai e a agenda das viagens e do plano. Dias sem nada não mandam mensagem.</p></div>${w.numero && w.temChave ? `<span class="pill ${w.ligado ? 'ok' : ''}">${w.ligado ? 'ligado' : 'desligado'}</span>` : ''}</div>
+    <details${w.numero ? '' : ' open'}><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Como ativar (uma vez só)</summary><ol class="small" style="margin:8px 0;padding-left:18px">
+      <li>Abra <b>callmebot.com</b> → "WhatsApp" e salve nos contatos o número do CallMeBot que aparece lá.</li>
+      <li>Mande para ele, no WhatsApp: <i>I allow callmebot to send me messages</i>.</li>
+      <li>Ele responde com o seu número (ex.: 558888326967) e a <b>apikey</b>. Coloque os dois aqui embaixo.</li></ol></details>
+    <form class="form" data-f="whats" style="gap:8px"><div class="f2"><label class="fld"><span>Número (como o CallMeBot mostrou)</span><input name="numero" inputmode="numeric" value="${esc(w.numero)}" placeholder="558888326967"></label>
+      <label class="fld"><span>Apikey do CallMeBot</span><input name="chave" inputmode="numeric" placeholder="${w.temChave ? 'já salva (deixe vazio para manter)' : 'ex.: 1234567'}"></label></div>
+      <label class="chk"><input type="checkbox" name="ligado" ${w.ligado ? 'checked' : ''}> Receber os lembretes</label>
+      <div class="row"><button class="btn pri" type="submit">Salvar</button>${w.numero && w.temChave ? '<button class="btn" type="button" data-a="testarWhats">Mandar teste</button>' : ''}</div></form></section>`;
+}
+F.whats = async fm => { try { await window.__casa.setWhats(fm.numero.value, fm.chave.value, fm.ligado.checked); toast('Lembretes salvos'); render(); } catch (e) { toast(e?.message || 'Não consegui salvar.'); } };
+A.testarWhats = async el => { el.disabled = true; try { await window.__casa.testarWhats(); toast('Teste enviado: confira o WhatsApp'); } catch (e) { toast(e?.message || 'Não consegui enviar.'); } el.disabled = false; };
+async function clientesHTML() {
+  const r = await window.__admin.listar(), cs = r.casas || [];
+  const lin = c => `<div class="gi"><div class="row" style="justify-content:space-between;gap:8px"><b>${esc(c.cliente || c.dono)}${c.minha ? ' <span class="pill">você</span>' : ''}</b><span class="pill ${c.pausado ? 'bad' : c.ativos ? 'ok' : ''}">${c.pausado ? 'pausado' : c.ativos ? 'ativo' : 'convite enviado'}</span></div>
+    <div class="small muted">${esc(c.membros.join(', '))} · WhatsApp ${c.whatsapp ? 'ligado' : 'não configurado'} · IA ${c.ia ? `US$ ${c.usoIA.toFixed(2).replace('.', ',')} de ${c.limiteIA == null ? 'sem limite' : 'US$ ' + c.limiteIA.toFixed(2).replace('.', ',')}` : 'desligada'}</div>
+    ${c.minha ? '' : `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm" data-a="cliPausar" data-id="${c.id}" data-v="${c.pausado ? 0 : 1}">${c.pausado ? 'Reativar' : 'Pausar'}</button><button class="btn sm" data-a="cliLimite" data-id="${c.id}" data-l="${c.limiteIA ?? ''}">Limite de IA</button><button class="btn sm dang" data-a="cliRemover" data-id="${c.id}">Remover</button></div>`}</div>`;
+  return `<p class="small">Cada cliente tem um controle separado e privado: você não vê os dados deles. Todos recebem na hora as melhorias do app. Para liberar, coloque o e-mail abaixo e mande o endereço do app: a pessoa toca em <b>Primeiro acesso</b>.</p>
+    <form class="quick" data-f="cliAdd" style="margin:10px 0;flex-wrap:wrap"><input name="email" type="email" placeholder="E-mail do cliente" required style="flex:2;min-width:180px"><input name="nome" placeholder="Nome (opcional)" style="flex:1;min-width:120px"><button class="btn pri" type="submit">Liberar</button></form>
+    <div class="gitens">${cs.map(lin).join('')}</div>
+    <p class="hint">Pausar bloqueia o acesso sem apagar nada (ex.: falta de pagamento). Remover apaga o controle e todos os dados do cliente, sem volta. O limite padrão de IA para clientes é US$ 0,50 por mês.</p>`;
+}
+A.clientes = async () => { openSheet('Clientes', '<p class="muted">Carregando…</p>'); try { const h = await clientesHTML(); openSheet('Clientes', h); } catch (e) { openSheet('Clientes', `<p class="neg">${esc(e?.message || 'Não consegui carregar.')}</p>`); } };
+F.cliAdd = async fm => { try { await window.__admin.add(fm.email.value, fm.nome.value); toast('Liberado. Mande o endereço do app para a pessoa.'); A.clientes(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
+A.cliPausar = async el => { try { await window.__admin.pausar(el.dataset.id, el.dataset.v === '1'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
+A.cliLimite = async el => { const v = prompt('Limite de IA por mês, em dólares (ex.: 0,50). Deixe vazio para o padrão.', el.dataset.l || ''); if (v === null) return; try { await window.__admin.limite(el.dataset.id, v.trim() === '' ? null : parseValor(v)); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
+A.cliRemover = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Toque de novo: apaga tudo'; return; } try { await window.__admin.remover(el.dataset.id); toast('Cliente removido'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 F.casaAdd = async fm => { try { await window.__casa.add(fm.e.value); toast('Acesso liberado. A pessoa entra com esse e-mail.'); render(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
 A.casaTirar = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar'; return; } try { await window.__casa.remove(el.dataset.e); toast('Acesso removido'); render(); } catch (_) {} };
 A.sair = () => window.__casa?.sair();

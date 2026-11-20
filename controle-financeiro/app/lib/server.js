@@ -18,6 +18,11 @@ export async function banco(env) {
       env.DB.prepare("CREATE TABLE IF NOT EXISTS docs (casa TEXT, path TEXT, col TEXT, data TEXT, upd INTEGER, del INTEGER DEFAULT 0, PRIMARY KEY (casa, path))"),
       env.DB.prepare("CREATE INDEX IF NOT EXISTS docs_upd ON docs (casa, upd)"),
     ]);
+    // Colunas novas (o app cresce sem perder dados): WhatsApp de cada casa, pausa e limite de IA.
+    for (const sql of ["ALTER TABLE casas ADD COLUMN whatsapp TEXT", "ALTER TABLE casas ADD COLUMN callmebot TEXT", "ALTER TABLE casas ADD COLUMN lembretes INTEGER DEFAULT 1",
+      "ALTER TABLE casas ADD COLUMN pausado INTEGER DEFAULT 0", "ALTER TABLE casas ADD COLUMN ia_limite REAL", "ALTER TABLE casas ADD COLUMN cliente TEXT"]) {
+      try { await env.DB.prepare(sql).run(); } catch (_) { /* coluna já existe */ }
+    }
     pronto = true;
   }
   return env.DB;
@@ -59,7 +64,8 @@ export async function sessao(request, env) {
   if (!m) return null;
   const s = await db.prepare("SELECT s.email, s.expira, u.nome, u.casa FROM sessoes s JOIN usuarios u ON u.email = s.email WHERE s.token = ?").bind(m[1]).first();
   if (!s || s.expira < Date.now() || !s.casa) return null;
-  return { email: s.email, nome: s.nome, casa: s.casa, token: m[1] };
+  const c = await db.prepare("SELECT pausado FROM casas WHERE id = ?").bind(s.casa).first();
+  return { email: s.email, nome: s.nome, casa: s.casa, token: m[1], pausado: !!(c && c.pausado) };
 }
 
 export async function lerCasa(db, id) {
@@ -71,12 +77,33 @@ export async function lerCasa(db, id) {
     const r = await db.prepare(`SELECT email, nome FROM usuarios WHERE email IN (${membros.map(() => "?").join(",")})`).bind(...membros).all();
     for (const u of r.results || []) nomes[u.email] = u.nome || u.email.split("@")[0];
   }
-  return { id: c.id, dono: c.dono, membros, ia: c.ia !== 0, uso: JSON.parse(c.uso || "{}"), nomes };
+  return { id: c.id, dono: c.dono, membros, ia: c.ia !== 0, uso: JSON.parse(c.uso || "{}"), nomes,
+    whatsapp: c.whatsapp || "", temChaveWhats: !!c.callmebot, lembretes: c.lembretes !== 0, pausado: !!c.pausado, iaLimite: c.ia_limite == null ? null : +c.ia_limite, cliente: c.cliente || "" };
 }
 
 export async function casaDoEmail(db, email) {
   const r = await db.prepare("SELECT id, membros FROM casas WHERE membros LIKE ?").bind(`%"${email.replace(/[%_"]/g, "")}"%`).all();
   return (r.results || []).find((c) => JSON.parse(c.membros || "[]").includes(email)) || null;
+}
+
+// Quem administra o app (você): ADMIN_EMAIL, ou o primeiro e-mail de EMAILS_PERMITIDOS.
+export const adminEmail = (env) => normEmail(env.ADMIN_EMAIL || String(env.EMAILS_PERMITIDOS || "").split(/[,;\s]+/).filter(Boolean)[0] || "");
+export const usoDoMes = (casa) => { const u = (casa.uso || {})[new Date().toISOString().slice(0, 7)] || {}; return +u.usd || 0; };
+// Limite de IA por mês (US$): o da casa; se não tiver, IA_LIMITE_PADRAO (0,50) para clientes; sem limite para a sua casa.
+export const limiteIA = (casa, env) => casa.iaLimite != null ? casa.iaLimite : (normEmail(casa.dono) === adminEmail(env) ? Infinity : +(env.IA_LIMITE_PADRAO ?? 0.5));
+export async function enviarWhats(numero, chave, texto) {
+  const partes = []; let atual = "";
+  for (const linha of String(texto).split("\n")) { if ((atual + "\n" + linha).length > 1400) { partes.push(atual); atual = linha; } else atual = atual ? atual + "\n" + linha : linha; }
+  if (atual) partes.push(atual);
+  let ok = false, resposta = "";
+  for (const [i, p] of partes.entries()) {
+    if (i) await new Promise((r) => setTimeout(r, 5000));
+    const q = new URLSearchParams({ phone: "+" + String(numero).replace(/\D/g, ""), text: p, apikey: String(chave) });
+    const r = await fetch("https://api.callmebot.com/whatsapp.php?" + q.toString());
+    resposta = (await r.text()).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+    ok = r.ok && !/error|invalid|not activated/i.test(resposta);
+  }
+  return { ok, resposta };
 }
 
 export const permitidosEnv = (env) => String(env.EMAILS_PERMITIDOS || "").toLowerCase().split(/[,;\s]+/).filter(Boolean);

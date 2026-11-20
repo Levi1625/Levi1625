@@ -2,7 +2,7 @@
 // Recebe o pedido do app (pessoa logada), chama o Claude com a chave guardada
 // no Cloudflare (ANTHROPIC_API_KEY), devolve o texto ou o JSON e soma o custo do mês na casa.
 import Anthropic from "@anthropic-ai/sdk";
-import { banco, sessao, lerCasa, mesmaOrigem } from "../../lib/server.js";
+import { banco, sessao, lerCasa, mesmaOrigem, limiteIA, usoDoMes } from "../../lib/server.js";
 
 // Preço por milhão de tokens (US$), para mostrar no app quanto a IA custou no mês.
 const PRECO = {
@@ -29,8 +29,10 @@ export async function onRequestPost({ request, env }) {
   if (!mesmaOrigem(request)) return resposta({ erro: "Origem inválida." }, 403);
   const s = await sessao(request, env);
   if (!s) return resposta({ erro: "Entre no app de novo." }, 401);
+  if (s.pausado) return resposta({ erro: "Acesso pausado." }, 403);
   const db = await banco(env), casa = await lerCasa(db, s.casa);
   if (!casa.ia) return resposta({ erro: "A IA está desligada em Ajustes." }, 403);
+  if (usoDoMes(casa) >= limiteIA(casa, env)) return resposta({ erro: "O limite de IA deste mês acabou. Os lançamentos continuam funcionando pelas regras grátis." }, 429);
 
   // 2. Monta o pedido.
   let body;

@@ -1,9 +1,10 @@
 // GET /api/lembretes?chave=...&enviar=1[&hoje=AAAA-MM-DD]
 // Monta o lembrete do dia (contas, dinheiro que cai, agenda das viagens e do plano) a partir
 // dos dados do app e, com enviar=1, manda pelo WhatsApp (CallMeBot). Chamado todo dia às 8h35.
-// Variáveis no Cloudflare: LEMBRETES_CHAVE (segredo), LEMBRETES_EMAIL (de quem é a casa),
-// CALLMEBOT_APIKEY (segredo) e WHATSAPP (número no formato que o CallMeBot ativou).
-import { json, banco } from "../../lib/server.js";
+// Cada casa cadastra o próprio WhatsApp e a chave do CallMeBot em Ajustes. Para a casa de LEMBRETES_EMAIL,
+// se ela não tiver cadastro próprio, valem as variáveis WHATSAPP e CALLMEBOT_APIKEY do Cloudflare.
+// LEMBRETES_CHAVE (segredo) protege esta rota; o cron-job.org chama com ?chave=...&enviar=1.
+import { json, banco, enviarWhats, normEmail } from "../../lib/server.js";
 
 const brl = (v) => "R$ " + (+v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const addDia = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -50,34 +51,39 @@ export function montar(dados, HOJE) {
   return L.join("\n");
 }
 
+async function dadosDaCasa(db, casa) {
+  const r = await db.prepare("SELECT path, data FROM docs WHERE casa = ? AND del = 0").bind(casa).all();
+  const dados = { lanc: [], fixos: [], cartoes: [], emprestimos: [], objetivos: [], config: {} };
+  for (const d of r.results || []) { const [col, id] = d.path.split("/"); const x = { id, ...JSON.parse(d.data) }; if (col === "config") dados.config = x; else if (dados[col]) dados[col].push(x); }
+  return dados;
+}
+
 export async function onRequestGet({ request, env }) {
   const u = new URL(request.url);
   if (!env.LEMBRETES_CHAVE || u.searchParams.get("chave") !== env.LEMBRETES_CHAVE) return json({ erro: "Chave inválida." }, 403);
-  const db = await banco(env);
-  const usuario = await db.prepare("SELECT casa FROM usuarios WHERE email = ?").bind(String(env.LEMBRETES_EMAIL || "").toLowerCase()).first();
-  if (!usuario) return json({ erro: "LEMBRETES_EMAIL não tem conta no app." }, 404);
-  const r = await db.prepare("SELECT path, data FROM docs WHERE casa = ? AND del = 0").bind(usuario.casa).all();
-  const dados = { lanc: [], fixos: [], cartoes: [], emprestimos: [], objetivos: [], config: {} };
-  for (const d of r.results || []) { const [col, id] = d.path.split("/"); const x = { id, ...JSON.parse(d.data) }; if (col === "config") dados.config = x; else if (dados[col]) dados[col].push(x); }
-  const HOJE = /^\d{4}-\d{2}-\d{2}$/.test(u.searchParams.get("hoje") || "") ? u.searchParams.get("hoje") : hojeSP();
-  let texto = montar(dados, HOJE);
-  if (!texto) return json({ hoje: HOJE, enviado: false, nada: true });
-  const base = new URL(request.url).origin;
-  texto += "\n" + base;
-  if (u.searchParams.get("hoje")) texto = `🧪 TESTE (simulando ${HOJE.slice(8)}/${HOJE.slice(5, 7)})\n` + texto;
-  let enviado = false, resposta = "";
-  if (u.searchParams.get("enviar") === "1" && env.CALLMEBOT_APIKEY && env.WHATSAPP) {
-    const partes = []; let atual = "";
-    for (const linha of texto.split("\n")) { if ((atual + "\n" + linha).length > 1400) { partes.push(atual); atual = linha; } else atual = atual ? atual + "\n" + linha : linha; }
-    if (atual) partes.push(atual);
-    for (const [i, p] of partes.entries()) {
-      if (i) await new Promise((ok) => setTimeout(ok, 5000));
-      const q = new URLSearchParams({ phone: "+" + String(env.WHATSAPP).replace(/\D/g, ""), text: p, apikey: env.CALLMEBOT_APIKEY });
-      const resp = await fetch("https://api.callmebot.com/whatsapp.php?" + q.toString());
-      resposta = (await resp.text()).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").slice(0, 200);
-      enviado = resp.ok && !/error/i.test(resposta);
-    }
+  const db = await banco(env), base = u.origin, teste = u.searchParams.get("hoje");
+  const HOJE = /^\d{4}-\d{2}-\d{2}$/.test(teste || "") ? teste : hojeSP();
+  const dono = await db.prepare("SELECT casa FROM usuarios WHERE email = ?").bind(normEmail(env.LEMBRETES_EMAIL)).first();
+  const casas = (await db.prepare("SELECT id, whatsapp, callmebot, lembretes, pausado FROM casas").all()).results || [];
+  const destinos = [];
+  for (const c of casas) {
+    if (c.pausado || c.lembretes === 0) continue;
+    let numero = c.whatsapp, chave = c.callmebot;
+    if ((!numero || !chave) && dono && dono.casa === c.id) { numero = numero || env.WHATSAPP; chave = chave || env.CALLMEBOT_APIKEY; }
+    if (numero && chave) destinos.push({ id: c.id, numero, chave });
   }
-  // Quando envia pelo WhatsApp, não devolve o texto (quem agenda a chamada não precisa ver seus dados).
-  return json(u.searchParams.get("enviar") === "1" ? { hoje: HOJE, enviado, resposta } : { hoje: HOJE, enviado, texto });
+  // Sem enviar=1: só mostra o texto da sua casa (para conferir).
+  if (u.searchParams.get("enviar") !== "1") {
+    if (!dono) return json({ erro: "LEMBRETES_EMAIL não tem conta no app." }, 404);
+    const t = montar(await dadosDaCasa(db, dono.casa), HOJE);
+    return json({ hoje: HOJE, texto: t ? t + "\n" + base : null, casasComWhats: destinos.length });
+  }
+  let enviados = 0, falhas = 0;
+  for (const d of destinos) {
+    let t = montar(await dadosDaCasa(db, d.id), HOJE); if (!t) continue;
+    t += "\n" + base; if (teste) t = `🧪 TESTE (simulando ${HOJE.slice(8)}/${HOJE.slice(5, 7)})\n` + t;
+    const r = await enviarWhats(d.numero, d.chave, t); r.ok ? enviados++ : falhas++;
+  }
+  // Não devolve o conteúdo: quem agenda a chamada não vê os dados de ninguém.
+  return json({ hoje: HOJE, casas: destinos.length, enviados, falhas });
 }

@@ -102,7 +102,17 @@
       sair: async () => { await api('POST', '/api/sair').catch(() => {}); location.reload(); },
       ia: () => !casa || casa.ia !== false,
       setIA: async v => { await api('POST', '/api/casa', {acao:'ia', valor:!!v}); location.reload(); },
-      usoIA: () => { const m = new Date().toISOString().slice(0, 7), u = (casa && casa.uso || {})[m] || {}; return {usd:+u.usd || 0, n:+u.n || 0}; },
+      usoIA: () => { const m = new Date().toISOString().slice(0, 7), u = (casa && casa.uso || {})[m] || {}; return {usd:+u.usd || 0, n:+u.n || 0, limite:casa && casa.iaLimite}; },
+      whats: () => ({numero:casa && casa.whatsapp || '', temChave:!!(casa && casa.temChaveWhats), ligado:!casa || casa.lembretes !== false}),
+      setWhats: async (numero, chave, ligado) => { const r = await api('POST', '/api/casa', {acao:'whats', numero, chave, lembretes:ligado}); casa = r.casa; },
+      testarWhats: () => api('POST', '/api/casa', {acao:'testarWhats'}),
+    };
+    if (eu.admin) window.__admin = {
+      listar: () => api('GET', '/api/admin'),
+      add: (email, nome) => api('POST', '/api/admin', {acao:'add', email, nome}),
+      pausar: (id, valor) => api('POST', '/api/admin', {acao:'pausar', id, valor}),
+      limite: (id, valor) => api('POST', '/api/admin', {acao:'limite', id, valor}),
+      remover: id => api('POST', '/api/admin', {acao:'remover', id}),
     };
   }
   async function iniciar() {
@@ -110,13 +120,13 @@
     try { r = await api('GET', '/api/eu'); }
     catch (e) {
       if (e.status === 401) { telaLogin(); return; }
-      if (e.status === 503) { telaLogin(e.message); return; }
+      if (e.status === 503 || e.status === 403) { telaLogin(e.message); return; }
       const ultimo = (() => { try { return JSON.parse(localStorage.getItem('bolso:ultimo') || 'null'); } catch (_) { return null; } })();
       if (!ultimo) { telaLogin('Sem internet agora. Conecte e tente de novo.'); return; }
       r = ultimo; // sem internet: abre com a cópia guardada no celular
     }
-    eu = {email:r.email, nome:r.nome}; casa = r.casa;
-    try { localStorage.setItem('bolso:ultimo', JSON.stringify({email:r.email, nome:r.nome, casa:r.casa})); } catch (_) {}
+    eu = {email:r.email, nome:r.nome, admin:!!r.admin}; casa = r.casa;
+    try { localStorage.setItem('bolso:ultimo', JSON.stringify({email:r.email, nome:r.nome, admin:!!r.admin, casa:r.casa})); } catch (_) {}
     store = ler('store', {}); since = ler('since', 0); fila = ler('fila', {});
     publicarCasa(); tirarLogin(); resolverLogin();
     sincronizar();
