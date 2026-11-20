@@ -160,6 +160,13 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .mgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .mgrid a,.mgrid button{background:var(--surface-2);border:0;border-radius:18px;padding:14px 6px;text-decoration:none;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
 .mgrid .cic{width:46px;height:46px;border-radius:15px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.cal-h span{text-align:center;font-size:.75rem;font-weight:700;color:var(--muted);padding-bottom:4px}
+.cal button{height:46px;border:0;background:none;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;font:inherit;color:var(--ink);padding:0}
+.cal button.pass span{color:var(--muted)}.cal button.hoje{box-shadow:inset 0 0 0 2px var(--accent)}.cal button.hoje span{color:var(--accent);font-weight:800}
+.cal button.sel{background:var(--hero)}.cal button.sel span{color:#fff;font-weight:800}
+.cal i{display:flex;gap:2px;height:5px}.cal i em{width:5px;height:5px;border-radius:3px;display:block}
+em.lg{display:inline-block;width:8px;height:8px;border-radius:4px;vertical-align:middle}
 .sw{width:46px;height:28px;border-radius:14px;position:relative;flex:none;border:0;cursor:pointer;background:#C7D0CD}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .sw[aria-checked="true"]{background:var(--accent)}.sw[aria-checked="true"]::after{left:21px}
@@ -740,6 +747,7 @@ async function criarLanc(o) {
   if (o.cartaoId) base.cartaoId = o.cartaoId;
   if (o.objId) { base.objId = o.objId; if (o.objItem) base.objItem = o.objItem; }
   if (o.obs) base.obs = o.obs;
+  if (o.revisar) base.revisar = true;
   if (o.fixoId) { base.fixoId = o.fixoId; base.refMes = o.refMes || o.data.slice(0, 7); }
   if (o.empId) base.empId = o.empId;
   const c = o.cartaoId ? cartao(o.cartaoId) : null;
@@ -812,7 +820,7 @@ function lancRow(l) {
   const meio = l.cartaoId ? (cartao(l.cartaoId)?.nome || 'Cartão') : (MEIOS[l.meio] || '');
   const quem = l.por && Object.keys(S.nomes).length > 1 ? (S.nomes[l.por] || '').split(' ')[0] : '';
   const extra = [l.cat, meio, l.nparc > 1 ? `${l.parc}/${l.nparc}` : '', isFixo(l) ? 'fixo' : '', l.objId ? (S.objs.find(o => o.id === l.objId)?.nome || '') : '', quem].filter(Boolean).join(' · ');
-  return `<button class="li" data-a="editLanc" data-id="${l.id}"><span class="ic" style="background:${bg};color:${fg}">${catInicial(l.cat)}</span><span class="tx"><span class="t1">${esc(l.desc)}</span><span class="t2">${esc(extra)}</span></span><span class="am ${l.tipo === 'receita' ? 'pos' : ''}">${l.tipo === 'receita' ? '+' : '−'} ${brl(l.valor)}</span></button>`;
+  return `<button class="li" data-a="editLanc" data-id="${l.id}">${catIco(l.cat, l.tipo)}<span class="tx"><span class="t1">${esc(l.desc)}${l.revisar ? ' <span class="pill warn" style="font-size:.7rem">revisar</span>' : ''}</span><span class="t2">${esc(extra)}</span></span><span class="am ${l.tipo === 'receita' ? 'pos' : ''}">${l.tipo === 'receita' ? '+' : '−'} ${brl(l.valor)}</span></button>`;
 }
 function niceMax(v) {
   if (v <= 0) return 1;
@@ -1023,22 +1031,50 @@ function vHoje() {
 }
 A.revOk = async el => { const l = S.lanc.find(x => x.id === el.dataset.id); if (!l) return; try { await put(COLS.lanc, l.id, {...strip(l), revisar:null}); toast('Confirmado'); } catch (_) {} };
 A.abrirGuardado = () => { location.hash = '#planos'; };
+// Contas: calendário do mês com bolinhas (pagar, receber, já feito) e a lista com Paguei/Recebi.
 function vContasHoje() {
-  const m = ymNow(), d = new Date().getDate(), m2 = addM(m, 1);
-  const lista = mm => { const out = pendentesMes(mm).filter(p => p.tipo === 'despesa' && !p.ref.cartaoId && !isVA(p.ref)); S.cartoes.forEach(c => { const v = valorFatura(c, mm); if (v > 0 && !faturaPaga(c, mm)) out.push({kind:'fatura', ref:c, tipo:'despesa', valor:v, desc:'Fatura ' + c.nome, dia:+vencFatura(c, mm).slice(8)}); }); return out.sort((a, b) => a.dia - b.dia); };
-  const linha = (p, mm) => { const falta = mm === m ? p.dia - d : null; return `<div class="fz-r"><span class="dia-b${falta != null && falta < 0 ? ' atras' : falta === 0 ? ' hoje' : ''}"><small>${MES[+mm.slice(5) - 1].toUpperCase()}</small><b>${p.dia}</b></span><span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${falta != null && falta <= 1 ? quandoTxt(falta) + ' · ' : ''}pagar ${comoPagar(p)}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b class="num">${brl(p.valor)}</b>${botaoPagar({...p, falta}, mm)}</span></div>`; };
-  const L = lista(m), L2 = lista(m2), tot = sum(L);
-  const entradas = pendentesMes(m).filter(p => p.tipo === 'receita' && !isRep(p.ref));
-  const pagas = fixosAtivos(m).filter(f => (f.tipo || 'despesa') === 'despesa' && pagoFixo(f, m)).length + S.cartoes.filter(c => faturaPaga(c, m)).length;
-  let h = header('Contas', 'O que pagar, quando e como', '');
-  h += `<p class="muted" style="margin:-6px 0 14px">${L.length ? `Faltam <b class="num">${brl(tot)}</b> em ${L.length} conta${L.length > 1 ? 's' : ''} este mês. ${pagas ? `Já ${pagas > 1 ? 'foram pagas' : 'foi paga'} ${pagas}.` : ''}` : 'Tudo pago este mês.'} Pagou antes? Toque em Paguei: o aviso some.</p>`;
-  h += `<section class="card" style="margin-bottom:16px">${L.length ? `<div class="fz">${L.map(p => linha(p, m)).join('')}</div>` : '<p class="muted">Nenhuma conta pendente em ' + ymLong(m) + '.</p>'}</section>`;
-  if (L2.length) h += `<details class="card" style="margin-bottom:16px"><summary style="cursor:pointer;font-weight:600">Próximo mês: ${L2.length} contas · <span class="num">${brl(sum(L2))}</span></summary><div class="fz" style="margin-top:8px">${L2.map(p => linha(p, m2)).join('')}</div></details>`;
-  if (entradas.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Dinheiro que vai entrar</h2></div><div class="fz">${entradas.map(p => `<div class="fz-r"><span class="dia-b"><small>${MES[+m.slice(5) - 1].toUpperCase()}</small><b>${p.dia}</b></span><span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${walletRec(p.ref) === 'conta' ? 'na conta' : 'no vale'}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b class="num pos">${brl(p.valor)}</b>${botaoPagar(p, m)}</span></div>`).join('')}</div></section>`;
-  if (S.cartoes.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Cartões</h2></div><div class="fz">${S.cartoes.map(c => `<div class="fz-r"><span class="tx"><span class="t1">${esc(c.nome)}</span><span class="t2">fecha dia ${c.fecha || '?'} · vence dia ${c.vence || '?'} · fatura de ${ymLabel(m)}: <span class="num">${brl(valorFatura(c, m))}</span></span></span><button class="btn sm" data-a="editCartao" data-id="${c.id}">Mudar</button></div>`).join('')}</div><p class="hint" style="margin-top:8px">Também dá para escrever no +: <i>“o cartão da mãe fecha dia 19 e vence dia 25”</i>.</p></section>`;
-  h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#fixos">Cadastrar ou mudar contas fixas</a><a class="btn" href="#cartoes">Ver cartões e parcelas</a></div>`;
+  const hojeM = ymNow(), m = S.calMes || hojeM, d0 = new Date().getDate(), aba = S.contasAba || 'contas';
+  const lista = mm => { const out = pendentesMes(mm).filter(p => p.tipo === 'despesa' && !p.ref.cartaoId && !isVA(p.ref)); S.cartoes.forEach(c => { const v = valorFatura(c, mm); if (v > 0 && !faturaPaga(c, mm)) out.push({kind:'fatura', ref:c, tipo:'despesa', valor:v, desc:'Fatura ' + c.nome, dia:+vencFatura(c, mm).slice(8), cat:'Cartão (sem detalhe)'}); }); return out.sort((a, b) => a.dia - b.dia); };
+  const L = lista(m), E = pendentesMes(m).filter(p => p.tipo === 'receita' && !isRep(p.ref));
+  const pagos = [...fixosAtivos(m).filter(f => pagoFixo(f, m) && !isRep(f)).map(f => ({desc:f.desc, valor:valorFixo(f, m), dia:diaFixo(f, m), tipo:f.tipo || 'despesa', cat:f.cat, pago:true})),
+    ...S.cartoes.filter(c => faturaPaga(c, m)).map(c => ({desc:'Fatura ' + c.nome, valor:valorFatura(c, m), dia:+vencFatura(c, m).slice(8), tipo:'despesa', cat:'Cartão (sem detalhe)', pago:true}))];
+  let h = `<header class="hd2"><span class="tx"><b style="font-size:1.5rem">Contas</b></span><div class="seg3" role="group" aria-label="Ver" style="flex:none;width:190px"><button type="button" data-a="contasAba" data-v="contas" aria-pressed="${aba === 'contas'}">Contas</button><button type="button" data-a="contasAba" data-v="cartoes" aria-pressed="${aba === 'cartoes'}">Cartões</button></div></header>`;
+  if (aba === 'cartoes') {
+    h += S.cartoes.length ? S.cartoes.map(c => { const v = valorFatura(c, hojeM), pago = faturaPaga(c, hojeM); return `<section class="sec2"><div class="ri" style="border:0">${catIco('Cartão (sem detalhe)', 'despesa')}<span class="tx"><span class="t1">${esc(c.nome)}</span><span class="t2">fecha dia ${c.fecha || '?'} · vence dia ${c.vence || '?'}</span></span><button class="btn sm" data-a="editCartao" data-id="${c.id}">Mudar</button></div>
+      <div class="row" style="justify-content:space-between;margin-top:6px"><span class="muted small">Fatura de ${ymLabel(hojeM)}${pago ? ' · paga' : ''}</span><b class="num" style="font-size:1.15rem">${brl(v)}</b></div><div class="row" style="justify-content:space-between;margin-top:2px"><span class="muted small">Fatura de ${ymLabel(addM(hojeM, 1))}</span><span class="num">${brl(valorFatura(c, addM(hojeM, 1)))}</span></div></section>`; }).join('') : '<p class="muted">Nenhum cartão cadastrado.</p>';
+    h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#cartoes">Cartões e parcelas</a>${soVer() ? '' : '<button class="btn" data-a="novoCartao">+ Novo cartão</button>'}</div><p class="hint" style="margin-top:10px">Também dá para escrever no +: <i>“o cartão da mãe fecha dia 19 e vence dia 25”</i>.</p>`;
+    return h;
+  }
+  const tile = (n, v, cor) => `<div class="sec2" style="margin:0;padding:12px"><div class="small muted">${n}</div><div class="num" style="font-weight:800;font-size:1.05rem;color:${cor}">${brl0(v)}</div></div>`;
+  h += `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px">${tile('A pagar', sum(L), 'var(--warn)')}${tile('A receber', sum(E), 'var(--pos)')}${tile('Já pago', sum(pagos.filter(p => p.tipo !== 'receita')), 'var(--ink)')}</div>`;
+  // calendário
+  const [y, mo] = m.split('-').map(Number), ini = new Date(y, mo - 1, 1).getDay(), nd = new Date(y, mo, 0).getDate();
+  const marca = {}; const add = (dia, c) => { (marca[dia] = marca[dia] || []).push(c); };
+  L.forEach(p => add(p.dia, 'pagar')); E.forEach(p => add(p.dia, 'receber')); pagos.forEach(p => add(p.dia, 'feito'));
+  const COR = {pagar:'#E8590C', receber:'#10B981', feito:'#B8C2BF'};
+  const sel = S.calDia && S.calDia.slice(0, 7) === m ? +S.calDia.slice(8) : null;
+  let cel = ''; for (let k = 0; k < ini; k++) cel += '<span></span>';
+  for (let dd = 1; dd <= nd; dd++) { const ehHoje = m === hojeM && dd === d0, ehSel = sel === dd, pass = m < hojeM || (m === hojeM && dd < d0);
+    cel += `<button type="button" data-a="calDia" data-d="${m}-${pad(dd)}" class="${ehSel ? 'sel' : ''}${ehHoje ? ' hoje' : ''}${pass ? ' pass' : ''}" aria-label="Dia ${dd}${marca[dd] ? ', ' + marca[dd].length + ' conta(s)' : ''}"><span>${dd}</span><i>${(marca[dd] || []).slice(0, 3).map(c => `<em style="background:${COR[c]}"></em>`).join('')}</i></button>`; }
+  h += `<section class="sec2"><div class="row" style="justify-content:space-between;margin-bottom:8px"><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="-1" aria-label="Mês anterior">‹</button><b>${ymLong(m)}</b><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="1" aria-label="Próximo mês">›</button></div>
+    <div class="cal cal-h">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div><div class="cal">${cel}</div>
+    <div class="row small muted" style="justify-content:center;gap:14px;margin-top:8px"><span><em class="lg" style="background:${COR.pagar}"></em> pagar</span><span><em class="lg" style="background:${COR.receber}"></em> receber</span><span><em class="lg" style="background:${COR.feito}"></em> já feito</span></div></section>`;
+  // lista
+  const DS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const quando = dia => { const x = new Date(y, mo - 1, dia); return `${DS[x.getDay()]}, ${dia} ${MES[mo - 1]}`; };
+  const row = p => { const falta = m === hojeM ? p.dia - d0 : m < hojeM ? -1 : 99;
+    const sub = p.pago ? 'já feito' : p.tipo === 'receita' ? (walletRec(p.ref) === 'conta' ? 'entra na conta' : 'entra no vale') : (falta <= 1 && m === hojeM ? quandoTxt(falta) + ' · ' : '') + comoPagar(p);
+    return `<div class="ri">${catIco(p.cat, p.tipo)}<span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${quando(p.dia)} · ${sub}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b class="num ${p.tipo === 'receita' ? 'pos' : ''}" style="${p.pago ? 'color:var(--muted)' : ''}">${p.tipo === 'receita' ? '+ ' : ''}${brl(p.valor)}</b>${p.pago ? '' : botaoPagar({...p, falta}, m)}</span></div>`; };
+  let itens, titulo;
+  if (sel) { itens = [...L, ...E, ...pagos].filter(p => p.dia === sel); titulo = quando(sel); }
+  else { itens = [...L, ...E].sort((a, b) => a.dia - b.dia); titulo = L.length || E.length ? `Falta em ${ymLabel(m)}` : `Tudo certo em ${ymLabel(m)}`; }
+  h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">${titulo}</h2>${sel ? '<button class="lnk" data-a="calDia" data-d="">Ver o mês</button>' : ''}</div>${itens.length ? itens.map(row).join('') : `<p class="muted small" style="padding:8px 0">${sel ? 'Nada neste dia.' : 'Nenhuma conta pendente.'}</p>`}</section>`;
+  h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#fixos">${soVer() ? 'Ver contas fixas' : '+ Conta fixa ou renda'}</a><a class="btn" href="#fixos">Todas as fixas</a></div>`;
   return h;
 }
+A.contasAba = el => { S.contasAba = el.dataset.v; render(); };
+A.calMes = el => { S.calMes = addM(S.calMes || ymNow(), +el.dataset.d); S.calDia = null; render(); };
+A.calDia = el => { const d = el.dataset.d; S.calDia = !d || S.calDia === d ? null : d; render(); };
 A.projIr2 = el => openSheet('Mês de ' + ymLong(el.dataset.m), mesDetalheHTML(el.dataset.m));
 A.projTabelas = el => { S.projMes = el.dataset.m; closeSheet(); location.hash = '#projecao'; };
 // Detalhe simples de um mês: começa com, entra, sai, fica na conta no fim e, se apertar, de onde cobrir.
@@ -1420,15 +1456,23 @@ function insights(r, med) {
 }
 
 /* ---------- EXTRATO ---------- */
+function revisarHTML() {
+  const rev = S.lanc.filter(l => l.revisar).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  if (!rev.length) return '';
+  return `<section class="sec2" style="background:var(--warn-soft);box-shadow:none"><div class="sec2-h"><h2>Para revisar<span class="cnt">${rev.length}</span></h2>${soVer() ? '' : '<button class="btn sm pri" data-a="revTodos">Confirmar todos</button>'}</div><p class="small" style="margin-bottom:6px">Vieram de print ou foto e a IA escolheu a categoria. Toque no item para mudar, ou em ✓ se estiver certo.</p>
+    ${rev.slice(0, 12).map(l => `<div class="ri" style="background:var(--surface);border-radius:14px;padding:8px 10px;margin-top:6px;border:0">${catIco(l.cat, l.tipo, 'sm')}<button class="tx" data-a="editLanc" data-id="${l.id}" style="border:0;background:none;text-align:left;padding:0;font:inherit;color:inherit;cursor:pointer"><span class="t1">${esc(l.desc)}</span><span class="t2">${esc(l.cat)} · ${esc(lugarDe(l))} · ${dCurto(l.data)}</span></button><span class="v num">${brl0(l.valor)}</span><button class="okb" data-a="revOk" data-id="${l.id}" aria-label="Confirmar ${esc(l.desc)}">${svgI('M5 12l5 5 9-10', 16)}</button></div>`).join('')}${rev.length > 12 ? `<p class="small muted" style="margin-top:6px">e mais ${rev.length - 12}…</p>` : ''}</section>`;
+}
+A.revTodos = async el => { el.disabled = true; try { for (const l of S.lanc.filter(x => x.revisar)) await put(COLS.lanc, l.id, {...strip(l), revisar:null}); toast('Tudo confirmado'); } catch (_) { el.disabled = false; } };
 function vExtrato() {
   const m = S.mes, f = S.filtro;
-  let h = header('Lançamentos', 'Extrato do mês') + exBanner();
+  let h = header('Lançamentos', 'Tudo o que entrou e saiu') + exBanner() + revisarHTML();
   const cats = [...new Set(S.lanc.filter(l => l.mes === m).map(l => l.cat))].sort();
-  h += `<div class="filters"><input id="f-q" type="search" placeholder="Buscar descrição" value="${esc(f.q)}" aria-label="Buscar">
-    <div class="seg" role="group" aria-label="Tipo">${[['', 'Tudo'], ['despesa', 'Despesas'], ['receita', 'Receitas']].map(([k, n]) => `<button data-a="fTipo" data-v="${k}" aria-pressed="${f.tipo === k}">${n}</button>`).join('')}</div>
-    <select id="f-cat" aria-label="Categoria"><option value="">Todas as categorias</option>${cats.map(c => `<option ${f.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
-    <select id="f-meio" aria-label="Forma de pagamento"><option value="">Todas as formas</option>${Object.entries(MEIOS).map(([k, n]) => `<option value="${k}" ${f.meio === k ? 'selected' : ''}>${n}</option>`).join('')}${S.cartoes.map(c => `<option value="cc:${c.id}" ${f.meio === 'cc:' + c.id ? 'selected' : ''}>Crédito ${esc(c.nome)}</option>`).join('')}</select>
-    <button class="btn" data-a="novo">+ Lançar</button><button class="btn" data-a="importarExtrato">Importar extrato</button></div><div id="ext-list">${extratoLista()}</div>`;
+  const selS = 'flex:none;height:40px;border-radius:20px;border:1px solid var(--line);background:var(--surface);padding:0 12px;font:inherit';
+  h += `<label class="sec2" style="display:flex;align-items:center;gap:10px;padding:0 14px;height:48px;margin-bottom:10px">${svgI('M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zM20 20l-4-4', 18)}<input id="f-q" type="search" placeholder="Buscar: padaria, uber, 120…" value="${esc(f.q)}" aria-label="Buscar" style="flex:1;border:0;background:none;outline:none;font:inherit;min-width:0"></label>
+    <div class="lk-meio" style="margin-bottom:12px">${[['', 'Tudo'], ['despesa', 'Gastos'], ['receita', 'Entradas']].map(([k, n]) => `<button type="button" data-a="fTipo" data-v="${k}" aria-pressed="${f.tipo === k}">${n}</button>`).join('')}
+    <select id="f-cat" aria-label="Categoria" style="${selS}"><option value="">Categoria</option>${cats.map(c => `<option ${f.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+    <select id="f-meio" aria-label="Forma de pagamento" style="${selS}"><option value="">Pago com</option>${Object.entries(MEIOS).map(([k, n]) => `<option value="${k}" ${f.meio === k ? 'selected' : ''}>${n}</option>`).join('')}${S.cartoes.map(c => `<option value="cc:${c.id}" ${f.meio === 'cc:' + c.id ? 'selected' : ''}>Crédito ${esc(c.nome)}</option>`).join('')}</select></div>
+    ${soVer() ? '' : '<div class="row" style="gap:8px;margin-bottom:12px"><button class="btn" data-a="importarExtrato">Importar extrato ou prints</button></div>'}<div id="ext-list">${extratoLista()}</div>`;
   return h;
 }
 function extratoLista() {
@@ -1990,7 +2034,7 @@ F.impLer = async f => {
   b.disabled = false; b.textContent = 'Ler extrato';
   if (!raw.length) return toast('Não encontrei lançamentos. Tente o arquivo CSV ou OFX do banco.');
   if (raw.holerite) return mostrarHolerite(raw.holerite);
-  S.imp = {orig, fat, itens:montarImport(raw, orig, fat)};
+  S.imp = {orig, fat, ia:!!(file && file.type.startsWith('image/')), itens:montarImport(raw, orig, fat)};
   mostrarImport();
 };
 function mostrarHolerite(h) {
@@ -2029,7 +2073,7 @@ A.impGravar = async el => {
   try {
     if (lumpOn) { const cc = cartao(I.orig.slice(3)); for (const l of S.lanc.filter(l => l.cartaoId === cc.id && l.mes === I.fat && l.cat === 'Cartão (sem detalhe)')) await del(COLS.lanc, l.id); }
     for (const x of s) {
-      const o = {tipo:x.tipo, valor:x.valor, desc:x.desc, cat:x.cat, data:x.data, meio:x.meio, cartaoId:x.cartaoId, nparc:1, mes:x.mes, obs:'Importado do extrato' + (x.parc ? ` · parcela ${x.parc}` : '')};
+      const o = {tipo:x.tipo, valor:x.valor, desc:x.desc, cat:x.cat, data:x.data, meio:x.meio, cartaoId:x.cartaoId, nparc:1, mes:x.mes, obs:'Importado do extrato' + (x.parc ? ` · parcela ${x.parc}` : ''), revisar:!!I.ia && !x.fixo};
       if (x.fixo) { o.fixoId = x.fixo.id; o.refMes = x.data.slice(0, 7); }
       await criarLanc(o); n++; if (n % 10 === 0) el.textContent = `Gravando ${n}/${s.length}…`;
     }
@@ -2571,7 +2615,7 @@ document.addEventListener('submit', e => { const f = e.target; const h = F[f.dat
 // Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
 const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
 const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
-const OK_VER = new Set(["tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
+const OK_VER = new Set(["contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
 const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
