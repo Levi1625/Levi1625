@@ -317,9 +317,9 @@ table.mam tr.nota td{border-top:0;white-space:normal}
 .sugs button:hover{border-color:var(--accent);color:var(--accent)}
 
 .chatlog{display:flex;flex-direction:column;gap:8px;max-height:min(46vh,420px);min-height:120px;overflow-y:auto;padding:4px 2px}
-.bub{max-width:88%;padding:10px 13px;border-radius:14px;font-size:.9rem;line-height:1.45}
+.bub{display:block;flex:none;max-width:88%;padding:10px 13px;border-radius:14px;font-size:.9rem;line-height:1.45}
 .bub.eu{align-self:flex-end;background:var(--accent);color:var(--on-accent);border-bottom-right-radius:4px;white-space:pre-wrap}
-.bub.app{align-self:flex-start;background:var(--surface-2);border-bottom-left-radius:4px}
+.bub.ai{display:block;align-self:flex-start;background:var(--surface-2);border-bottom-left-radius:4px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.88rem;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px)}
 @media (min-width:920px){#toast{bottom:28px}}
 .loading{padding:60px 10px;text-align:center;color:var(--muted)}
@@ -1600,6 +1600,7 @@ function doRender() {
 function route() {
   const k = location.hash.replace('#', '');
   S.view = RENDER[k] ? k : 'inicio';
+  if (S.view === 'ajuda') S.chatDesde = S.chat.length;
   closeSheet(); render(); window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -2141,10 +2142,16 @@ Receitas extras previstas: ${S.fixos.filter(f => f.tipo === 'receita' && f.fim &
 Últimos lançamentos:\n${ult || 'nenhum'}`;
 }
 function chatHTML() {
-  if (!S.chat.length && S.view === 'ajuda') return `<div class="bub app"><p style="margin:0">Toque numa pergunta acima ou escreva a sua. Também dá para lançar e corrigir por aqui.</p></div>`;
-  if (!S.chat.length) return `<div class="bub app"><p style="margin:0">Diga <b>o que</b> gastou, <b>quanto</b> e <b>de onde saiu</b>. Ex.: <i>“mercado 120 no vale”</i>, <i>“tv 2000 10x nubank”</i>, <i>“recebi salário 2300”</i>.</p></div>`;
-  if (!S.chat.length) return `<div class="bub app">Me conta o que gastou ou recebeu, do jeito que falaria. Pode ser mais de um:<br><i>“almoço 32 e uber 18”</i>, <i>“mercado 230 no vale”</i>, <i>“geladeira 3200 nubank 10x”</i>, <i>“recebi 2518 de salário”</i>.<br>Também pode perguntar: <i>“quanto gastei com mercado esse mês?”</i>, <i>“posso comprar uma TV de 2000 em 10x no nubank?”</i>, <i>“se eu gastar 300 no débito hoje, chego até o salário?”</i></div>`;
-  return S.chat.map((c, i) => c.de === 'eu' ? `<div class="bub eu">${esc(c.t)}</div>` : `<div class="bub app">${c.h}${c.ids && c.ids.length ? (c.undone ? '<div class="small muted" style="margin-top:6px">Desfeito.</div>' : `<div style="margin-top:8px"><button class="lnk small" data-a="desfazerChat" data-i="${i}">Desfazer</button></div>`) : ''}</div>`).join('');
+  const desde = Math.min(S.chatDesde || 0, S.chat.length);
+  const antes = desde > 0 ? `<button class="lnk small" data-a="verHistorico" style="align-self:center">Ver conversa anterior (${desde} mensage${desde > 1 ? 'ns' : 'm'})</button>` : '';
+  return antes + chatHTMLDe(desde);
+}
+A.verHistorico = () => { S.chatDesde = 0; chatRender(); };
+function chatHTMLDe(desde) {
+  if (S.chat.length <= desde && S.view === 'ajuda') return `<div class="bub ai"><p style="margin:0">Toque numa pergunta acima ou escreva a sua. Também dá para lançar e corrigir por aqui.</p></div>`;
+  if (S.chat.length <= desde) return `<div class="bub ai"><p style="margin:0">Diga <b>o que</b> gastou, <b>quanto</b> e <b>de onde saiu</b>. Ex.: <i>“mercado 120 no vale”</i>, <i>“tv 2000 10x nubank”</i>, <i>“recebi salário 2300”</i>.</p></div>`;
+  if (!S.chat.length) return `<div class="bub ai">Me conta o que gastou ou recebeu, do jeito que falaria. Pode ser mais de um:<br><i>“almoço 32 e uber 18”</i>, <i>“mercado 230 no vale”</i>, <i>“geladeira 3200 nubank 10x”</i>, <i>“recebi 2518 de salário”</i>.<br>Também pode perguntar: <i>“quanto gastei com mercado esse mês?”</i>, <i>“posso comprar uma TV de 2000 em 10x no nubank?”</i>, <i>“se eu gastar 300 no débito hoje, chego até o salário?”</i></div>`;
+  return S.chat.map((c, i) => i < desde ? '' : c.de === 'eu' ? `<div class="bub eu">${esc(c.t)}</div>` : `<div class="bub ai">${c.h}${c.ids && c.ids.length ? (c.undone ? '<div class="small muted" style="margin-top:6px">Desfeito.</div>' : `<div style="margin-top:8px"><button class="lnk small" data-a="desfazerChat" data-i="${i}">Desfazer</button></div>`) : ''}</div>`).join('');
 }
 function chatRender() { const log = $('#chatlog'); if (!log) return; log.innerHTML = chatHTML(); log.scrollTop = log.scrollHeight; }
 async function enviarChat(txt) {
@@ -2233,7 +2240,8 @@ function atalhosLancar() {
 }
 A.chipO = el => { const i = $('#s-rapido'); if (!i) return; i.value = el.dataset.t + ' '; i.focus(); };
 A.chipF = el => { const i = $('#s-rapido'); if (!i) return; i.value = (i.value.replace(/\s+(no|na|em)\s+(vale|pix|débito|debito|dinheiro)\s*$/i, '').trim() + el.dataset.t).trim(); i.focus(); };
-A.novo = () => openSheet('Lançar', `${atalhosLancar()}<div class="chatlog" id="chatlog"></div><form class="quick" data-f="chat" autocomplete="off" style="margin:12px 0 6px"><input id="s-rapido" name="q" placeholder="Ex.: almoço 32 no vale e uber 18 no débito" autofocus aria-label="Mensagem">${micBtn('s-rapido')}<button class="btn pri" type="submit">Enviar</button></form><div class="row"><span class="sp"></span><button class="lnk small" type="button" data-a="formCompleto">Formulário completo</button><button class="lnk small" type="button" data-a="importarExtrato">Importar extrato</button></div>`, () => chatRender());
+A.novo = () => { S.chatDesde = S.chat.length; S.planoCorr = null; abrirLancar(); };
+const abrirLancar = () => openSheet('Lançar', `${atalhosLancar()}<div class="chatlog" id="chatlog"></div><form class="quick" data-f="chat" autocomplete="off" style="margin:12px 0 6px"><input id="s-rapido" name="q" placeholder="Ex.: almoço 32 no vale e uber 18 no débito" autofocus aria-label="Mensagem">${micBtn('s-rapido')}<button class="btn pri" type="submit">Enviar</button></form><div class="row"><span class="sp"></span><button class="lnk small" type="button" data-a="formCompleto">Formulário completo</button><button class="lnk small" type="button" data-a="importarExtrato">Importar extrato</button></div>`, () => chatRender());
 A.formCompleto = () => { const v = $('#s-rapido')?.value || ''; const p = v.trim() ? parseRapido(v) : {}; closeSheet(); formLanc(v.trim() ? {...p, valor:isNaN(p.valor) ? '' : p.valor} : {}); };
 A.rapidoDetalhes = () => { const v = $('#q-rapido')?.value || ''; const p = parseRapido(v); formLanc({...p, valor:isNaN(p.valor) ? '' : p.valor, cat:p.cat}); };
 A.editLanc = el => { const l = S.lanc.find(x => x.id === el.dataset.id); if (l) formLanc(l); };
