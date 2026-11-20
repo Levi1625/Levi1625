@@ -17,3 +17,13 @@ Os dados ficam no banco do próprio artefato (não neste repositório).
 ## Acesso
 Funciona no notebook e no celular (adicione o link à tela inicial). Para dividir com outra pessoa,
 use Compartilhar no artefato e convide pelo e-mail com permissão de edição.
+
+## Versão em branco para outras pessoas
+
+`bolso-em-dia-modelo.html` é o mesmo app com `PRIV = true`: cada pessoa que abre guarda os próprios dados numa área privada (`data/users/<id>/app/...`), que nem o dono do link vê. Para atualizar, gere de novo a partir do app principal:
+
+```
+sed 's/^const PRIV = false;/const PRIV = true;/' bolso-em-dia.html > bolso-em-dia-modelo.html
+```
+
+Objetivos aceitam, em cada item, `quando` e `onde` (como pagar), além de `passos` (agenda com data, que vira alerta no Início e lembrete diário) e `guia` (texto com `##` títulos e `-` listas). Em Planejar, a tabela "Mês a mês" mostra entra, sai, sobra do mês, livre no fim e vale no fim até dezembro do ano seguinte.
