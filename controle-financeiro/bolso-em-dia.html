@@ -354,6 +354,7 @@ const CATS_DESP = [
   {n:'Viagens', g:'estilo', k:'passagem,hotel,airbnb,hospedagem,booking,latam,gol,azul,viagem,pousada,decolar'},
   {n:'Dívidas & juros', g:'financeiro', k:'juros,multa,tarifa,anuidade,iof,emprestimo,financiamento,acordo,cheque especial,rotativo'},
   {n:'Impostos & taxas', g:'financeiro', k:'imposto,irpf,darf,das,mei,taxa,cartorio,detran,licenciamento'},
+  {n:'Repasse', g:'repasse', k:'repasse'},
   {n:'Outros', g:'estilo', k:''},
 ];
 const CATS_REC = [
@@ -365,11 +366,13 @@ const CATS_REC = [
   {n:'Renda extra', k:'freela,freelance,extra,bico,servico,venda,vendi,diaria,diarias,ajuda de custo'},
   {n:'Rendimentos', k:'rendimento,dividendo,dividendos,juros recebidos'},
   {n:'Reembolso', k:'reembolso,estorno,devolucao,pix de volta'},
+  {n:'Repasse', k:'repasse'},
   {n:'Outras receitas', k:''},
 ];
 const GRUPOS = {
   essencial: {n:'Essenciais', ideal:.5, c:'var(--g-ess)', d:'moradia, contas, mercado, transporte, saúde, educação'},
   estilo: {n:'Estilo de vida', ideal:.3, c:'var(--g-est)', d:'comer fora, lazer, compras, assinaturas'},
+  repasse: {n:'Repasses (dinheiro de outras pessoas)', ideal:0, c:'var(--muted)', d:'pago por você, mas não é seu gasto'},
   financeiro: {n:'Dívidas e taxas', ideal:0, c:'var(--g-fin)', d:'juros, tarifas, impostos'},
 };
 const MEIOS = {pix:'Pix', debito:'Débito', va:'Vale alimentação', vr:'Vale refeição', dinheiro:'Dinheiro', boleto:'Boleto', transferencia:'Transferência'};
@@ -402,9 +405,10 @@ const COLS = {lanc:'lanc', fixos:'fixos', cartoes:'cartoes', emps:'emprestimos',
 const catsDesp = () => (Array.isArray(S.cfg.cats) && S.cfg.cats.length ? S.cfg.cats : CATS_DESP);
 const catsRec = () => (Array.isArray(S.cfg.rcats) && S.cfg.rcats.length ? S.cfg.rcats : CATS_REC);
 const grupoDe = cat => (catsDesp().find(c => c.n === cat) || {}).g || 'estilo';
-const orcDoMes = m => { const base = {...(S.cfg.orc || {})}, mm = ((S.cfg.orcMes || {})[m]) || {}; Object.entries(mm).forEach(([c, v]) => { if (v === null || v === undefined) return; if (+v > 0) base[c] = +v; else base[c] = 0; }); Object.keys(base).forEach(c => { if (!(+base[c] > 0)) Reflect.deleteProperty(base, c); }); return base; };
+const orcDoMes = m => { const base = {...(S.cfg.orc || {})}, mm = ((S.cfg.orcMes || {})[m]) || {}; Object.entries(mm).forEach(([c, v]) => { if (v === null || v === undefined) return; base[c] = Math.max(0, +v || 0); }); return base; };
 const metaPoup = () => (S.cfg.metaPoup ?? 20);
 const cartao = id => S.cartoes.find(c => c.id === id);
+const isRep = l => !!l && (l.cat === 'Repasse' || l.repasse === true);
 const isFixo = l => !!(l.fixoId || l.empId || l.fixo);
 const temExemplos = () => [S.lanc, S.fixos, S.cartoes, S.emps, S.inv, S.objs].some(a => a.some(x => x.exemplo));
 
@@ -443,7 +447,8 @@ function mesFatura(data, c) {
 const ajusteFixo = (f, m) => (f.ajustes && f.ajustes[m]) || null;
 const valorFixo = (f, m) => { const a = ajusteFixo(f, m); return a && a.v != null ? +a.v : +f.valor || 0; };
 const diaFixo = (f, m) => { const a = ajusteFixo(f, m); return clamp(a && a.dia ? +a.dia : +f.dia || 1, 1, diasNoMes(m)); };
-const fixosAtivos = m => S.fixos.filter(f => f.ativo !== false && (!f.inicio || f.inicio <= m) && (!f.fim || f.fim >= m) && !ajusteFixo(f, m)?.pular);
+const repassesAtivos = m => S.fixos.filter(f => f.repasse && f.ativo !== false && (!f.inicio || f.inicio <= m) && (!f.fim || f.fim >= m) && !(f.ajustes && f.ajustes[m] && f.ajustes[m].pular));
+const fixosAtivos = m => S.fixos.filter(f => !f.repasse && f.ativo !== false && (!f.inicio || f.inicio <= m) && (!f.fim || f.fim >= m) && !ajusteFixo(f, m)?.pular);
 const empsAtivos = m => S.emps.filter(e => !e.quitado && e.inicio && e.inicio <= m && addM(e.inicio, (+e.n || 1) - 1) >= m);
 const pagoFixo = (f, m) => S.lanc.find(l => l.fixoId === f.id && (l.refMes || l.mes) === m);
 const pagoEmpL = (e, m) => S.lanc.find(l => l.empId === e.id && l.mes === m);
@@ -476,7 +481,7 @@ function guardadoMes(m) {
   return g;
 }
 function resumo(m) {
-  const L = S.lanc.filter(l => l.mes === m);
+  const L = S.lanc.filter(l => l.mes === m && !isRep(l));
   const D = L.filter(l => l.tipo !== 'receita'), R = L.filter(l => l.tipo === 'receita');
   const desp = sum(D), rec = sum(R);
   const fixoD = sum(D.filter(isFixo));
@@ -496,11 +501,11 @@ function resumo(m) {
 function mediaCat(m, n = 3, soVar = false) {
   const out = {}; const meses = [];
   for (let i = 1; i <= n; i++) meses.push(addM(m, -i));
-  const comDados = meses.filter(x => S.lanc.some(l => l.mes === x && l.tipo !== 'receita'));
+  const comDados = meses.filter(x => S.lanc.some(l => l.mes === x && l.tipo !== 'receita' && !isRep(l)));
   if (!comDados.length) return {media:{}, n:0, desp:0};
-  comDados.forEach(x => S.lanc.forEach(l => { if (l.mes === x && l.tipo !== 'receita' && (!soVar || !isFixo(l))) out[l.cat || 'Outros'] = (out[l.cat || 'Outros'] || 0) + (+l.valor || 0); }));
+  comDados.forEach(x => S.lanc.forEach(l => { if (l.mes === x && l.tipo !== 'receita' && !isRep(l) && (!soVar || !isFixo(l))) out[l.cat || 'Outros'] = (out[l.cat || 'Outros'] || 0) + (+l.valor || 0); }));
   Object.keys(out).forEach(k => out[k] /= comDados.length);
-  const desp = comDados.reduce((s, x) => s + sum(S.lanc.filter(l => l.mes === x && l.tipo !== 'receita')), 0) / comDados.length;
+  const desp = comDados.reduce((s, x) => s + sum(S.lanc.filter(l => l.mes === x && l.tipo !== 'receita' && !isRep(l))), 0) / comDados.length;
   return {media: out, n: comDados.length, desp};
 }
 
@@ -999,7 +1004,7 @@ function extratoLista() {
   const m = S.mes, f = S.filtro, q = norm(f.q);
   const L = S.lanc.filter(l => l.mes === m && (!f.tipo || (f.tipo === 'receita') === (l.tipo === 'receita')) && (!f.cat || l.cat === f.cat) && (!f.meio || (f.meio.startsWith('cc:') ? l.cartaoId === f.meio.slice(3) : !l.cartaoId && l.meio === f.meio)) && (!q || norm(l.desc).includes(q)))
     .sort((a, b) => (b.data || '').localeCompare(a.data || '') || String(b.criado || '').localeCompare(String(a.criado || '')));
-  const rec = sum(L.filter(l => l.tipo === 'receita')), desp = sum(L.filter(l => l.tipo !== 'receita'));
+  const rec = sum(L.filter(l => l.tipo === 'receita' && !isRep(l))), desp = sum(L.filter(l => l.tipo !== 'receita' && !isRep(l)));
   let h = `<div class="row small muted" style="margin-bottom:8px"><span>${L.length} lançamento${L.length === 1 ? '' : 's'}</span><span class="sp"></span><span class="pos num">+ ${brl(rec)}</span><span class="num">− ${brl(desp)}</span></div>`;
   if (!L.length) return h + `<div class="empty">Nada por aqui em ${ymLong(m)}.</div>`;
   h += '<section class="card" style="padding:6px 14px">';
@@ -1042,6 +1047,8 @@ function vFixos() {
   // dia a dia
   h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Gastos do dia a dia (variáveis)</h2><p>${Object.keys((S.cfg.orcMes || {})[m] || {}).length ? '<span class="pill acc">plano próprio deste mês</span> ' : ''}Quanto você planeja gastar por categoria. ${brl(gastoV)} de ${brl(totV)} usados.</p></div><button class="btn sm pri" data-a="editLimites" data-m="${m}">Editar valores</button></div>
     ${varCats.length ? `<div class="bars">${varCats.map(c => { const lim = +orc[c] || 0, g = r.porCatVar[c] || 0, over = lim && g > lim; return `<div class="bar-row"><span class="n">${esc(c)}</span><span class="v ${over ? 'neg' : ''}">${brl0(g)} <span class="muted small">/ ${lim ? brl0(lim) : 'sem limite'}</span></span><div class="track"><span class="fill" style="width:${lim ? clamp(g / lim * 100, 0, 100) : 0}%;background:${over ? 'var(--neg)' : 'var(--g-est)'}"></span></div><div class="meta"><span>${lim ? (over ? `passou ${brl(g - lim)}` : `resta ${brl(lim - g)}`) : ''}</span><span></span></div></div>`; }).join('')}</div>` : '<div class="empty">Defina quanto quer gastar com mercado, gasolina, lazer… em Editar valores.</div>'}</section>`;
+  const rp = repassesAtivos(m);
+  if (rp.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Repasses</h2><p>Contas de outras pessoas que passam por você. Não entram no seu orçamento.</p></div></div><div class="list">${rp.map(f => { const pg = pagoFixo(f, m); return `<div class="li" style="cursor:default"><span class="ic" style="background:var(--surface-2);color:var(--muted)">${pad(diaFixo(f, m))}</span><span class="tx"><span class="t1">${esc(f.desc)}</span><span class="t2">${pg ? 'pago' : 'dia ' + diaFixo(f, m)}${f.de ? ' · de ' + esc(f.de) : ''}</span></span><span class="am muted">${brl(valorFixo(f, m))}</span><button class="lnk small" data-a="editFixo" data-id="${f.id}">Editar</button>${pg ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazer" data-id="${pg.id}">✓</button>` : `<button class="btn sm" data-a="pagar" data-kind="fixo" data-id="${f.id}">Paguei</button>`}</div>`; }).join('')}</div></section>`;
   if (em.length) h += `<section class="card"><div class="card-h"><h2>Parcelas de empréstimos</h2><a class="lnk" href="#emprestimos">Empréstimos</a></div><div class="list">${em.map(e => {
     const pg = empPagoNoMes(e, m), l = pagoEmpL(e, m), rec = e.direcao === 'receber';
     return `<div class="li" style="cursor:default"><span class="ic" style="background:${pg ? 'var(--pos-soft)' : 'var(--warn-soft)'};color:${pg ? 'var(--pos)' : 'var(--warn)'}">${pad(+e.dia || 1)}</span><span class="tx"><span class="t1">${esc(e.desc)}</span><span class="t2">parcela ${parcNum(e, m)} de ${e.n}${rec ? ' · a receber' : ''}</span></span><span class="am ${rec ? 'pos' : ''}">${brl(e.parcela)}</span>${pg ? (l ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazer" data-id="${l.id}">✓</button>` : '<span class="pill ok">✓ Pago</span>') : `<button class="btn sm" data-a="pagar" data-kind="emp" data-id="${e.id}">${rec ? 'Recebi' : 'Paguei'}</button>`}</div>`;
@@ -1181,13 +1188,13 @@ const lugarFixo = f => f.cartaoId ? 'Crédito ' + (cartao(f.cartaoId)?.nome || '
 function mesesComDados(n) { const out = []; for (let i = 1; out.length < n && i <= 36; i++) { const m = addM(ymNow(), -i); if (S.lanc.some(l => l.mes === m && l.tipo !== 'receita')) out.push(m); } return out; }
 function mediaPor(n, key, soVar = false) {
   const ms = mesesComDados(n); const out = {};
-  S.lanc.forEach(l => { if (l.tipo === 'receita' || !ms.includes(l.mes) || (soVar && isFixo(l))) return; const k = key === 'cat' ? (l.cat || 'Outros') : lugarDe(l); out[k] = (out[k] || 0) + (+l.valor || 0); });
+  S.lanc.forEach(l => { if (l.tipo === 'receita' || isRep(l) || !ms.includes(l.mes) || (soVar && isFixo(l))) return; const k = key === 'cat' ? (l.cat || 'Outros') : lugarDe(l); out[k] = (out[k] || 0) + (+l.valor || 0); });
   Object.keys(out).forEach(k => out[k] /= Math.max(1, ms.length));
   return {m:out, n:ms.length};
 }
 function histVar() {
   const ms = mesesComDados(3), cats = {};
-  S.lanc.forEach(l => { if (l.tipo === 'receita' || isFixo(l) || !ms.includes(l.mes)) return; const c = l.cat || 'Outros', lg = lugarDe(l); const o = cats[c] = cats[c] || {tot:0, lug:{}}; o.tot += +l.valor || 0; o.lug[lg] = (o.lug[lg] || 0) + (+l.valor || 0); });
+  S.lanc.forEach(l => { if (l.tipo === 'receita' || isFixo(l) || isRep(l) || l.cat === 'Cartão (sem detalhe)' || !ms.includes(l.mes)) return; const c = l.cat || 'Outros', lg = lugarDe(l); const o = cats[c] = cats[c] || {tot:0, lug:{}}; o.tot += +l.valor || 0; o.lug[lg] = (o.lug[lg] || 0) + (+l.valor || 0); });
   Object.values(cats).forEach(o => { o.tot /= Math.max(1, ms.length); Object.keys(o.lug).forEach(k => o.lug[k] /= Math.max(1, ms.length)); });
   return cats;
 }
@@ -1197,9 +1204,9 @@ function projMes(m, hv = histVar(), semObj = false) {
   const W = {conta:{e:0, s:0}, va:{e:0, s:0}, vr:{e:0, s:0}};
   const wl = lg => lg === MEIOS.va ? 'va' : lg === MEIOS.vr ? 'vr' : 'conta';
   const add = (cat, lugar, v, desc, tipo) => { if (!(v > 0)) return; cats[cat] = (cats[cat] || 0) + v; lug[lugar] = (lug[lugar] || 0) + v; W[wl(lugar)].s += v; linhas.push({cat, lugar, v, desc, tipo}); };
-  S.lanc.forEach(l => { if (l.mes === m && l.tipo === 'receita') W[walletRec(l)].e += +l.valor || 0; });
-  S.lanc.filter(l => l.mes === m && l.tipo !== 'receita').forEach(l => add(l.cat || 'Outros', lugarDe(l), +l.valor || 0, l.desc, l.grupo ? 'parcela' : isFixo(l) ? 'fixo' : 'lançado'));
-  let rec = sum(S.lanc.filter(l => l.mes === m && l.tipo === 'receita'));
+  S.lanc.forEach(l => { if (l.mes === m && l.tipo === 'receita' && !isRep(l)) W[walletRec(l)].e += +l.valor || 0; });
+  S.lanc.filter(l => l.mes === m && l.tipo !== 'receita' && !isRep(l)).forEach(l => add(l.cat || 'Outros', lugarDe(l), +l.valor || 0, l.desc, l.grupo ? 'parcela' : isFixo(l) ? 'fixo' : 'lançado'));
+  let rec = sum(S.lanc.filter(l => l.mes === m && l.tipo === 'receita' && !isRep(l)));
   const recVA = sum(S.lanc.filter(l => l.mes === m && isVARec(l)));
   let recPrev = 0, recPrevVA = 0;
   if (!passado) {
@@ -1210,7 +1217,7 @@ function projMes(m, hv = histVar(), semObj = false) {
     const ja = {}; S.lanc.forEach(l => { if (l.mes === m && l.tipo !== 'receita' && !isFixo(l) && !l.grupo) ja[l.cat] = (ja[l.cat] || 0) + (+l.valor || 0); });
     const cartaoAtual = sum(S.lanc.filter(l => l.mes === m && l.cartaoId && !isFixo(l) && l.cat !== 'Cartão (sem detalhe)'));
     new Set([...Object.keys(orc).filter(c => +orc[c] > 0), ...Object.keys(hv)]).forEach(c => {
-      const plan = +orc[c] || (hv[c] ? hv[c].tot : 0);
+      const plan = c in orc ? +orc[c] : (hv[c] ? hv[c].tot : 0);
       const feito = c === 'Cartão (sem detalhe)' ? cartaoAtual + (ja[c] || 0) : (ja[c] || 0);
       const falta = Math.max(0, plan - feito); if (!falta) return;
       const om = (S.cfg.orcMeio || {})[c];
@@ -1436,6 +1443,7 @@ function montarImport(raw, orig, fat) {
         const m = x.data.slice(0, 7);
         const fx = fixosAtivos(m).find(f => (f.tipo || 'despesa') === tipo && !pagoFixo(f, m) && !usados.has('f' + f.id) && (cc ? f.cartaoId === cc.id : !f.cartaoId) && Math.abs(valorFixo(f, m) - valor) <= Math.max(5, valorFixo(f, m) * .15) && (norm(f.desc).split(' ').some(w => w.length > 3 && nd.includes(w)) || Math.abs(valorFixo(f, m) - valor) < .5 || Math.abs(+x.data.slice(8) - diaFixo(f, m)) <= 4));
         if (fx) { usados.add('f' + fx.id); it.fixo = fx; it.cat = fx.cat || it.cat; }
+        else { const rpx = repassesAtivos(m).find(f => Math.abs(valorFixo(f, m) - valor) <= .5); if (rpx) { it.cat = 'Repasse'; if (tipo === 'despesa' && !pagoFixo(rpx, m) && !usados.has('f' + rpx.id)) { usados.add('f' + rpx.id); it.fixo = rpx; } } }
       }
     }
     it.sel = !ign && !it.dup;
@@ -1724,7 +1732,8 @@ Contas pendentes: ${r.pend.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).jo
 Cartões: ${fat || 'nenhum'}.
 Próximos 12 meses (sobra prevista em dinheiro, sem vales): ${(() => { const hv = histVar(); return Array.from({length:12}, (_, i) => { const m = addM(ymNow(), i); return `${ymLabel(m)} ${brl0(projMes(m, hv).sobraSemVA)}`; }).join('; '); })()}.
 Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pj = projecao(); return pj.livre1 != null ? ` Livre até o próximo salário (${pj.P1}): ${brl(pj.livre1)} (${brl(pj.livre1 / pj.dias1)}/dia).` : ''; })()}
-Investido: ${brl(sum(S.inv, saldoInv))}. Objetivos: ${S.objs.map(o => `${o.nome} previsto ${brl(objPrevisto(o))}, guardado ${brl(objGuardado(o))}`).join('; ') || 'nenhum'}.
+Investido: ${brl(sum(S.inv, saldoInv))}. Objetivos: ${S.objs.map(o => `${o.nome} (${o.alvo || 'sem data'}): previsto ${brl(objPrevisto(o))}, guardado ${brl(objGuardado(o))}, gasto até agora ${brl(sum(S.lanc.filter(l => l.objId === o.id)))}; itens: ${(o.itens || []).map(it => `${it.cat} ${brl0(it.prev)}${it.meio ? ' via ' + lugarMeio(it.meio) : ''}`).join(', ')}`).join(' | ') || 'nenhum'}.
+Receitas extras previstas: ${S.fixos.filter(f => f.tipo === 'receita' && f.fim && f.fim >= ymNow()).map(f => `${f.desc} ${brl0(f.valor)} em ${f.inicio}`).join('; ') || 'nenhuma'}.
 Últimos lançamentos:\n${ult || 'nenhum'}`;
 }
 function chatHTML() {
@@ -1804,7 +1813,7 @@ A.delGrupo = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.
 
 // pagar contas fixas / empréstimos
 function lancDePendente(kind, ref, m, valor, data) {
-  if (kind === 'fixo') return {tipo:ref.tipo || 'despesa', valor:valor ?? valorFixo(ref, m), desc:ref.desc, cat:ref.cat || 'Outros', data:data || `${m}-${pad(diaFixo(ref, m))}`, meio:ref.meio || 'pix', cartaoId:ref.cartaoId || null, fixoId:ref.id, refMes:m, mes:ref.cartaoId && cartao(ref.cartaoId) ? mesFatura(data || dataFixo(ref, m), cartao(ref.cartaoId)) : m};
+  if (kind === 'fixo') return {tipo:ref.tipo || 'despesa', valor:valor ?? valorFixo(ref, m), desc:ref.desc, cat:ref.repasse ? 'Repasse' : (ref.cat || 'Outros'), data:data || `${m}-${pad(diaFixo(ref, m))}`, meio:ref.meio || 'pix', cartaoId:ref.cartaoId || null, fixoId:ref.id, refMes:m, mes:ref.cartaoId && cartao(ref.cartaoId) ? mesFatura(data || dataFixo(ref, m), cartao(ref.cartaoId)) : m};
   return {tipo:ref.direcao === 'receber' ? 'receita' : 'despesa', valor:valor ?? +ref.parcela, desc:`${ref.desc} (${parcNum(ref, m)}/${ref.n})`, cat:ref.direcao === 'receber' ? 'Outras receitas' : (ref.cat || 'Dívidas & juros'), data:data || `${m}-${pad(Math.min(+ref.dia || 1, diasNoMes(m)))}`, meio:'boleto', empId:ref.id, mes:m};
 }
 A.pagar = el => {
@@ -1845,6 +1854,7 @@ function formFixo(f = {}) {
     <label class="fld"><span>${tipo === 'receita' ? 'Entra em' : 'Sai de'}</span><select id="fx-meio" name="meio">${meioOpts(f.meio || (tipo === 'receita' ? (walletRec(f) === 'conta' ? 'pix' : walletRec(f)) : 'boleto'), f.cartaoId, tipo)}</select></label></div>
     <div class="f2" id="fx-datas"><label class="fld"><span>Começa em</span><input id="fx-ini" name="inicio" type="month" value="${esc(f.inicio || ymNow())}"></label>
     <label class="fld"><span>Termina em (opcional)</span><input id="fx-fim" name="fim" type="month" value="${esc(f.fim || '')}"></label></div>
+    <label class="chk"><input id="fx-rep" type="checkbox" name="repasse" ${f.repasse ? 'checked' : ''}> É de outra pessoa (repasse): não conta no meu orçamento</label>
     ${edit ? `<label class="chk"><input id="fx-pular" type="checkbox" name="pular"> Não tem essa ${tipo === 'receita' ? 'renda' : 'conta'} em ${mesNome}</label>` : ''}
     <p class="hint" id="fx-hint"></p>
     <div class="form-actions"><button class="btn pri" type="submit">Salvar</button>${edit ? `<button class="btn dang" type="button" data-a="delFixo" data-id="${f.id}">Excluir de vez</button>` : ''}</div></form>`, sh => {
@@ -1865,7 +1875,7 @@ F.fixo = async fm => {
   const v = parseValor(d.valor); if (!(v > 0)) return toast('Informe o valor.');
   if (old && d.escopo === 'mes') { const o = {...strip(old), ajustes:{...(old.ajustes || {}), [m]:{v:r2(v), dia:clamp(+d.dia || 1, 1, 31)}}}; try { await put(COLS.fixos, old.id, o); toast(`Alterado só em ${ymLong(m)}`); closeSheet(); } catch (_) {} return; }
   const o = {...(old ? strip(old) : {}), tipo:d.tipo, desc:d.desc.trim(), valor:r2(v), dia:clamp(+d.dia || 1, 1, 31), cat:d.cat, meio:d.meio.startsWith('cc:') ? 'credito' : d.meio, inicio:d.inicio || ymNow(), ativo:true};
-  delete o.cartaoId; delete o.fim;
+  Reflect.deleteProperty(o, 'cartaoId'); Reflect.deleteProperty(o, 'fim'); o.repasse = !!d.repasse; if (o.repasse) o.cat = 'Repasse';
   if (d.meio.startsWith('cc:')) o.cartaoId = d.meio.slice(3);
   if (d.fim) o.fim = d.fim;
   if (old && old.ajustes) { const aj = {...old.ajustes}; delete aj[m]; o.ajustes = aj; }
