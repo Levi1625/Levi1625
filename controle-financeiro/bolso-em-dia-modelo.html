@@ -863,7 +863,8 @@ function vContasHoje() {
   h += `<section class="card" style="margin-bottom:16px">${L.length ? `<div class="fz">${L.map(p => linha(p, m)).join('')}</div>` : '<p class="muted">Nenhuma conta pendente em ' + ymLong(m) + '.</p>'}</section>`;
   if (L2.length) h += `<details class="card" style="margin-bottom:16px"><summary style="cursor:pointer;font-weight:600">Próximo mês: ${L2.length} contas · <span class="num">${brl(sum(L2))}</span></summary><div class="fz" style="margin-top:8px">${L2.map(p => linha(p, m2)).join('')}</div></details>`;
   if (entradas.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Dinheiro que vai entrar</h2></div><div class="fz">${entradas.map(p => `<div class="fz-r"><span class="dia-b"><small>${MES[+m.slice(5) - 1].toUpperCase()}</small><b>${p.dia}</b></span><span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${walletRec(p.ref) === 'conta' ? 'na conta' : 'no vale'}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b class="num pos">${brl(p.valor)}</b>${botaoPagar(p, m)}</span></div>`).join('')}</div></section>`;
-  h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#fixos">Cadastrar ou mudar contas fixas</a><a class="btn" href="#cartoes">Cartões</a></div>`;
+  if (S.cartoes.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h" style="margin-bottom:6px"><h2>Cartões</h2></div><div class="fz">${S.cartoes.map(c => `<div class="fz-r"><span class="tx"><span class="t1">${esc(c.nome)}</span><span class="t2">fecha dia ${c.fecha || '?'} · vence dia ${c.vence || '?'} · fatura de ${ymLabel(m)}: <span class="num">${brl(valorFatura(c, m))}</span></span></span><button class="btn sm" data-a="editCartao" data-id="${c.id}">Mudar</button></div>`).join('')}</div><p class="hint" style="margin-top:8px">Também dá para escrever no +: <i>“o cartão da mãe fecha dia 19 e vence dia 25”</i>.</p></section>`;
+  h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#fixos">Cadastrar ou mudar contas fixas</a><a class="btn" href="#cartoes">Ver cartões e parcelas</a></div>`;
   return h;
 }
 A.projIr2 = el => { S.projMes = el.dataset.m; location.hash = '#projecao'; };
@@ -1994,6 +1995,32 @@ function mesInicioTexto(txt) {
   for (const y of [+hoje0.slice(0, 4) - 1, +hoje0.slice(0, 4), +hoje0.slice(0, 4) + 1]) { const c = `${y}-${pad(mm)}`; if (!melhor || Math.abs(monthsBetween(hoje0, c)) < Math.abs(monthsBetween(hoje0, melhor))) melhor = c; }
   return melhor;
 }
+// "o cartão da mãe fecha dia 19 e vence dia 25": muda o cartão direto pelo chat.
+function cartaoTexto(txt) {
+  const n = norm(txt); if (!/\b(cartao|credito)\b/.test(n) || !/\b(fecha|fechamento|vence|vencimento)/.test(n)) return null;
+  let c = null; S.cartoes.forEach(x => { const cn = norm(x.nome); if (cn && (` ${n} `).includes(` ${cn} `)) c = x; }); if (!c) return null;
+  const f = n.match(/fecha(?:mento)?\D{0,12}?(\d{1,2})/), v = n.match(/venc(?:e|imento)\D{0,12}?(\d{1,2})/);
+  const fecha = f ? clamp(+f[1], 1, 31) : null, vence = v ? clamp(+v[1], 1, 31) : null;
+  return fecha || vence ? {c, fecha, vence} : null;
+}
+async function mudarCartaoTexto(txt) {
+  const r = cartaoTexto(txt); if (!r) return null;
+  const novo = {...strip(r.c)}; if (r.fecha) novo.fecha = r.fecha; if (r.vence) novo.vence = r.vence;
+  await put(COLS.cartoes, r.c.id, novo);
+  const n = S.lanc.filter(l => l.cartaoId === r.c.id && l.tipo !== 'receita' && !String(l.id).startsWith('auto-')).length;
+  return `Pronto: o cartão <b>${esc(r.c.nome)}</b> agora fecha dia <b>${novo.fecha}</b> e vence dia <b>${novo.vence}</b>.${n ? `<div style="margin-top:8px">Quer que eu coloque as ${n} compras já lançadas nesse cartão nas faturas certas, com as datas novas?</div><div class="row" style="gap:8px;margin-top:8px"><button class="btn sm pri" data-a="recalcCartao" data-id="${r.c.id}">Sim, ajustar as faturas</button><button class="btn sm" data-a="corrNao">Não precisa</button></div>` : ''}`;
+}
+A.recalcCartao = async el => {
+  const c = cartao(el.dataset.id); if (!c) return; el.disabled = true;
+  const ls = S.lanc.filter(l => l.cartaoId === c.id && l.tipo !== 'receita' && !String(l.id).startsWith('auto-')), grupos = {};
+  let n = 0;
+  try {
+    for (const l of ls) { if (l.grupo) { (grupos[l.grupo] = grupos[l.grupo] || []).push(l); continue; } const m = mesFatura(l.data, c); if (m !== l.mes) { await put(COLS.lanc, l.id, {...strip(l), mes:m}); n++; } }
+    for (const g of Object.values(grupos)) { g.sort((a, b) => (a.parc || 0) - (b.parc || 0)); const m0 = mesFatura(g[0].data, c); for (const l of g) { const m = addM(m0, (l.parc || 1) - 1); if (m !== l.mes) { await put(COLS.lanc, l.id, {...strip(l), mes:m}); n++; } } }
+    S.chat.push({de:'app', h:n ? `Pronto: ${n} lançamento${n > 1 ? 's foram' : ' foi'} para a fatura certa do cartão ${esc(c.nome)}.` : 'Tudo já estava na fatura certa.'});
+  } catch (_) { S.chat.push({de:'app', h:'Não consegui terminar agora. Tente de novo.'}); }
+  chatRender();
+};
 async function corrigir(txt) {
   const base = corrigirHTML(txt); if (!base) return null;
   if (!S.sample) return {h:base};
@@ -2132,6 +2159,8 @@ async function enviarChat(txt) {
       }
     } else {
       let r = null;
+      const mc = await mudarCartaoTexto(txt);
+      if (mc) { msg.h = mc; S.chatBusy = false; chatRender(); return; }
       const corr = CORRIGIR.test(norm(txt)) ? await corrigir(txt) : null;
       if (corr) { msg.h = corr.h; S.chatBusy = false; chatRender(); return; }
       if (S.pend?.tipo === 'meio' && contaValores(txt) === 0) { const pm = parseRapido('x 1 ' + txt); if (pm.meioDito) { aplicarMeio(S.pend.out, pm.cartaoId ? 'cc:' + pm.cartaoId : pm.meio); r = await salvarItens(S.pend.out, S.pend.txt); } }
@@ -2154,6 +2183,7 @@ F.rapido = async f => {
   if (PERG.test(txt)) { inp.value = ''; previewRapido(); A.novo(); enviarChat(txt); return; }
   const btn = f.querySelector('[type=submit]'); btn.disabled = true; $('#qprev').innerHTML = '<span class="chip">Anotando…</span>';
   try {
+    if (cartaoTexto(txt)) { inp.value = ''; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:await mudarCartaoTexto(txt)}); chatRender(); btn.disabled = false; return; }
     if (CORRIGIR.test(norm(txt))) { inp.value = ''; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); const mc = {de:'app', h:'<span class="muted">Procurando o lançamento…</span>'}; S.chat.push(mc); chatRender(); const corr = await corrigir(txt); mc.h = corr ? corr.h : 'Não entendi.'; chatRender(); btn.disabled = false; return; }
     const r = await lancarTexto(txt);
     if (r && r.pergunta) { inp.value = ''; S.qmsg = null; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:perguntaHTML(r)}); chatRender(); }
