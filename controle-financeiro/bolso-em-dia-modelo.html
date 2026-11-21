@@ -1121,6 +1121,35 @@ function fechamentoTexto(m) {
   const de = fontes.length ? ' que sobraram de ' + fontes.map(f => { const ex = extrasDe(f.m); return ymLabel(f.m) + (ex.length ? ` (${esc(ex.join(' + '))})` : ''); }).join(' e ') : i === 0 ? ' que já estão na conta' : '';
   return `<b>${x.livre < colchao() ? 'Fecha, mas apertado:' : 'Fecha com o que sobrou antes:'}</b> em ${nomeM} sai ${brl0(-x.sobra)} a mais do que entra, mas você começa o mês com <b>${brl0(ini)}</b>${de}. Termina com <b>${brl0(x.livre)}</b>${x.livre < colchao() ? `, abaixo da folga de ${brl0(colchao())}: evite gastos extras` : ''}. <b>O que fazer:</b> ${i === 0 ? `esses ${brl0(-x.sobra)} já estão na conta e são para as contas deste mês` : `deixe esses ${brl0(-x.sobra)} na conta até ${nomeM}; eles já estão contados para pagar ${nomeM}`}. O valor do dia na tela Hoje já considera isso.${gTxt}`;
 }
+// "O que mudou": o app guarda uma foto da projeção por dia (no celular) e explica a diferença de cada mês.
+const PSNAP = () => 'bolso:psnap:' + (S.uid || 'x');
+function fotoProj() {
+  const C = cacheDados(); if (C.foto) return C.foto; const out = {};
+  fluxo().forEach((x, i) => { const it = {}; if (i > 0) projMes(x.m).linhas.filter(l => !isVLg(l.lugar)).forEach(l => { const k = String(l.desc || l.cat).replace(/\s*\(compras de [^)]*\)/, ''); it[k] = r2((it[k] || 0) + l.v); });
+    out[x.m] = {livre:r2(x.livre), entra:r2(x.entra), sai:r2(x.sai + x.cobre), it}; });
+  C.foto = out; return out;
+}
+function lerFotos() { try { return JSON.parse(localStorage.getItem(PSNAP()) || 'null') || {}; } catch (_) { return {}; } }
+let _fotoT = null;
+function guardarFoto() {
+  if (!S.fixos.length && !S.lanc.length) return;
+  clearTimeout(_fotoT); _fotoT = setTimeout(() => { try { const j = lerFotos(), d = hoje(); if (j.atual && j.atual.d !== d) j.ant = j.atual; j.atual = {d, s:fotoProj()}; localStorage.setItem(PSNAP(), JSON.stringify(j)); } catch (_) {} }, 3000);
+}
+function mudouHTML(m) {
+  const j = lerFotos(), A = j.ant && j.ant.s && j.ant.s[m] ? j.ant : null; if (!A) return '';
+  const fut = fluxo(), i = fut.findIndex(x => x.m === m); if (i < 0) return '';
+  const a = A.s[m], b = fotoProj()[m], d = b.livre - a.livre; if (Math.abs(d) < 1) return `<p class="small muted" style="margin-top:8px">Igual a ${dLabel(A.d)}: nada mudou neste mês.</p>`;
+  const antM = i > 0 ? fut[i - 1].m : null, iniD = antM && A.s[antM] ? b.livre - b.entra + b.sai - (a.livre - a.entra + a.sai) : null;
+  const linhas = [];
+  if (iniD != null && Math.abs(iniD) >= 1) linhas.push([iniD, `Começa com ${brl0(Math.abs(iniD))} ${iniD > 0 ? 'a mais' : 'a menos'} (mudanças em meses antes)`]);
+  const dE = b.entra - a.entra; if (Math.abs(dE) >= 1) linhas.push([dE, `Entra ${brl0(Math.abs(dE))} ${dE > 0 ? 'a mais' : 'a menos'}`]);
+  const ks = new Set([...Object.keys(a.it || {}), ...Object.keys(b.it || {})]), its = [];
+  ks.forEach(k => { const x = (b.it[k] || 0) - ((a.it || {})[k] || 0); if (Math.abs(x) >= 1) its.push([-x, `${esc(k)}: ${!(a.it || {})[k] ? `novo, sai ${brl0(x)}` : !b.it[k] ? `saiu da previsão (${brl0(-x)})` : `sai ${brl0(Math.abs(x))} ${x > 0 ? 'a mais' : 'a menos'}`}`]); });
+  its.sort((p, q) => Math.abs(q[0]) - Math.abs(p[0])); linhas.push(...its.slice(0, 8));
+  const resto = d - sum(linhas, l => l[0]); if (Math.abs(resto) >= 1 && i > 0) linhas.push([resto, 'Outros ajustes pequenos']);
+  return `<details style="margin-top:10px"><summary class="small" style="cursor:pointer;font-weight:600">${ymLabel(m)} mudou <b class="${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '+' : '−'}${brl0(Math.abs(d))}</b> desde ${dLabel(A.d)} (${brl0(a.livre)} → ${brl0(b.livre)})</summary>
+    <div style="margin-top:6px">${linhas.map(([v, t]) => `<div class="row small" style="gap:8px;padding:5px 0;border-top:1px solid var(--line)"><span style="flex:1">${t}</span><b class="num ${v > 0 ? 'pos' : 'neg'}">${v > 0 ? '+' : '−'}${brl0(Math.abs(v))}</b></div>`).join('')}</div></details>`;
+}
 function fechamentoHTML(m) {
   const fut = fluxo(), i = fut.findIndex(x => x.m === m), x = fut[i]; if (!x) return '';
   const ini = i === 0 ? saldoHoje() : fut[i - 1].livre, cor = x.livre < 0 ? 'var(--neg)' : x.saude === 'pend' ? 'var(--warn)' : 'var(--pos)';
@@ -1129,7 +1158,7 @@ function fechamentoHTML(m) {
   return `<section class="sec2" style="border:2px solid ${cor}"><div class="sec2-h"><h2>Como ${MESL[+m.slice(5) - 1].toLowerCase()} fecha</h2><span class="small" style="font-weight:700;border-radius:999px;padding:3px 10px;background:${st[1]};color:${st[2]}">${st[0]}</span></div>
     ${lin(i === 0 ? 'Na conta hoje' : 'Começa com (sobra de ' + ymLabel(fut[i - 1].m) + ')', ini == null ? '—' : brl0(ini))}${lin('<span class="pos">+ Entra</span>', '<span class="pos">' + brl0(x.entra) + '</span>')}${lin('− Sai da conta', brl0(x.sai + x.cobre))}${lin('<b>Termina com</b>', `<span style="color:${cor}">${brl0(x.livre)}</span>`, 'border-top:2px solid var(--surface-2);margin-top:4px;padding-top:8px')}
     <p class="small" style="margin-top:10px;line-height:1.55">${fechamentoTexto(m)}</p>${x.livre < 0 ? coberturaHTML(planoCobertura(m), true) : ''}
-    <button class="lnk small" data-a="projIr2" data-m="${m}" style="margin-top:8px">Ver o que entra e sai</button></section>`;
+    ${mudouHTML(m)}<button class="lnk small" data-a="projIr2" data-m="${m}" style="margin-top:8px">Ver o que entra e sai</button></section>`;
 }
 // Detalhe simples de um mês: começa com, entra, sai, fica na conta no fim e, se apertar, de onde cobrir.
 // Quanto dá para gastar por dia de verdade: o que falta do dia a dia planejado no mês,
@@ -1213,7 +1242,7 @@ function mesDetalheHTML(m) {
     <div class="row" style="margin-top:6px"><span>− Vai sair da conta</span><span class="sp"></span><b class="num">${brl0(x.sai + x.cobre)}</b></div>
     <div class="row" style="margin-top:10px;padding-top:10px;border-top:2px solid var(--line)"><b>Fica na conta no fim de ${ymLabel(m)}</b><span class="sp"></span><b class="num" style="font-size:1.25rem;color:${cor}">${brl0(x.livre)}</b></div>
     <p class="small muted" style="margin:6px 0 0">${x.va > 0 ? `No vale fica ${brl0(x.va)} no fim do mês.` : ''}${x.vaPerde > 1 ? ` <b class="neg">Vencem ${brl0(x.vaPerde)} do vale sem usar: gaste comida no vale antes.</b>` : ''}${x.cobre > 1 ? ` Pela previsão, a comida planejada passa do vale em ${brl0(x.cobre)}, que sairiam da conta.` : ''}</p></section>`;
-  h += `<p class="small" style="margin:0 0 12px;line-height:1.55">${fechamentoTexto(m)}</p>`;
+  h += `<p class="small" style="margin:0 0 12px;line-height:1.55">${fechamentoTexto(m)}</p>${mudouHTML(m)}`;
   h += `<h3 style="margin:6px 0 2px">O que entra na conta</h3>${ent.length ? ent.sort((a, b) => b.v - a.v).map(e => linha(esc(e.d), '+ ' + brl0(e.v), e.q)).join('') : '<p class="small muted">Nada previsto.</p>'}`;
   h += `<h3 style="margin:16px 0 2px">O que sai da conta</h3>${['contas', 'lanc', 'cart', 'dia', 'plan'].map(grupo).join('') || '<p class="small muted">Nada previsto.</p>'}`;
   // como cobrir
@@ -2198,7 +2227,7 @@ let _raf = 0;
 function render() { _flx = null; _base = null; _pmC = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
   document.body.classList.toggle('sover', soVer());
-  try { sincPlanoMes(); } catch (_) {}
+  try { sincPlanoMes(); guardarFoto(); } catch (_) {}
   renderNav();
   const main = $('#main');
   if (S.blocked) { main.innerHTML = `<div class="loading"><h2>Este controle financeiro é privado</h2><p style="margin-top:8px">Só o dono consegue ver e editar os dados.</p></div>`; return; }
