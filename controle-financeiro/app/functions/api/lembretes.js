@@ -24,6 +24,16 @@ export function montar(dados, HOJE) {
     if ((f.tipo || "despesa") !== "despesa" || f.repasse || f.cartaoId || !ativo(f) || pago(f)) continue;
     const dd = dia(f); if (dd - D <= 3) contas.push({ dia: dd, desc: f.desc, v: valor(f) });
   }
+  // Conta paga com uma caixinha (ex.: financiamento do carro pago com a Reserva do carro): avisa no dia e diz de onde sai.
+  const nrm = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  for (const o of dados.objetivos || []) {
+    if (o.status === "concluido" || !(o.tipo === "reserva" || /reserva/i.test(o.nome || "")) || (o.alvo && o.alvo > M)) continue;
+    const ws = nrm(`${o.nome} ${(o.itens || []).map((i) => i.cat).join(" ")}`).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !["reserva", "parcelas", "plano", "emergencia", "janeiro"].includes(w));
+    const f = (dados.fixos || []).find((x) => x.tipo !== "receita" && x.ajustes && x.ajustes[M] && x.ajustes[M].pular && ws.some((w) => nrm(x.desc).includes(w)));
+    if (!f || pago(f)) continue;
+    const nomeO = String(o.nome).replace(/\s*\(.*\)\s*$/, ""), noAlvo = o.alvo === M;   // no mês em que a reserva é formada, ela ainda não existe no dia 1
+    const dd = dia(f); if (dd >= D && dd - D <= 3) contas.push({ dia: dd, desc: noAlvo ? `${f.desc} (sai da conta; a caixinha ${nomeO} é formada quando o dinheiro cair)` : `${f.desc} (sai da caixinha ${nomeO})`, v: +f.valor || 0, cx: !noAlvo });
+  }
   // Fatura = compras lançadas + assinaturas/contas fixas no crédito ainda não lançadas (mesma regra do app).
   const addM = (ym, n) => { const [y, m] = ym.split("-").map(Number), t = y * 12 + m - 1 + n; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, "0")}`; };
   const ajM = (f, m) => (f.ajustes && f.ajustes[m]) || null;
@@ -85,7 +95,7 @@ export function montar(dados, HOJE) {
   if (guardar.length) L.push("🏦 Guardar hoje (o dinheiro caiu)", ...guardar);
   if (contas.length) {
     L.push("💸 Contas", ...contas.map((c) => `• ${c.dia === D ? "Hoje" : c.dia < D ? `ATRASADA (dia ${c.dia})` : `Dia ${c.dia} (em ${c.dia - D} dia${c.dia - D > 1 ? "s" : ""})`}: ${c.desc} ${brl(c.v)}`));
-    L.push(`Total: ${brl(contas.reduce((s, c) => s + c.v, 0))}`);
+    if (contas.some((c) => !c.cx)) L.push(`Total da conta: ${brl(contas.filter((c) => !c.cx).reduce((s, c) => s + c.v, 0))}`);
   }
   if (semana.length) L.push(...semana);
   L.push("✍️ Depois de pagar ou gastar, lance o valor real no app (ex.: paguei aluguel 2478 · roupas sabrina 950 viagem).");
