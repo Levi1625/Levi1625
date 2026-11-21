@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '20/11 21:34';</script>
+<script>window.__versao = '20/11 21:44';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -631,7 +631,14 @@ function pendentesMes(m) {
 const fatKey = (c, m) => `${c.id}_${m}`;
 const faturaPaga = (c, m) => !!(S.cfg.faturasPagas || {})[fatKey(c, m)];
 const dataFixo = (f, m) => `${m}-${pad(diaFixo(f, m))}`;
-function fixosNaFatura(c, fm) { let t = 0; [addM(fm, -1), fm].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === fm) t += valorFixo(f, mm); })); return t; }
+function fixosNaFatura(c, fm) { let t = 0; [addM(fm, -2), addM(fm, -1), fm].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === fm) t += valorFixo(f, mm); })); return t; }
+function faturaPrev(c, m, hv) {
+  const lanc = sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes === m && l.tipo !== 'receita')), assin = fixosNaFatura(c, m);
+  let dia = 0;
+  if (!faturaPaga(c, m) && m >= mesFatura(hoje(), c)) { const pm = (+c.vence || 10) > (+c.fecha || 1) ? m : addM(m, -1); if (pm >= ymNow()) dia = sum(projMes(pm, hv || histVar()).linhas.filter(l => l.tipo === 'previsto' && l.lugar === 'Crédito ' + c.nome), l => l.v); }
+  return {lanc, assin, dia, total:lanc + assin + dia};
+}
+const fatDet = f => [f.lanc > 0.5 ? `${brl0(f.lanc)} já lançados` : '', f.assin > 0.5 ? `${brl0(f.assin)} de assinaturas e contas fixas` : '', f.dia > 0.5 ? `${brl0(f.dia)} do dia a dia (previsão pela média)` : ''].filter(Boolean).join(' + ');
 const valorFatura = (c, m) => sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes === m && l.tipo !== 'receita')) + fixosNaFatura(c, m);
 const vencFatura = (c, m) => `${m}-${pad(clamp(+c.vence || 10, 1, diasNoMes(m)))}`;
 const saldoInv = i => sum(i.movs || [], mv => (mv.t === 'resgate' ? -1 : 1) * (+mv.v || 0));
@@ -666,7 +673,7 @@ function mediaCat(m, n = 3, soVar = false) {
   for (let i = 1; i <= n; i++) meses.push(addM(m, -i));
   const comDados = meses.filter(x => S.lanc.some(l => l.mes === x && l.tipo !== 'receita' && !isRep(l)));
   if (!comDados.length) return {media:{}, n:0, desp:0};
-  comDados.forEach(x => S.lanc.forEach(l => { if (l.mes === x && l.tipo !== 'receita' && !isRep(l) && (!soVar || !isFixo(l))) out[l.cat || 'Outros'] = (out[l.cat || 'Outros'] || 0) + (+l.valor || 0); }));
+  comDados.forEach(x => S.lanc.forEach(l => { if ((soVar ? mesGasto(l) : l.mes) === x && l.tipo !== 'receita' && !isRep(l) && (!soVar || (!isFixo(l) && !l.grupo && !l.objId && l.cat !== 'Cartão (sem detalhe)'))) out[l.cat || 'Outros'] = (out[l.cat || 'Outros'] || 0) + (+l.valor || 0); }));
   Object.keys(out).forEach(k => out[k] /= comDados.length);
   const desp = comDados.reduce((s, x) => s + sum(S.lanc.filter(l => l.mes === x && l.tipo !== 'receita' && !isRep(l))), 0) / comDados.length;
   return {media: out, n: comDados.length, desp};
@@ -1010,7 +1017,7 @@ function vHoje() {
     const frac = pg ? (orcConta ? pg.total / Math.max(orcConta, pg.total) : 1) : 0;
     let centro, dir;
     if (pj.livre1 != null && pj.livre1 < 0) { centro = `<b>${brl0(-pj.livre1)}</b><small>vai faltar</small>`; dir = `<small>Até ${dCurto(pj.P1)} a conta não fecha</small><span class="big">Segure</span><span style="font-size:.86rem;opacity:.85">veja em Contas o que dá para adiar</span>`; }
-    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Livre para gastar</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">até ${dCurto(pg.fim)}, sem mexer no guardado</span>${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(pg.reserva)} deste mês ficam para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
+    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Pode gastar até ${dCurto(pg.fim)}</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">no total (dá ${brl0(pg.porDia)} por dia), sem atrapalhar contas, guardado e meses à frente</span>${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(pg.reserva)} deste mês ficam para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
     else { centro = `<b>${brl0(sh)}</b><small>na conta</small>`; dir = `<small>Cadastre seu salário em Contas</small><span style="font-size:.86rem;opacity:.85">para eu dizer quanto pode gastar por dia</span>`; }
     h += `<section class="hz s-${st}"><div class="hero-top"><div class="ring">${anelHTML(pj.livre1 != null && pj.livre1 < 0 ? 0 : frac)}<div class="in">${centro}</div></div><div class="hero-r">${dir}</div></div>
       <div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div></section>`;
@@ -1059,8 +1066,9 @@ function vContasHoje() {
     ...S.cartoes.filter(c => faturaPaga(c, m)).map(c => ({desc:'Fatura ' + c.nome, valor:valorFatura(c, m), dia:+vencFatura(c, m).slice(8), tipo:'despesa', cat:'Cartão (sem detalhe)', pago:true}))];
   let h = `<header class="hd2"><span class="tx"><b style="font-size:1.5rem">Contas</b></span><div class="seg3" role="group" aria-label="Ver" style="flex:none;width:190px"><button type="button" data-a="contasAba" data-v="contas" aria-pressed="${aba === 'contas'}">Contas</button><button type="button" data-a="contasAba" data-v="cartoes" aria-pressed="${aba === 'cartoes'}">Cartões</button></div></header>`;
   if (aba === 'cartoes') {
-    h += S.cartoes.length ? S.cartoes.map(c => { const v = valorFatura(c, hojeM), pago = faturaPaga(c, hojeM); return `<section class="sec2"><div class="ri" style="border:0">${catIco('Cartão (sem detalhe)', 'despesa')}<span class="tx"><span class="t1">${esc(c.nome)}</span><span class="t2">fecha dia ${c.fecha || '?'} · vence dia ${c.vence || '?'}</span></span><button class="btn sm" data-a="editCartao" data-id="${c.id}">Mudar</button></div>
-      <div class="row" style="justify-content:space-between;margin-top:6px"><span class="muted small">Fatura de ${ymLabel(hojeM)}${pago ? ' · paga' : ''}</span><b class="num" style="font-size:1.15rem">${brl(v)}</b></div><div class="row" style="justify-content:space-between;margin-top:2px"><span class="muted small">Fatura de ${ymLabel(addM(hojeM, 1))}</span><span class="num">${brl(valorFatura(c, addM(hojeM, 1)))}</span></div></section>`; }).join('') : '<p class="muted">Nenhum cartão cadastrado.</p>';
+    const hv = histVar();
+    h += S.cartoes.length ? S.cartoes.map(c => { const v = valorFatura(c, hojeM), pago = faturaPaga(c, hojeM), f2 = faturaPrev(c, addM(hojeM, 1), hv); return `<section class="sec2"><div class="ri" style="border:0">${catIco('Cartão (sem detalhe)', 'despesa')}<span class="tx"><span class="t1">${esc(c.nome)}</span><span class="t2">fecha dia ${c.fecha || '?'} · vence dia ${c.vence || '?'}</span></span><button class="btn sm" data-a="editCartao" data-id="${c.id}">Mudar</button></div>
+      <div class="row" style="justify-content:space-between;margin-top:6px"><span class="muted small">Fatura de ${ymLabel(hojeM)}${pago ? ' · paga' : ''}</span><b class="num" style="font-size:1.15rem">${brl(v)}</b></div><div class="row" style="justify-content:space-between;margin-top:2px"><span class="muted small">Fatura de ${ymLabel(addM(hojeM, 1))} (prevista)</span><span class="num">${brl(f2.total)}</span></div>${f2.total > 0 ? `<p class="small muted" style="margin-top:2px">${fatDet(f2)}</p>` : ''}</section>`; }).join('') : '<p class="muted">Nenhum cartão cadastrado.</p>';
     h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#cartoes">Cartões e parcelas</a>${soVer() ? '' : '<button class="btn" data-a="novoCartao">+ Novo cartão</button>'}</div><p class="hint" style="margin-top:10px">Também dá para escrever no +: <i>“o cartão da mãe fecha dia 19 e vence dia 25”</i>.</p>`;
     return h;
   }
@@ -1107,7 +1115,7 @@ function fechamentoTexto(m) {
   const fontes = fut.slice(0, i).filter(f => f.sobra > 0).sort((a, b) => b.sobra - a.sobra).slice(0, 2).sort((a, b) => a.m.localeCompare(b.m));
   const extrasDe = mm => fixosAtivos(mm).filter(f => f.tipo === 'receita' && walletRec(f) === 'conta' && !['Salário', 'Vale alimentação', 'Vale refeição'].includes(f.cat) && valorFixo(f, mm) >= 300).sort((a, b) => valorFixo(b, mm) - valorFixo(a, mm)).slice(0, 2).map(f => f.desc.replace(/\s*\((?:estimado|líquido)\)/gi, ''));
   const de = fontes.length ? ' que sobraram de ' + fontes.map(f => { const ex = extrasDe(f.m); return ymLabel(f.m) + (ex.length ? ` (${esc(ex.join(' + '))})` : ''); }).join(' e ') : i === 0 ? ' que já estão na conta' : '';
-  return `<b>Fique tranquilo:</b> em ${nomeM} sai ${brl0(-x.sobra)} a mais do que entra, mas você começa o mês com <b>${brl0(ini)}</b>${de}. Termina com <b>${brl0(x.livre)}</b>.${x.livre < colchao() ? ' Fica apertado: segure os gastos extras.' : ''} <b>O que fazer:</b> não gaste esses ${brl0(-x.sobra)} antes de ${nomeM}${fontes.length ? ` (quando cair o dinheiro de ${ymLabel(fontes[fontes.length - 1].m)}, dá para pôr numa caixinha “${Nome}” em Guardado)` : ''}.${gTxt}`;
+  return `<b>Fique tranquilo:</b> em ${nomeM} sai ${brl0(-x.sobra)} a mais do que entra, mas você começa o mês com <b>${brl0(ini)}</b>${de}. Termina com <b>${brl0(x.livre)}</b>.${x.livre < colchao() ? ' Fica apertado: segure os gastos extras.' : ''} <b>O que fazer:</b> deixe esses ${brl0(-x.sobra)} na conta até ${nomeM}; eles já estão contados para pagar ${nomeM}. O valor do dia na tela Hoje já considera isso.${gTxt}`;
 }
 function fechamentoHTML(m) {
   const fut = fluxo(), i = fut.findIndex(x => x.m === m), x = fut[i]; if (!x) return '';
@@ -1149,10 +1157,10 @@ A.porDiaDet = () => {
   const f0 = fluxo()[0]; if (f0 && f0.cobre > 1) h += `<p class="small" style="margin:6px 0 0">🍽️ Comida sai do vale enquanto tiver saldo (${brl0(saldoVAHoje() || 0)} hoje). Pelos limites de comida, o vale não chega até o fim do mês: a previsão separa ${brl0(f0.cobre)} da conta para isso, e esse valor não entra no valor do dia. Isso se ajusta sozinho conforme vocês lançam.</p>`;
   h += `<h3 style="margin:16px 0 2px">2. Meses que vêm pela frente</h3>`;
   if (g.falta > 0) h += `<p class="small" style="margin:4px 0">Mesmo gastando só o planejado, em <b>${ymLabel(g.pior)}</b> a conta fica em <b class="neg">${brl0(g.minL)}</b>. Para cobrir, segure <b>${brl0(g.porMesRes)} por mês</b> até lá (${brl0(g.falta)} divididos em ${g.mesesAte} ${g.mesesAte > 1 ? 'meses' : 'mês'}). Este mês: ${brl0(g.reserva)}${g.reserva < g.porMesRes ? ' (é tudo o que sobra do dia a dia)' : ''}.</p><button class="btn sm" data-a="projIr2" data-m="${g.pior}">Ver como cobrir ${ymLabel(g.pior)}</button>`;
-  else if (g.extra > 0) h += `<p class="small" style="margin:4px 0">Até ${ymLabel(fluxo().slice(-1)[0].m)}, o mês mais apertado é <b>${ymLabel(g.pior)}</b>, fechando com ${brl0(g.minL)}. Guardando ${brl0(colchao())} de folga, sobram <b class="pos">${brl0(g.extra)}</b> livres de verdade, que entram na conta de hoje.</p>`;
+  else if (g.extra > 0) h += `<p class="small" style="margin:4px 0">Até ${ymLabel(fluxo().slice(-1)[0].m)}, o mês mais apertado é <b>${ymLabel(g.pior)}</b>, fechando com ${brl0(g.minL)}. Guardando ${brl0(colchao())} de folga, ainda sobram <b class="pos">${brl0(g.extra)}</b> que você pode gastar agora sem prejudicar nenhum mês. Eles já estão somados no valor do dia.</p>`;
   else h += `<p class="small" style="margin:4px 0">O mês mais apertado é <b>${ymLabel(g.pior)}</b>, fechando com ${brl0(g.minL)} (abaixo da folga de ${brl0(colchao())}). Não sobra nada além do planejado.</p>`;
   h += `<h3 style="margin:16px 0 2px">3. Resultado</h3>`;
-  h += linha('Dia a dia planejado', brl0(g.dia)) + (g.falta > 0 ? linha('− Segurar para ' + ymLabel(g.pior), '− ' + brl0(g.reserva)) : '') + (g.extra > 0 ? linha('+ Livre de verdade', '+ ' + brl0(g.extra)) : '');
+  h += linha('Dia a dia planejado que falta no mês', brl0(g.dia)) + (g.falta > 0 ? linha('− Segurar para ' + ymLabel(g.pior), '− ' + brl0(g.reserva)) : '') + (g.extra > 0 ? linha('+ Sobra que não faz falta em nenhum mês', '+ ' + brl0(g.extra)) : '');
   h += linha(`<b>Pode gastar até ${dCurto(g.fim)}</b>`, brl0(g.total), g.dias + ' dia' + (g.dias > 1 ? 's' : ''));
   h += linha('<b>Por dia</b>', `<span style="font-size:1.1rem">${brl0(g.porDia)}</span>`);
   if (g.limCaixa) h += `<p class="small warnc" style="margin:8px 0 0">Até o dinheiro cair (${dCurto(pj.P1)}) só tem ${brl0(g.caixa)} livre na conta, então o limite por dia ficou menor.</p>`;
@@ -1198,7 +1206,7 @@ function mesDetalheHTML(m) {
     <div class="row" style="margin-top:6px"><span class="pos">+ Vai entrar</span><span class="sp"></span><b class="num pos">${brl0(x.entra)}</b></div>
     <div class="row" style="margin-top:6px"><span>− Vai sair da conta</span><span class="sp"></span><b class="num">${brl0(x.sai + x.cobre)}</b></div>
     <div class="row" style="margin-top:10px;padding-top:10px;border-top:2px solid var(--line)"><b>Fica na conta no fim de ${ymLabel(m)}</b><span class="sp"></span><b class="num" style="font-size:1.25rem;color:${cor}">${brl0(x.livre)}</b></div>
-    <p class="small muted" style="margin:6px 0 0">${x.sobra >= 0 ? `Neste mês entra ${brl0(x.sobra)} a mais do que sai.` : `Neste mês sai ${brl0(-x.sobra)} a mais do que entra (usa o que sobrou antes).`}${x.va > 0 ? ` No vale fica ${brl0(x.va)}.` : ''}${x.vaPerde > 1 ? ` <b class="neg">Vencem ${brl0(x.vaPerde)} do vale sem usar: gaste comida no vale antes.</b>` : ''}${x.cobre > 1 ? ` Pela previsão, a comida planejada passa do vale em ${brl0(x.cobre)}, que sairiam da conta.` : ''}</p></section>`;
+    <p class="small muted" style="margin:6px 0 0">${x.va > 0 ? `No vale fica ${brl0(x.va)} no fim do mês.` : ''}${x.vaPerde > 1 ? ` <b class="neg">Vencem ${brl0(x.vaPerde)} do vale sem usar: gaste comida no vale antes.</b>` : ''}${x.cobre > 1 ? ` Pela previsão, a comida planejada passa do vale em ${brl0(x.cobre)}, que sairiam da conta.` : ''}</p></section>`;
   h += `<p class="small" style="margin:0 0 12px;line-height:1.55">${fechamentoTexto(m)}</p>`;
   h += `<h3 style="margin:6px 0 2px">O que entra na conta</h3>${ent.length ? ent.sort((a, b) => b.v - a.v).map(e => linha(esc(e.d), '+ ' + brl0(e.v), e.q)).join('') : '<p class="small muted">Nada previsto.</p>'}`;
   h += `<h3 style="margin:16px 0 2px">O que sai da conta</h3>${['contas', 'cart', 'dia', 'plan'].map(grupo).join('') || '<p class="small muted">Nada previsto.</p>'}`;
@@ -1227,7 +1235,7 @@ function mesDetalheHTML(m) {
       <h3 style="margin:0 0 6px">${falta ? `Vai faltar ${brl0(falta)}: como cobrir` : `Para ficar tranquilo (ter ${brl0(meta)} de folga)`}</h3>
       <p class="small muted" style="margin:0 0 8px">${falta ? `Escolha uma (ou junte) das opções abaixo para cobrir ${brl0(falta)}${paraTranquilo > falta ? ` e, se der, mais ${brl0(paraTranquilo - falta)} para ter folga` : ''}.` : `Faltam ${brl0(paraTranquilo)} para ter ${brl0(meta)} de folga no fim do mês.`}</p>
       <ol class="small" style="margin:0;padding-left:18px;line-height:1.55">${op.map(o => `<li style="margin-bottom:6px">${o}</li>`).join('')}</ol></section>`;
-  } else if (falta < 1) h += `<p class="small" style="margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--pos-soft)">✅ Mês tranquilo: fecha com ${brl0(x.livre)} na conta, acima da folga de ${brl0(meta)}.</p>`;
+  }
   h += `<div class="row" style="margin-top:14px"><button class="lnk small" data-a="projTabelas" data-m="${m}">Ver a análise completa deste mês</button></div>`;
   return h;
 }
@@ -1281,7 +1289,7 @@ function coberturaHTML(pc, compacto) {
   if (!pc) return '';
   const linha = (p, k) => p.tipo === 'guardado' ? `<li><b>Usar ${brl0(p.v)} do guardado “${esc(p.nome)}”</b>${p.desde ? ` (que você guardou em ${ymLabel(p.desde)})` : ''} até ${dLabel(p.data)}.${p.alvo ? ` Ele era para ${ymLabel(p.alvo)}: devolva antes disso.` : ''}</li>`
     : p.tipo === 'credito' ? `<li><b>Passar ${brl0(p.v)} do dia a dia de ${ymLabel(pc.m)} para o cartão ${esc(p.nome)}</b>, comprando a partir de ${dLabel(p.data)}: essa fatura só vence em ${dLabel(p.vence)}.${p.prox ? (p.aguenta ? ` Em ${ymLabel(p.prox)} sobram ${brl0(p.sobraProx)} na conta, então dá para pagar.` : ` Atenção: em ${ymLabel(p.prox)} não sobra o suficiente para pagar tudo.`) : ''} <span class="muted">Assim não precisa do cheque especial.</span></li>`
-    : `<li><b>Ainda faltam ${brl0(p.v)}:</b> corte ou adie gastos de ${ymLabel(pc.m)} (ou um item de viagem/compra). Evite o cheque especial: os juros passam de 8% ao mês.</li>`;
+    : `<li><b>${k ? `Ainda faltam ${brl0(p.v)}: corte ou adie` : `Cortar ou adiar ${brl0(p.v)}`}</b> em gastos de ${ymLabel(pc.m)} (ou um item de viagem/compra). Não há guardado nem cartão que cubra isso. Evite o cheque especial: os juros passam de 8% ao mês.</li>`;
   const sem = pc.m > ymNow() ? `<p class="small" style="margin-top:8px"><b>Melhor caminho (sem mexer no guardado):</b> segurar <b>${brl0(pc.porMes)} por mês</b> no dia a dia até ${ymLabel(pc.m)}${pc.meses > 1 ? ` (${pc.meses} meses)` : ''}. O valor do dia na tela Hoje já desconta isso.</p><p class="small" style="margin-top:8px"><b>Se não der, nesta ordem:</b></p>` : '';
   return `<div style="border:2px solid var(--neg);border-radius:16px;padding:14px;margin-top:12px"><b>Plano para cobrir ${brl0(pc.falta)} em ${ymLabel(pc.m)}</b>${sem}<ol class="small" style="margin:${sem ? '4px' : '8px'} 0 0;padding-left:18px;line-height:1.55">${pc.passos.map(linha).join('')}</ol>${pc.devolver ? `<p class="small" style="margin-top:8px">Dá para devolver ao guardado em <b>${ymLabel(pc.devolver)}</b>.</p>` : ''}${compacto ? '' : '<p class="small muted" style="margin-top:6px">Ordem: primeiro reservas e guardados que não são para este mês, depois o crédito (nunca o cheque especial).</p>'}</div>`;
 }
@@ -1426,7 +1434,7 @@ function vInicio() {
   let h = header('Análise do mês', 'Como está o mês') + exBanner();
   if (m >= ymNow()) h += fechamentoHTML(m);
   const passado = m < ymNow();
-  h += `<section class="hero s-${passado ? (r.rec - r.desp >= 0 ? 'ok' : 'bad') : pm.saude}"><div class="hero-top"><div><p class="eyebrow">${ymLong(m)}${passado ? ' · fechado' : ''}</p><h2 class="hero-st"><i></i>${passado ? (r.rec - r.desp >= 0 ? 'Fechou no azul' : 'Fechou no vermelho') : sl}</h2></div><button class="btn sm pri" data-a="novo">+ Lançar</button></div>
+  if (passado) h += `<section class="hero s-${passado ? (r.rec - r.desp >= 0 ? 'ok' : 'bad') : pm.saude}"><div class="hero-top"><div><p class="eyebrow">${ymLong(m)}${passado ? ' · fechado' : ''}</p><h2 class="hero-st"><i></i>${passado ? (r.rec - r.desp >= 0 ? 'Fechou no azul' : 'Fechou no vermelho') : sl}</h2></div><button class="btn sm pri" data-a="novo">+ Lançar</button></div>
     <div class="hero3">
       <div>${atual ? `<span>Tenho na conta</span>${sh != null ? `<b class="num">${brl(sh)}</b><button class="lnk small" data-a="saldoEdit">atualizar</button>` : `<button class="btn sm" data-a="saldoEdit" style="margin-top:6px">Informar saldo</button>`}` : `<span>${passado ? 'Recebi' : 'Vou receber'}</span><b class="num pos">${brl(passado ? r.rec : pm.rec)}</b>`}</div>
       <div><span>${passado ? 'Gastei' : 'Falta pagar'}</span><b class="num ${!passado && fp.v ? 'warnc' : ''}">${brl(passado ? r.desp : fp.v)}</b><small>${passado ? `${r.D.length} lançamentos` : fp.n ? `${fp.n} conta${fp.n > 1 ? 's' : ''} e faturas` : 'tudo pago'}</small></div>
@@ -1435,9 +1443,9 @@ function vInicio() {
     <div class="hero-flow"><span>Entra <b class="num pos">${brl(passado ? r.rec : pm.rec)}</b></span><span>Sai <b class="num">${brl(passado ? r.desp : pm.desp)}</b></span>${passado ? '' : `<span>Sobra prevista <b class="num ${pm.sobraSemVA < 0 ? 'neg' : 'pos'}">${brl(pm.sobraSemVA)}</b> <span class="small">(sem o vale)</span></span>`}${['va', 'vr'].filter(k => pm.W[k].e || pm.W[k].s).map(k => `<span>${k === 'va' ? 'Vale alimentação' : 'Vale refeição'}: sobra <b class="num ${pm.W[k].e - pm.W[k].s < 0 ? 'neg' : ''}">${brl(pm.W[k].e - pm.W[k].s)}</b></span>`).join('')}</div></section>`;
   const al = alertasMes(m);
   if (al.length) h += `<section class="card alertas"><h2 style="margin-bottom:6px">Atenção</h2><div>${al.slice(0, 8).map(a => `<div class="al al-${a.t}"><i></i><span class="tx">${a.h}</span>${a.btn || ''}</div>`).join('')}</div>${al.length > 8 ? `<p class="hint">+ ${al.length - 8} avisos</p>` : ''}</section>`;
-  h += `<form class="quick" data-f="rapido" autocomplete="off" style="margin-top:16px"><input id="q-rapido" name="q" placeholder="Gastou? Escreva ou fale: mercado 120 vale · tênis 600 nubank 3x" aria-label="Lançamento rápido">${micBtn('q-rapido')}<button class="btn pri" type="submit">Lançar</button></form><div class="qprev" id="qprev">${S.qmsg || QDEF}</div>`;
+
   const ano = semaforoAno(+m.slice(0, 4));
-  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Seu ano, mês a mês</h2><p>Quanto sobra em dinheiro (sem o vale). Meses passados: o que aconteceu. Próximos: a previsão. Toque num mês.</p></div><div class="legend" style="margin:0"><span><i style="background:var(--pos)"></i>folgado</span><span><i style="background:var(--warn)"></i>apertado</span><span><i style="background:var(--neg)"></i>no vermelho</span></div></div>
+  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Seu ano, mês a mês</h2><p>Resultado de cada mês sozinho: o que entrou menos o que saiu da conta (sem o vale e sem contar a sobra de meses anteriores). Meses passados: o que aconteceu. Próximos: a previsão.</p></div><div class="legend" style="margin:0"><span><i style="background:var(--pos)"></i>folgado</span><span><i style="background:var(--warn)"></i>apertado</span><span><i style="background:var(--neg)"></i>no vermelho</span></div></div>
     <div class="ano">${ano.map(x => `<button class="mes-chip ${x.vazio ? 'vazio' : 'c-' + x.saude}${x.m === m ? ' sel' : ''}" data-a="irMesProj" data-m="${x.m}"><span>${MES[+x.m.slice(5) - 1]}${x.m === ymNow() ? ' •' : ''}</span><b class="num">${x.vazio ? '—' : (x.s < 0 ? '−' : '') + kfmt(Math.abs(x.s))}</b></button>`).join('')}</div></section>`;
   const extra = [];
 
@@ -1506,8 +1514,8 @@ function vInicio() {
     ${S.aiText ? `<div class="ai-out" id="ai-out">${esc(S.aiText)}</div>` : '<div id="ai-out" hidden class="ai-out"></div>'}
   </section>`);
   // contas pendentes
-  const pend = r.pend.filter(p => !p.ref.cartaoId);
-  right.push(`<section class="card"><div class="card-h"><div><h2>Contas do mês</h2><p>${pend.length ? `${pend.length} pendente${pend.length > 1 ? 's' : ''} · ${brl(r.pendD)} a pagar` : 'Tudo em dia'}</p></div><a class="lnk" href="#fixos">Ver e editar</a></div>
+  const pend = r.pend.filter(p => !p.ref.cartaoId), pPag = pend.filter(p => p.tipo === 'despesa'), pRec = pend.filter(p => p.tipo === 'receita');
+  right.push(`<section class="card"><div class="card-h"><div><h2>Contas do mês</h2><p>${pend.length ? [pPag.length ? `${pPag.length} a pagar (${brl(sum(pPag))})` : '', pRec.length ? `${pRec.length} a receber (${brl(sum(pRec))})` : ''].filter(Boolean).join(' · ') : 'Tudo em dia'}</p></div><a class="lnk" href="#fixos">Ver e editar</a></div>
     ${pend.length ? `<div class="list">${pend.slice(0, 6).map(p => `<div class="li" style="cursor:default"><span class="ic" style="background:var(--warn-soft);color:var(--warn)">${pad(p.dia)}</span><span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${p.kind === 'emp' ? 'Empréstimo' : esc(p.cat || '')} · dia ${p.dia}</span></span><span class="am ${p.tipo === 'receita' ? 'pos' : ''}">${brl(p.valor)}</span><button class="btn sm" data-a="pagar" data-kind="${p.kind}" data-id="${p.ref.id}">${p.tipo === 'receita' ? 'Recebi' : 'Paguei'}</button></div>`).join('')}</div>` : `<div class="empty">${S.fixos.length ? 'Nenhuma conta fixa pendente neste mês.' : 'Cadastre aluguel, contas, assinaturas e salário em Contas fixas para acompanhar o que falta pagar.'}</div>`}
   </section>`);
   // maiores
@@ -1702,7 +1710,7 @@ function vFixos() {
       <div class="row" style="justify-content:space-between"><span>Renda fixa${extrasR ? ' + extras' : ''}</span><b class="num pos">${brl(totR + extrasR)}</b></div>
       <div class="row" style="justify-content:space-between"><span>− Contas fixas e parcelas</span><b class="num">${brl(totD)}</b></div>
       <div class="row" style="justify-content:space-between"><span>− Gastos do dia a dia planejados</span><b class="num">${brl(totV)}</b></div>
-      <div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px"><span><b>Sobra planejada</b></span><b class="num ${sobra < 0 ? 'neg' : 'pos'}">${brl(sobra)}</b></div>
+      <div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px"><span><b>Sobra do plano (conta + vale)</b></span><b class="num ${sobra < 0 ? 'neg' : 'pos'}">${brl(sobra)}</b></div>
     </div><div style="margin-top:14px">${bolsosHTML(projMes(m))}</div>${totR ? `<p class="hint" style="margin-top:8px">Contas fixas levam ${pct(totD / totR)} da renda fixa (ideal abaixo de 50%).</p>` : ''}</section>`;
   const row = (f, tipo) => {
     const pg = pagoFixo(f, m), aj = ajusteFixo(f, m), v = vf(f);
@@ -1714,7 +1722,7 @@ function vFixos() {
   // faturas
   if (S.cartoes.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Faturas de cartão</h2><p>Somam as compras lançadas no crédito</p></div><a class="lnk" href="#cartoes">Cartões</a></div><div class="list">${S.cartoes.map(c => { const v = valorFatura(c, m), pg = faturaPaga(c, m); return `<div class="li" style="cursor:default"><span class="ic" style="background:${pg ? 'var(--pos-soft)' : 'var(--warn-soft)'};color:${pg ? 'var(--pos)' : 'var(--warn)'}">${pad(+c.vence || 1)}</span><span class="tx"><span class="t1">Fatura ${esc(c.nome)}</span><span class="t2">${pg ? 'paga' : 'vence dia ' + c.vence}</span></span><span class="am">${brl(v)}</span>${pg ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazerFatura" data-k="${fatKey(c, m)}" title="Desfazer">✓</button>` : v > 0 ? `<button class="btn sm" data-a="pagarFatura" data-id="${c.id}" data-m="${m}">Paguei</button>` : ''}</div>`; }).join('')}</div></section>`;
   // dia a dia
-  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Gastos do dia a dia (variáveis)</h2><p>${Object.keys((S.cfg.orcMes || {})[m] || {}).length ? '<span class="pill acc">plano próprio deste mês</span> ' : ''}Quanto você planeja gastar por categoria. ${brl(gastoV)} de ${brl(totV)} usados.</p></div><button class="btn sm pri" data-a="editLimites" data-m="${m}">Editar valores</button></div>
+  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Gastos do dia a dia (variáveis)</h2><p>${Object.keys((S.cfg.orcMes || {})[m] || {}).length ? '<span class="pill acc">plano próprio deste mês</span> ' : ''}Quanto você planeja gastar por categoria. ${brl(sum(varCats.filter(c => +orc[c] > 0), c => r.porCatVar[c] || 0))} gastos dos ${brl(totV)} planejados (só categorias com limite).</p></div><button class="btn sm pri" data-a="editLimites" data-m="${m}">Editar valores</button></div>
     ${varCats.length ? `<div class="bars">${varCats.map(c => { const lim = +orc[c] || 0, g = r.porCatVar[c] || 0, over = lim && g > lim; return `<div class="bar-row"><span class="n">${esc(c)}</span><span class="v ${over ? 'neg' : ''}">${brl0(g)} <span class="muted small">/ ${lim ? brl0(lim) : 'sem limite'}</span></span><div class="track"><span class="fill" style="width:${lim ? clamp(g / lim * 100, 0, 100) : 0}%;background:${over ? 'var(--neg)' : 'var(--g-est)'}"></span></div><div class="meta"><span>${lim ? (over ? `passou ${brl(g - lim)}` : `resta ${brl(lim - g)}`) : ''}</span><span></span></div></div>`; }).join('')}</div>` : '<div class="empty">Defina quanto quer gastar com mercado, gasolina, lazer… em Editar valores.</div>'}</section>`;
   const rp = repassesAtivos(m);
   if (rp.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Repasses</h2><p>Contas de outras pessoas que passam por você. Não entram no seu orçamento.</p></div></div><div class="list">${rp.map(f => { const pg = pagoFixo(f, m); return `<div class="li" style="cursor:default"><span class="ic" style="background:var(--surface-2);color:var(--muted)">${pad(diaFixo(f, m))}</span><span class="tx"><span class="t1">${esc(f.desc)}</span><span class="t2">${pg ? 'pago' : 'dia ' + diaFixo(f, m)}${f.de ? ' · de ' + esc(f.de) : ''}</span></span><span class="am muted">${brl(valorFixo(f, m))}</span><button class="lnk small" data-a="editFixo" data-id="${f.id}">Editar</button>${pg ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazer" data-id="${pg.id}">✓</button>` : `<button class="btn sm" data-a="pagar" data-kind="fixo" data-id="${f.id}">Paguei</button>`}</div>`; }).join('')}</div></section>`;
@@ -1736,12 +1744,12 @@ function vCartoes() {
     const aberto = mesFatura(hoje(), c);
     const usado = sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes >= aberto && l.tipo !== 'receita'));
     const lim = +c.limite || 0;
-    const fat = sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes === m && l.tipo !== 'receita'));
-    const prox = Array.from({length:6}, (_, i) => { const mm = addM(m, i); return [mm, sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes === mm && l.tipo !== 'receita'))]; });
+    const hv = histVar(), fp = faturaPrev(c, m, hv), fat = fp.total;
+    const prox = Array.from({length:6}, (_, i) => { const mm = addM(m, i); return [mm, faturaPrev(c, mm, hv).total]; });
     const mx = Math.max(1, ...prox.map(p => p[1]));
     h += `<section class="card"><div class="card-h"><div><h2>${esc(c.nome)}</h2><p>fecha dia ${c.fecha} · vence dia ${c.vence}</p></div><button class="lnk" data-a="editCartao" data-id="${c.id}">Editar</button></div>
-      <p class="eyebrow">Fatura de ${ymLabel(m)} ${faturaPaga(c, m) ? '<span class="pill ok">paga</span>' : ''}</p><div style="font-family:var(--f-display);font-size:1.6rem;font-weight:600" class="num">${brl(fat)}</div>
-      ${lim ? `<div style="margin:12px 0 4px" class="prog"><span style="width:${clamp(usado / lim * 100, 0, 100)}%;background:${usado / lim > .8 ? 'var(--neg)' : 'var(--accent)'}"></span></div><p class="small muted">Limite comprometido ${brl(usado)} de ${brl(lim)} · livre ${brl(lim - usado)}</p>` : ''}
+      <p class="eyebrow">Fatura de ${ymLabel(m)} ${faturaPaga(c, m) ? '<span class="pill ok">paga</span>' : ''}</p><div style="font-family:var(--f-display);font-size:1.6rem;font-weight:600" class="num">${brl(fat)}</div>${fat > 0 ? `<p class="small muted">${fatDet(fp)}</p>` : ''}
+      ${lim ? `<div style="margin:12px 0 4px" class="prog"><span style="width:${clamp(usado / lim * 100, 0, 100)}%;background:${usado / lim > .8 ? 'var(--neg)' : 'var(--accent)'}"></span></div><p class="small ${usado > lim ? 'neg' : 'muted'}">${usado > lim ? `Compras e parcelas somam ${brl(usado)}: ${brl(usado - lim)} acima do limite de ${brl(lim)}. Confira o limite cadastrado.` : `Limite: ${brl(usado)} usados de ${brl(lim)} · disponível ${brl(lim - usado)}`}</p>` : ''}
       <div style="display:flex;align-items:flex-end;gap:6px;height:70px;margin-top:14px" role="img" aria-label="Próximas faturas">${prox.map(([mm, v]) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end"><span class="num" style="font-size:.62rem;color:var(--muted)">${v ? kfmt(v) : ''}</span><span style="width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:${mm === m ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 35%, var(--surface-2))'};height:${Math.max(2, v / mx * 44)}px"></span><span style="font-size:.66rem;color:var(--muted)">${MES[+mm.slice(5) - 1]}</span></div>`).join('')}</div>
     </section>`;
   });
@@ -1754,11 +1762,12 @@ function vCartoes() {
     const f = g[0]; const fim = g[g.length - 1].mes;
     const pagas = g.filter(l => l.mes < ymNow()).length;
     const rest = sum(g.filter(l => l.mes >= ymNow()));
-    return {f, fim, pagas, rest, n:f.nparc, vp:f.valor, total:f.total || sum(g)};
+    const px = g.find(l => l.mes >= ymNow());
+    return {f, fim, pagas, rest, n:f.nparc, vp:px ? px.valor : f.valor, total:f.total || sum(g), prox:px ? px.parc : f.nparc};
   }).sort((a, b) => a.fim.localeCompare(b.fim));
   const totMes = sum(ativos, a => a.vp);
   h += `<section class="card"><div class="card-h"><div><h2>Compras parceladas em andamento</h2><p>${ativos.length} parcelamento${ativos.length === 1 ? '' : 's'} · ${brl(totMes)} por mês · ${brl(sum(ativos, a => a.rest))} ainda a pagar</p></div></div>
-    ${ativos.length ? `<div class="tbl-wrap"><table><thead><tr><th>Compra</th><th>Parcela</th><th>Valor/mês</th><th>Falta</th><th>Termina</th><th></th></tr></thead><tbody>${ativos.map(a => `<tr><td>${esc(a.f.desc)}<div class="small muted">${esc(cartao(a.f.cartaoId)?.nome || MEIOS[a.f.meio] || '')}</div></td><td>${Math.min(a.pagas + 1, a.n)}/${a.n}</td><td>${brl(a.vp)}</td><td>${brl(a.rest)}</td><td>${ymLabel(a.fim)}</td><td>${a.f.cartaoId && a.fim > mesFatura(hoje(), cartao(a.f.cartaoId) || {}) ? `<button class="btn sm" data-a="antecipar" data-g="${esc(a.f.grupo)}">Antecipar</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nenhuma compra parcelada em aberto.</div>'}
+    ${ativos.length ? `<div class="tbl-wrap"><table><thead><tr><th>Compra</th><th>Parcela</th><th>Valor/mês</th><th>Falta</th><th>Termina</th><th></th></tr></thead><tbody>${ativos.map(a => `<tr><td>${esc(a.f.desc)}<div class="small muted">${esc(cartao(a.f.cartaoId)?.nome || MEIOS[a.f.meio] || '')}</div></td><td>${a.prox}/${a.n}</td><td>${brl(a.vp)}</td><td>${brl(a.rest)}</td><td>${ymLabel(a.fim)}</td><td>${a.f.cartaoId && a.fim > mesFatura(hoje(), cartao(a.f.cartaoId) || {}) ? `<button class="btn sm" data-a="antecipar" data-g="${esc(a.f.grupo)}">Antecipar</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nenhuma compra parcelada em aberto.</div>'}
   </section>`;
   return h;
 }
@@ -1865,6 +1874,8 @@ function bolsosHTML(p) {
 /* ---------- PROJEÇÃO ---------- */
 const lugarDe = l => l.cartaoId ? 'Crédito ' + (cartao(l.cartaoId)?.nome || 'cartão') : (MEIOS[l.meio] || 'Outro');
 const lugarFixo = f => f.cartaoId ? 'Crédito ' + (cartao(f.cartaoId)?.nome || 'cartão') : (MEIOS[f.meio] || 'Boleto');
+// Para médias de gasto: compra no crédito conta no mês em que foi feita (não no mês da fatura).
+const mesGasto = l => l.cartaoId && !l.grupo && l.data ? l.data.slice(0, 7) : l.mes;
 function mesesComDados(n) { const out = []; for (let i = 1; out.length < n && i <= 36; i++) { const m = addM(ymNow(), -i); if (S.lanc.some(l => l.mes === m && l.tipo !== 'receita')) out.push(m); } return out; }
 function mediaPor(n, key, soVar = false) {
   const ms = mesesComDados(n); const out = {};
@@ -1874,7 +1885,7 @@ function mediaPor(n, key, soVar = false) {
 }
 function histVar() {
   const ms = mesesComDados(3), cats = {};
-  S.lanc.forEach(l => { if (l.tipo === 'receita' || isFixo(l) || isRep(l) || l.cat === 'Cartão (sem detalhe)' || !ms.includes(l.mes)) return; const c = l.cat || 'Outros', lg = lugarDe(l); const o = cats[c] = cats[c] || {tot:0, lug:{}}; o.tot += +l.valor || 0; o.lug[lg] = (o.lug[lg] || 0) + (+l.valor || 0); });
+  S.lanc.forEach(l => { if (l.tipo === 'receita' || isFixo(l) || isRep(l) || l.grupo || l.objId || l.cat === 'Cartão (sem detalhe)' || !ms.includes(mesGasto(l))) return; const c = l.cat || 'Outros', lg = lugarDe(l); const o = cats[c] = cats[c] || {tot:0, lug:{}}; o.tot += +l.valor || 0; o.lug[lg] = (o.lug[lg] || 0) + (+l.valor || 0); });
   Object.values(cats).forEach(o => { o.tot /= Math.max(1, ms.length); Object.keys(o.lug).forEach(k => o.lug[k] /= Math.max(1, ms.length)); });
   return cats;
 }
@@ -1891,7 +1902,7 @@ function projMes(m, hv = histVar(), semObj = false) {
   let recPrev = 0, recPrevVA = 0;
   if (!passado) {
     fixosAtivos(m).forEach(f => { if (f.tipo === 'receita') { if (!pagoFixo(f, m)) { recPrev += valorFixo(f, m); W[walletRec(f)].e += valorFixo(f, m); if (walletRec(f) !== 'conta') recPrevVA += valorFixo(f, m); } return; } if (pagoFixo(f, m) || f.cartaoId) return; add(f.cat || 'Outros', lugarFixo(f), valorFixo(f, m), f.desc, 'fixo'); });
-    S.cartoes.forEach(c => [addM(m, -1), m].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === m) add(f.cat || 'Outros', 'Crédito ' + c.nome, valorFixo(f, mm), f.desc, 'fixo'); })));
+    S.cartoes.forEach(c => [addM(m, -2), addM(m, -1), m].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === m) add(f.cat || 'Outros', 'Crédito ' + c.nome, valorFixo(f, mm), f.desc, 'fixo'); })));
     empsAtivos(m).forEach(e => { if (empPagoNoMes(e, m)) return; if (e.direcao === 'receber') { recPrev += +e.parcela || 0; W.conta.e += +e.parcela || 0; return; } add(e.cat || 'Dívidas & juros', 'Boleto', +e.parcela || 0, e.desc, 'fixo'); });
     const orc = orcDoMes(m), AJ = ajusteMes(m);
     const ja = {}; S.lanc.forEach(l => { if (l.mes === m && l.tipo !== 'receita' && !isFixo(l) && !l.grupo) ja[l.cat] = (ja[l.cat] || 0) + (+l.valor || 0); });
@@ -2097,7 +2108,7 @@ function vAjustes() {
     <div class="form-actions"><button class="btn" data-a="editCat" data-i="-1">+ Nova categoria</button></div></section>
   ${window.__casa ? casaHTML() + (ehDono() ? whatsHTML() : '') : ''}${instalarHTML(true)}
   ${window.__admin ? '<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Clientes</h2><p>Só você vê: libere, pause ou tire pessoas que usam o app, cada uma com o próprio controle.</p></div></div><button class="btn pri" data-a="clientes">Abrir clientes</button></section>' : ''}
-  <section class="card"><div class="card-h"><div><h2>Backup e importação</h2><p>Seus dados ficam salvos na sua conta Claude. Faça um backup de vez em quando.</p></div></div>
+  <section class="card"><div class="card-h"><div><h2>Backup e importação</h2><p>${window.__casa ? 'Seus dados ficam salvos no servidor do app e no celular.' : 'Seus dados ficam salvos na sua conta Claude.'} Faça um backup de vez em quando.</p></div></div>
     <div class="row"><button class="btn" data-a="exportJSON">Baixar backup (.json)</button><button class="btn" data-a="restaurarJSON">Restaurar backup (.json)</button><button class="btn" data-a="exportCSV">Baixar lançamentos (.csv)</button><button class="btn" data-a="importarExtrato">Importar extrato do banco</button><button class="btn" data-a="importar">Importar planilha (CSV)</button></div>
     ${temExemplos() ? '<div class="row" style="margin-top:12px"><button class="btn dang" data-a="apagarExemplos">Apagar dados de exemplo</button></div>' : ''}</section>
   <section class="card"><div class="card-h"><h2>Dicas de uso</h2></div><ul class="insights small">
@@ -2105,7 +2116,7 @@ function vAjustes() {
     <li><span>Lançamento rápido: <b>mercado 230</b>, <b>uber 18,90 ontem</b>, <b>geladeira 3200 nubank 10x</b>, <b>+1200 freela</b>, <b>farmácia 45 15/11</b>.</span></li>
     <li><span>Escreva o nome do cartão para lançar no crédito. Parcelas (<b>3x</b>) são divididas nas faturas certas.</span></li>
     <li><span>O botão <b>+</b> abre o chat: escreva vários gastos de uma vez (“almoço 32 e uber 18”) ou pergunte (“quanto ainda tenho de vale?”).</span></li>
-    <li><span>Para dividir com outra pessoa: no topo do artefato, toque em <b>Compartilhar</b> e convide pelo e-mail com permissão de edição. Ela vê e lança nos mesmos dados.</span></li></ul></section>
+    <li><span>Para dividir com outra pessoa: ${window.__casa ? 'em <b>Quem usa este controle</b> (nesta tela), coloque o e-mail dela e escolha “só ver” ou “pode lançar”.' : 'no topo do artefato, toque em <b>Compartilhar</b> e convide pelo e-mail com permissão de edição.'}</span></li></ul></section>
   </div></div>`;
   return h;
 }
