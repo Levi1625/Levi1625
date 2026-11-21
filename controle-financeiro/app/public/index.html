@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 10:45';</script>
+<script>window.__versao = '21/11 11:01';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -644,6 +644,14 @@ const valorFatura = (c, m) => sum(S.lanc.filter(l => l.cartaoId === c.id && l.me
 const vencFatura = (c, m) => `${m}-${pad(clamp(+c.vence || 10, 1, diasNoMes(m)))}`;
 const saldoInv = i => sum(i.movs || [], mv => (mv.t === 'resgate' ? -1 : 1) * (+mv.v || 0));
 const objGuardado = o => sum(o.movs || [], mv => +mv.v || 0);
+// "Tirei 3.100 da reserva e reponho em maio": o que falta devolver e quando. Guardar depois do empréstimo conta como devolução.
+function objRepor(o) {
+  const L = (o.movs || []).filter(mv => +mv.v < 0 && mv.repor); if (!L.length) return null;
+  const ini = L.map(mv => mv.em || mv.d).sort()[0], tirado = sum(L, mv => -mv.v), devolvido = sum((o.movs || []).filter(mv => +mv.v > 0 && mv.t !== 'passar' && (mv.em || mv.d) > ini), mv => +mv.v);
+  const v = Math.max(0, tirado - devolvido); if (v < 1) return null;
+  const m = L.map(mv => mv.repor).sort().slice(-1)[0]; return {v, m, mes:m < ymNow() ? ymNow() : m};
+}
+const objFalta = o => Math.max(0, objPrevisto(o) - objGuardado(o) - sum(S.lanc.filter(l => l.objId === o.id)) - (objRepor(o)?.v || 0));
 const objPrevisto = o => sum(o.itens || [], it => +it.prev || 0);
 function guardadoMes(m) {
   let g = 0;
@@ -896,7 +904,7 @@ function alertasMes(m) {
     else if (atual && dia >= 7 && me >= 50 && ritmo > me * 1.2) out.push({t:'warn', h:`<b>${esc(c)}</b>: nesse ritmo vai fechar o mês em ${brl(ritmo)}, ${pct(ritmo / me - 1)} acima da sua média.`, btn});
   });
   if (m >= ymNow()) S.objs.filter(o => o.status !== 'concluido' && o.alvo && o.alvo >= ymNow()).forEach(o => {
-    const need = Math.max(0, objPrevisto(o) - objGuardado(o) - sum(S.lanc.filter(l => l.objId === o.id))); if (!need) return;
+    const need = objFalta(o); if (!need) return;
     const f = fluxoDe(o.alvo); if (!f) return;
     if (f.livre < 0) out.push({t:'bad', h:`Objetivo <b>${esc(o.nome)}</b> em risco: depois dele, ${ymLong(o.alvo)} termina com <b>${brl(-f.livre)} faltando</b>. Corte gastos, adie a data ou reduza o plano.`, btn:'<a class="btn sm" href="#projecao">Ajustar</a>'});
     else if (monthsBetween(ymNow(), o.alvo) <= 1) out.push({t:'good', h:`Objetivo <b>${esc(o.nome)}</b> no caminho: mesmo pagando ${brl(need)}, ${ymLong(o.alvo)} termina com ${brl(f.livre)} livres.`, btn:`<button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>`});
@@ -1252,7 +1260,7 @@ const corObj = o => CX_COR[Math.max(0, objsAtivos().indexOf(o)) % CX_COR.length]
 function planoGuardar(o) {
   const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), m0 = ymNow();
   const feito = sum((o.movs || []).filter(mv => (mv.d || '').slice(0, 7) === m0 && +mv.v > 0 && mv.t !== 'passar'), mv => +mv.v);
-  const falta = Math.max(0, prev - gasto - g);
+  const falta = Math.max(0, prev - gasto - g - (objRepor(o)?.v || 0));
   const usaCaixinha = o.guardar === true || (o.movs || []).some(mv => mv.em && mv.t !== 'passar' && +mv.v > 0);
   if (!usaCaixinha || !o.alvo || o.alvo <= m0) return {falta, porMes:0, resto:0, feito, quando:null};
   const meses = Math.max(1, monthsBetween(m0, o.alvo)), porMes = (falta + feito) / meses;
@@ -1317,7 +1325,7 @@ function vGuardado() {
   h += `<div class="sec2-h" style="margin:4px 2px 8px"><h2>Por objetivo</h2>${ro ? '' : '<button class="btn sm pri" data-a="novoObj">+ Novo</button>'}</div>`;
   h += objs.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">${objs.map(o => { const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), pg = planoGuardar(o), pct = prev ? (g + gasto) / prev : 0;
     const st = pg.falta < 1 ? ['completo', 'var(--pos-soft)', 'var(--pos)'] : pg.resto >= 1 ? [`falta ${brl0(pg.resto)} até ${dCurto(pg.quando)}`, 'var(--warn-soft)', 'var(--warn)'] : ['em dia', 'var(--surface-2)', 'var(--muted)'];
-    return `<button data-a="objGuia" data-id="${o.id}" class="sec2" style="margin:0;text-align:left;border:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit">${anelP(pct, corObj(o))}<b style="font-size:.9rem;line-height:1.25">${esc(o.nome)}</b><span class="num" style="font-family:var(--f-display);font-weight:800;font-size:1.1rem">${brl0(g)}</span><span class="small muted">guardado · meta ${brl0(Math.max(0, prev - gasto))}${o.alvo ? ' · ' + ymLabel(o.alvo) : ''}</span><span class="small" style="align-self:flex-start;border-radius:8px;padding:3px 8px;font-weight:700;background:${st[1]};color:${st[2]}">${st[0]}</span></button>`; }).join('')}</div>` : '<p class="muted" style="margin-bottom:14px">Nenhum objetivo ainda. Crie um em “+ Novo”.</p>';
+    return `<button data-a="objGuia" data-id="${o.id}" class="sec2" style="margin:0;text-align:left;border:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit">${anelP(pct, corObj(o))}<b style="font-size:.9rem;line-height:1.25">${esc(o.nome)}</b><span class="num" style="font-family:var(--f-display);font-weight:800;font-size:1.1rem">${brl0(g)}</span><span class="small muted">guardado · meta ${brl0(Math.max(0, prev - gasto))}${o.alvo ? ' · ' + ymLabel(o.alvo) : ''}</span>${objRepor(o) ? `<span class="small warnc">repor ${brl0(objRepor(o).v)} em ${ymLabel(objRepor(o).m)}</span>` : ''}<span class="small" style="align-self:flex-start;border-radius:8px;padding:3px 8px;font-weight:700;background:${st[1]};color:${st[2]}">${st[0]}</span></button>`; }).join('')}</div>` : '<p class="muted" style="margin-bottom:14px">Nenhum objetivo ainda. Crie um em “+ Novo”.</p>';
   // movimentos
   const movs = objs.flatMap(o => (o.movs || []).map(mv => ({...mv, o}))).sort((a, b) => String(b.em || b.d || '').localeCompare(String(a.em || a.d || ''))).slice(0, 12);
   if (movs.length) h += `<section class="sec2"><div class="sec2-h"><h2>Últimos movimentos</h2></div>${movs.map(mv => `<div class="ri"><span class="small muted" style="width:48px">${(mv.d || '').slice(8)}/${(mv.d || '').slice(5, 7)}</span><span class="tx"><span class="t1">${+mv.v >= 0 ? (mv.t === 'passar' ? 'Recebeu de outro objetivo' : 'Guardou') : (mv.t === 'passar' ? 'Passou para outro objetivo' : 'Tirou')} · ${esc(mv.o.nome)}</span>${mv.nota ? `<span class="t2">${esc(mv.nota)}</span>` : ''}</span><span class="v num ${+mv.v >= 0 ? 'pos' : 'neg'}">${+mv.v >= 0 ? '+ ' : '− '}${brl0(Math.abs(+mv.v))}</span></div>`).join('')}</section>`;
@@ -1331,31 +1339,36 @@ A.guardMov = el => {
   openSheet(tit, `<form class="form" data-f="guardMov"><input type="hidden" name="op" value="${op}">
     ${op === 'passar' ? sel('de', 'De', objs[0].id) + sel('para', 'Para', (objs[1] || objs[0]).id) : sel('o', op === 'guardar' ? 'Para qual objetivo' : 'De qual objetivo', el.dataset.id)}
     <label class="fld big"><span>Valor</span><input name="v" inputmode="decimal" autofocus required></label>
-    ${op === 'tirar' ? '<label class="fld"><span>Para pagar o quê? (opcional: vira um gasto do objetivo)</span><input name="para" placeholder="Ex.: passagem"></label>' : ''}
+    ${op === 'tirar' ? `<label class="fld"><span>Para pagar o quê? (opcional: vira um gasto do objetivo)</span><input name="para" placeholder="Ex.: passagem"></label><label class="fld"><span>Vai repor depois?</span><select name="repor"><option value="">Não</option>${Array.from({length:12}, (_, i) => addM(ymNow(), i + 1)).map(m => `<option value="${m}">Sim, em ${ymLong(m)}</option>`).join('')}</select></label>` : ''}
     <p class="hint">${op === 'guardar' ? 'O valor sai da conta e vai para a caixinha do objetivo.' : op === 'tirar' ? 'O valor volta para a conta.' : 'Não mexe na conta: só troca de objetivo.'}</p>
     <div class="form-actions"><button class="btn pri" type="submit">${{guardar:'Guardar', tirar:'Tirar', passar:'Passar'}[op]}</button></div></form>`);
 };
 F.guardMov = async fm => { const d = Object.fromEntries(new FormData(fm)), v = parseValor(d.v); if (!(v > 0)) return toast('Informe o valor.');
-  try { const msg = await executarGuardado(d.op, v, d.o || d.de, d.para && d.op === 'passar' ? d.para : null, d.op === 'tirar' ? (d.para || '').trim() : ''); if (!msg.startsWith('✓')) return toast(msg.replace(/<[^>]+>/g, '')); closeSheet(); toast(msg.replace(/<[^>]+>/g, '').split('.')[0]); } catch (e) { if (e?.code !== 'permission_denied') toast('Não consegui salvar.'); } };
-async function executarGuardado(op, v, idA, idB, paraQue) {
+  try { const msg = await executarGuardado(d.op, v, d.o || d.de, d.para && d.op === 'passar' ? d.para : null, d.op === 'tirar' ? (d.para || '').trim() : '', d.op === 'tirar' && d.repor ? d.repor : null); if (!msg.startsWith('✓')) return toast(msg.replace(/<[^>]+>/g, '')); closeSheet(); toast(msg.replace(/<[^>]+>/g, '').split('.')[0]); } catch (e) { if (e?.code !== 'permission_denied') toast('Não consegui salvar.'); } };
+async function executarGuardado(op, v, idA, idB, paraQue, repor) {
   const A1 = S.objs.find(o => o.id === idA), B1 = idB && S.objs.find(o => o.id === idB);
   if ((op === 'tirar' || op === 'passar') && v > objGuardado(A1) + .005) return `<b>${esc(A1.nome)}</b> só tem <b>${brl0(objGuardado(A1))}</b> guardado. ${objGuardado(A1) > 0 ? 'Quer tirar esse valor?' : 'Nada para tirar daí.'}`;
   if (op === 'passar' && A1.id === B1.id) return 'Escolha dois objetivos diferentes.';
   if (op === 'guardar') await movObj(A1, v);
-  else if (op === 'tirar') { await movObj(A1, -v, paraQue ? {nota:paraQue} : {}); if (paraQue) await processarItens([{tipo:'despesa', valor:r2(v), desc:paraQue.charAt(0).toUpperCase() + paraQue.slice(1), descDita:true, cat:autoCat(paraQue, 'despesa') || (A1.tipo === 'viagem' ? 'Viagens' : 'Outros'), data:hoje(), meio:S.cfg.meioPadrao || 'pix', meioDito:true, nparc:1, objId:A1.id}], paraQue); }
+  else if (op === 'tirar') { await movObj(A1, -v, {...(paraQue ? {nota:paraQue} : {}), ...(repor ? {repor} : {})}); if (paraQue) await processarItens([{tipo:'despesa', valor:r2(v), desc:paraQue.charAt(0).toUpperCase() + paraQue.slice(1), descDita:true, cat:autoCat(paraQue, 'despesa') || (A1.tipo === 'viagem' ? 'Viagens' : 'Outros'), data:hoje(), meio:S.cfg.meioPadrao || 'pix', meioDito:true, nparc:1, objId:A1.id}], paraQue); }
   else if (op === 'passar') { await movObj(A1, -v, {t:'passar', nota:'para ' + B1.nome}); await movObj(S.objs.find(o => o.id === B1.id), v, {t:'passar', nota:'de ' + A1.nome}); }
   await new Promise(r0 => setTimeout(r0, 50));
   const alvo = op === 'passar' ? S.objs.find(o => o.id === B1.id) : S.objs.find(o => o.id === A1.id), pg = planoGuardar(alvo), g = podeGastar();
-  const verbo = op === 'guardar' ? `Guardei <b>${brl0(v)}</b> em <b>${esc(alvo.nome)}</b>` : op === 'tirar' ? `Tirei <b>${brl0(v)}</b> de <b>${esc(A1.nome)}</b>${paraQue ? ` e lancei <b>${esc(paraQue)}</b> como gasto do objetivo` : ' (voltou para a conta)'}` : `Passei <b>${brl0(v)}</b> de <b>${esc(A1.nome)}</b> para <b>${esc(B1.nome)}</b>`;
-  const metaA = op === 'tirar' || op === 'passar' ? planoGuardar(S.objs.find(o => o.id === A1.id)) : null;
-  return `✓ ${verbo}.<br><span class="small">${esc(alvo.nome)}: ${brl0(objGuardado(alvo))} guardados${pg.resto >= 1 ? ` · falta ${brl0(pg.resto)} até ${dCurto(pg.quando)}` : pg.falta < 1 ? ' · meta completa' : ''}</span>${metaA && metaA.falta >= 1 && A1.alvo ? `<br><span class="small warnc">⚠️ ${esc(A1.nome)} fica com ${brl0(metaA.falta)} a completar até ${ymLabel(A1.alvo)}.</span>` : ''}<br><span class="small muted">Guardado no total: ${brl0(totalGuardadoObj())}${g ? ' · livre para gastar: ' + brl0(g.total) : ''}</span>`;
+  const verbo = op === 'guardar' ? `Guardei <b>${brl0(v)}</b> em <b>${esc(alvo.nome)}</b>` : op === 'tirar' ? `Tirei <b>${brl0(v)}</b> de <b>${esc(A1.nome)}</b>${paraQue ? ` e lancei <b>${esc(paraQue)}</b> como gasto do objetivo` : ' (voltou para a conta)'}${repor ? `. Combinado: repor em <b>${ymLabel(repor)}</b> (já está na projeção desse mês)` : ''}` : `Passei <b>${brl0(v)}</b> de <b>${esc(A1.nome)}</b> para <b>${esc(B1.nome)}</b>`;
+  const metaA = (op === 'tirar' && !repor) || op === 'passar' ? planoGuardar(S.objs.find(o => o.id === A1.id)) : null;
+  return `✓ ${verbo}.<br><span class="small">${esc(alvo.nome)}: ${brl0(objGuardado(alvo))} guardados${objRepor(alvo) ? ` · repor ${brl0(objRepor(alvo).v)} em ${ymLabel(objRepor(alvo).m)}` : pg.resto >= 1 ? ` · falta ${brl0(pg.resto)} até ${dCurto(pg.quando)}` : pg.falta < 1 ? ' · meta completa' : ''}</span>${metaA && metaA.falta >= 1 && A1.alvo ? `<br><span class="small warnc">⚠️ ${esc(A1.nome)} fica com ${brl0(metaA.falta)} a completar até ${ymLabel(A1.alvo)}.</span>` : ''}<br><span class="small muted">Guardado no total: ${brl0(totalGuardadoObj())}${g ? ' · livre para gastar: ' + brl0(g.total) : ''}</span>`;
 }
 // Comandos de guardado pelo chat: guardei, tirei do guardado, passa de um para outro, quanto tenho guardado.
 const RX_GQ = /quanto\s+(eu\s+|a gente\s+)?(tenho|temos|tem)\s+guardad/i;
 function achaObjs(txt) { const nt = norm(txt), out = [];
-  objsAtivos().forEach(o => { const ws = norm(o.nome).split(/[^a-z0-9]+/).filter(w => w.length > 3 && !['viagem', 'para', 'parcelas', 'compra'].includes(w)); let pos = -1; ws.forEach(w => { const k = nt.indexOf(w.slice(0, Math.max(5, w.length - 1))); if (k >= 0 && (pos < 0 || k < pos)) pos = k; }); if (pos >= 0) out.push({o, pos}); });
+  // palavras que só um objetivo tem (ex.: "carro") valem mais que as repetidas (ex.: "reserva" em dois objetivos)
+  const W = o => [...new Set(norm(o.nome).split(/[^a-z0-9]+/).filter(w => w.length > 3 && !['viagem', 'para', 'parcelas', 'compra', 'com', 'plano'].includes(w) && !/^\d+$/.test(w)))], freq = {};
+  objsAtivos().forEach(o => W(o).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
+  const achou = w => nt.indexOf(w.slice(0, Math.max(5, w.length - 1)));
+  objsAtivos().forEach(o => { let pos = -1, posU = -1, n = 0; W(o).forEach(w => { const k = achou(w); if (k < 0) return; n++; if (pos < 0 || k < pos) pos = k; if (freq[w] === 1 && (posU < 0 || k < posU)) posU = k; }); if (pos >= 0) out.push({o, pos:posU >= 0 ? posU : pos, unico:posU >= 0, n}); });
+  if (out.some(x => x.unico)) { const u = out.filter(x => x.unico); out.length = 0; out.push(...u); }
   if (!out.length && /\bviage[mn]/.test(nt)) { const v = objsAtivos().filter(o => o.tipo === 'viagem').sort((a, b) => String(a.alvo || '9').localeCompare(String(b.alvo || '9')))[0]; if (v) out.push({o:v, pos:nt.indexOf('viage')}); }
-  return out.sort((a, b) => a.pos - b.pos).map(x => x.o); }
+  return out.sort((a, b) => a.pos - b.pos || b.n - a.n).map(x => x.o); }
 async function comandoGuardado(txt) {
   const nt = norm(txt), objs = objsAtivos();
   if (RX_GQ.test(txt)) { const sep = separadoInfo(); return `<b>${brl0(totalGuardadoObj())}</b> guardados nas caixinhas${objs.length ? ': ' + objs.map(o => `${esc(o.nome)} ${brl0(objGuardado(o))}`).join(' · ') : ''}.${sep ? `<br>Além disso, segure ${brl0(sep.porMes)} por mês na conta até ${ymLabel(sep.ate)} (${brl0(sep.v)} no total).` : ''}`; }
@@ -1371,9 +1384,17 @@ async function comandoGuardado(txt) {
   if (passar) { const [de, para] = achados; return executarGuardado('passar', v, de.id, para.id); }
   const o = achados[0] || (objs.length === 1 ? objs[0] : null);
   if (!o) { S.pend = {tipo:'guard', op:guardar ? 'guardar' : 'tirar', v}; return `${guardar ? 'Guardar' : 'Tirar'} ${brl0(v)} de qual objetivo?<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${objs.map(x => `<button class="btn sm" data-a="guardEscolhe" data-id="${x.id}">${esc(x.nome)}</button>`).join('')}</div>`; }
-  let paraQue = '';
-  if (tirar) { const m2 = String(txt).match(/\b(?:pra|para)\s+(?:pagar\s+)?(?:a|o|as|os)?\s*([^,.;]+)$/i); if (m2 && !achaObjs(m2[1]).length) paraQue = m2[1].trim(); }
-  return executarGuardado(guardar ? 'guardar' : 'tirar', v, o.id, null, paraQue);
+  let paraQue = '', repor = null, t2 = String(txt);
+  if (tirar) {
+    const mr = norm(t2).match(/\b(?:repor|repoe|reponho|devolver|devolvo|volto|voltar)\b[^.;]*?\b(?:em|no mes de|ate)\s+(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/);
+    if (mr) { const k = MESL.findIndex(x => norm(x) === mr[1]); for (let i = 1; i <= 12; i++) { const mm = addM(ymNow(), i); if (+mm.slice(5) === k + 1) { repor = mm; break; } } t2 = t2.replace(/\s*(?:,|e)?\s*\b(?:repor|repõe|reponho|devolver|devolvo|volto|voltar)\b.*$/i, ''); }
+    const m2 = t2.match(/\b(?:pra|para)\s+(?:pagar\s+)?(?:a|o|as|os)?\s*([^,.;]+)$/i), alvoTxt = m2 ? m2[1].trim() : ''; if (alvoTxt && !achaObjs(alvoTxt).length) paraQue = alvoTxt;
+    // se já está lançado (ex.: parcelas no cartão), não lança de novo: o dinheiro volta para a conta e paga a fatura
+    if (alvoTxt) { const ws = norm(alvoTxt).split(/[^a-z0-9]+/).filter(w => w.length > 3 && !['pagar', 'parcela', 'parcelas', 'conta'].includes(w)); const ja = ws.length && S.lanc.find(l => l.mes >= ymNow() && l.tipo !== 'receita' && ws.every(w => norm(l.desc).includes(w))); if (ja) { paraQue = ''; S._jaLanc = ja; } }
+  }
+  const res = await executarGuardado(guardar ? 'guardar' : 'tirar', v, o.id, null, paraQue, repor);
+  if (S._jaLanc) { const ja = S._jaLanc; S._jaLanc = null; return res + `<br><span class="small">“${esc(ja.desc)}” já está lançado${ja.grupo ? ' (parcelas no cartão)' : ''}, então não lancei de novo: o dinheiro voltou para a conta e paga ${ja.cartaoId ? 'a fatura' : 'a conta'}.${ja.grupo ? ' Para pagar tudo de uma vez, toque em <b>Antecipar</b> em Cartões → Parcelamentos.' : ''}</span>`; }
+  return res;
 }
 A.guardEscolhe = async el => { const p = S.pend; if (!p || p.tipo !== 'guard') return; S.pend = null; const msg = {de:'app', h:await executarGuardado(p.op, p.v, el.dataset.id)}; S.chat.push(msg); chatRender(); };
 
@@ -1955,7 +1976,8 @@ function projMes(m, hv = histVar(), semObj = false, soCred = false) {
       Object.entries(lugs).forEach(([lg, w]) => add(c, lg, falta * w / tl, c, 'previsto'));
     });
   }
-  if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido' && o.alvo === m).forEach(o => { const gasto = sum(S.lanc.filter(l => l.objId === o.id)); const need = Math.max(0, objPrevisto(o) - gasto - objGuardado(o)); if (!need) return;
+  if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido').forEach(o => { const rp = objRepor(o); if (rp && rp.mes === m) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', rp.v, `Repor no guardado ${o.nome}`, 'objetivo'); });
+  if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido' && o.alvo === m).forEach(o => { const need = objFalta(o); if (!need) return;
     const its = o.itens || [], rem = its.map(it => Math.max(0, (+it.prev || 0) - sum(S.lanc.filter(l => l.objItem === it.id)))), tr = sum(rem, x => x);
     if (!tr) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', need, o.nome, 'objetivo');
     else its.forEach((it, i) => add('Objetivo: ' + o.nome, it.meio ? lugarMeio(it.meio) : 'Objetivo (' + o.nome + ')', need * rem[i] / tr, `${o.nome}: ${it.cat}`, 'objetivo')); });
@@ -2808,7 +2830,9 @@ function contextoFinanceiro() {
 Por categoria: ${cats || 'nada'}.
 Contas pendentes: ${r.pend.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') || 'nenhuma'}.
 Cartões: ${fat || 'nenhum'}.
-Próximos 12 meses (sobra prevista em dinheiro, sem vales): ${(() => { const hv = histVar(); return Array.from({length:12}, (_, i) => { const m = addM(ymNow(), i); return `${ymLabel(m)} ${brl0(projMes(m, hv).sobraSemVA)}`; }).join('; '); })()}.
+Próximos meses na conta (sem vales; "fica" = quanto fica na conta no fim do mês, já somando as sobras dos meses anteriores; folga mínima desejada ${brl0(colchao())}; abaixo de zero = cheque especial): ${fluxo().map(x => `${ymLabel(x.m)}: entra ${brl0(x.entra)}, sai ${brl0(x.sai + x.cobre)}, fica ${brl0(x.livre)}${x.nota.length ? ` (${x.nota.join(', ')})` : ''}`).join('; ')}.
+Parcelamentos em aberto: ${(() => { const G = {}; S.lanc.filter(l => l.grupo && l.mes >= ymNow()).forEach(l => { (G[l.grupo] = G[l.grupo] || []).push(l); }); return Object.values(G).map(a => { a.sort((x, y) => x.mes.localeCompare(y.mes)); return `${a[0].desc} ${a.length}x de ${brl0(a[0].valor)} (${ymLabel(a[0].mes)} a ${ymLabel(a[a.length - 1].mes)}, ${a[0].cartaoId ? 'crédito ' + (cartao(a[0].cartaoId)?.nome || '') : lugarDe(a[0])})`; }).join('; ') || 'nenhum'; })()}.
+Contas fixas puladas em meses futuros (pagas por um guardado/objetivo, não saem da conta): ${S.fixos.filter(f => f.tipo !== 'receita' && f.ajustes && Object.entries(f.ajustes).some(([mm, a]) => mm >= ymNow() && a && a.pular)).map(f => `${f.desc} ${brl0(f.valor)} em ${Object.entries(f.ajustes).filter(([mm, a]) => mm >= ymNow() && a && a.pular).map(([mm]) => ymLabel(mm)).join(', ')}`).join('; ') || 'nenhuma'}.
 Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(), g = podeGastar(); return pj.livre1 != null ? ` Na conta, sem as contas até o próximo salário (${pj.P1}): ${brl(pj.livre1)}. Pode gastar de verdade (dia a dia planejado que falta no mês${g && g.falta ? `, menos ${brl(g.reserva)} que fica segurado este mês porque em ${ymLabel(g.pior)} a conta fica em ${brl(g.minL)} (segurar ${brl(g.porMesRes)} por mês até lá)` : g && g.extra ? `, mais ${brl(g.extra)} livres de verdade` : ''}): ${g ? brl(g.total) + ' até ' + g.fim + ' = ' + brl(g.porDia) + '/dia' : ''}. Use este valor por dia quando perguntarem quanto pode gastar.` : ''; })()}
 Investido: ${brl(sum(S.inv, saldoInv))}. Objetivos: ${S.objs.map(o => `${o.nome} (${o.alvo || 'sem data'}): previsto ${brl(objPrevisto(o))}, guardado ${brl(objGuardado(o))}, gasto até agora ${brl(sum(S.lanc.filter(l => l.objId === o.id)))}; itens: ${(o.itens || []).map(it => `${it.cat} ${brl0(it.prev)}${it.meio ? ' via ' + lugarMeio(it.meio) : ''}`).join(', ')}`).join(' | ') || 'nenhum'}.
 Receitas extras previstas: ${S.fixos.filter(f => f.tipo === 'receita' && f.fim && f.fim >= ymNow()).map(f => `${f.desc} ${brl0(f.valor)} em ${f.inicio}`).join('; ') || 'nenhuma'}.
@@ -2838,7 +2862,7 @@ async function enviarChat(txt) {
       if (!S.sample) { msg.h = 'Para responder perguntas preciso do Claude, que não está disponível nesta tela. Os números estão no Início e na Visão anual.'; }
       else {
         msg.h = '<span class="muted">Pensando…</span>'; chatRender();
-        await S.sample(`Você é o assistente de um controle financeiro pessoal de uma família brasileira que está no limite do orçamento e quer economizar. Responda em português do Brasil, em texto simples sem markdown, de forma direta e curta (no máximo 4 frases curtas), com valores. A primeira frase já responde a pergunta. Não repita números à toa, não use condicionais vagos ("se", "talvez", "pode ser") e nunca diga que falta simulação. Use apenas os dados abaixo. Se a pergunta for sobre comprar ou gastar algo: comece com SIM, NÃO ou SÓ SE (dizendo a condição exata), diga se algum mês fica no vermelho pela SIMULAÇÃO (que já soma as sobras dos meses anteriores) e diga o melhor jeito ou momento de pagar.\n\nDADOS:\n${contextoFinanceiro()}\n\n${simulacaoCompra(txt)}\n\nPERGUNTA: ${txt}`, {cache:false, onText:({text}) => { msg.h = esc(text); chatRender(); }});
+        await S.sample(`Você é o assistente de um controle financeiro pessoal de uma família brasileira que está no limite do orçamento e quer economizar. Responda em português do Brasil, em texto simples sem markdown, de forma direta e curta (no máximo 4 frases curtas), com valores. A primeira frase já responde a pergunta. Não repita números à toa, não use condicionais vagos ("se", "talvez", "pode ser") e nunca diga que falta simulação. Use apenas os dados abaixo. Se a pergunta for sobre comprar ou gastar algo: comece com SIM, NÃO ou SÓ SE (dizendo a condição exata), diga se algum mês fica no vermelho pela SIMULAÇÃO (que já soma as sobras dos meses anteriores) e diga o melhor jeito ou momento de pagar. Se a pergunta for "e se" (antecipar parcelas, usar um guardado e repor depois, mudar o mês de um gasto): refaça a conta mês a mês pelo "fica" e diga quais meses melhoram ou pioram e quanto; o que entra numa caixinha volta a ser dinheiro quando você tira, e repor depois só pesa no mês da reposição.\n\nDADOS:\n${contextoFinanceiro()}\n\n${simulacaoCompra(txt)}\n\nPERGUNTA: ${txt}`, {cache:false, onText:({text}) => { msg.h = esc(text); chatRender(); }});
       }
     } else {
       let r = null;
