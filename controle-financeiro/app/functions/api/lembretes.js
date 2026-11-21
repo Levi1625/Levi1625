@@ -24,8 +24,18 @@ export function montar(dados, HOJE) {
     if ((f.tipo || "despesa") !== "despesa" || f.repasse || f.cartaoId || !ativo(f) || pago(f)) continue;
     const dd = dia(f); if (dd - D <= 3) contas.push({ dia: dd, desc: f.desc, v: valor(f) });
   }
+  // Fatura = compras lançadas + assinaturas/contas fixas no crédito ainda não lançadas (mesma regra do app).
+  const addM = (ym, n) => { const [y, m] = ym.split("-").map(Number), t = y * 12 + m - 1 + n; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, "0")}`; };
+  const ajM = (f, m) => (f.ajustes && f.ajustes[m]) || null;
+  const ativoM = (f, m) => f.ativo !== false && !f.repasse && (!f.inicio || f.inicio <= m) && (!f.fim || f.fim >= m) && !(ajM(f, m) && ajM(f, m).pular);
+  const mesFatura = (y, m, d, c) => { const F = +c.fecha || 1, V = +c.vence || 10, ym = `${y}-${String(m).padStart(2, "0")}`, fech = d >= F ? addM(ym, 1) : ym; return V > F ? fech : addM(fech, 1); };
+  const fixosNaFatura = (c) => { let t = 0; for (const mm of [addM(M, -2), addM(M, -1), M]) for (const f of dados.fixos || []) {
+    if (f.cartaoId !== c.id || f.tipo === "receita" || !ativoM(f, mm) || lanc.some((l) => l.fixoId === f.id && (l.refMes || l.mes) === mm)) continue;
+    const [y, m] = mm.split("-").map(Number), a = ajM(f, mm), dd = Math.min(+((a && a.dia) || f.dia || 1), new Date(Date.UTC(y, m, 0)).getUTCDate());
+    if (mesFatura(y, m, dd, c) === M) t += +((a && a.v != null) ? a.v : f.valor) || 0;
+  } return t; };
   for (const c of dados.cartoes || []) {
-    const total = lanc.filter((l) => l.cartaoId === c.id && l.mes === M && l.tipo !== "receita").reduce((s, l) => s + (+l.valor || 0), 0);
+    const total = lanc.filter((l) => l.cartaoId === c.id && l.mes === M && l.tipo !== "receita").reduce((s, l) => s + (+l.valor || 0), 0) + fixosNaFatura(c);
     if (total > 0 && !(cfg.faturasPagas && cfg.faturasPagas[`${c.id}_${M}`]) && (+c.vence || 1) - D <= 3) contas.push({ dia: +c.vence || 1, desc: "Fatura " + c.nome, v: total });
   }
   contas.sort((a, b) => a.dia - b.dia);

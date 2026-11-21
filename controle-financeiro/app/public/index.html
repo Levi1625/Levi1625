@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '20/11 21:44';</script>
+<script>window.__versao = '20/11 22:13';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -634,11 +634,11 @@ const dataFixo = (f, m) => `${m}-${pad(diaFixo(f, m))}`;
 function fixosNaFatura(c, fm) { let t = 0; [addM(fm, -2), addM(fm, -1), fm].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === fm) t += valorFixo(f, mm); })); return t; }
 function faturaPrev(c, m, hv) {
   const lanc = sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes === m && l.tipo !== 'receita')), assin = fixosNaFatura(c, m);
-  let dia = 0;
-  if (!faturaPaga(c, m) && m >= mesFatura(hoje(), c)) { const pm = (+c.vence || 10) > (+c.fecha || 1) ? m : addM(m, -1); if (pm >= ymNow()) dia = sum(projMes(pm, hv || histVar()).linhas.filter(l => l.tipo === 'previsto' && l.lugar === 'Crédito ' + c.nome), l => l.v); }
-  return {lanc, assin, dia, total:lanc + assin + dia};
+  let dia = 0, plano = 0;
+  if (!faturaPaga(c, m) && m > ymNow()) projMes(m, hv || histVar()).linhas.forEach(l => { if (l.lugar !== 'Crédito ' + c.nome) return; if (l.tipo === 'previsto') dia += l.v; else if (l.tipo === 'objetivo') plano += l.v; });
+  return {lanc, assin, dia, plano, total:lanc + assin + dia + plano};
 }
-const fatDet = f => [f.lanc > 0.5 ? `${brl0(f.lanc)} já lançados` : '', f.assin > 0.5 ? `${brl0(f.assin)} de assinaturas e contas fixas` : '', f.dia > 0.5 ? `${brl0(f.dia)} do dia a dia (previsão pela média)` : ''].filter(Boolean).join(' + ');
+const fatDet = f => [f.lanc > 0.5 ? `${brl0(f.lanc)} já lançados` : '', f.assin > 0.5 ? `${brl0(f.assin)} de assinaturas e contas fixas` : '', f.dia > 0.5 ? `${brl0(f.dia)} do dia a dia (previsão pela média)` : '', f.plano > 0.5 ? `${brl0(f.plano)} de viagens e planos` : ''].filter(Boolean).join(' + ');
 const valorFatura = (c, m) => sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes === m && l.tipo !== 'receita')) + fixosNaFatura(c, m);
 const vencFatura = (c, m) => `${m}-${pad(clamp(+c.vence || 10, 1, diasNoMes(m)))}`;
 const saldoInv = i => sum(i.movs || [], mv => (mv.t === 'resgate' ? -1 : 1) * (+mv.v || 0));
@@ -865,9 +865,7 @@ function lazerCard(m) {
   return `<section class="card"><div class="card-h"><div><h2>Seu lazer</h2><p>Comer fora, delivery, bares e passeios. Toque para ver o dia a dia.</p></div>${st[0] ? `<span class="pill ${st[0]}">${st[1]}</span>` : ''}</div>
     <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px"><div><div style="font-family:var(--f-display);font-size:1.6rem;font-weight:600" class="num">${brl(T)}</div><p class="small muted">${TL ? `de ${brl(TL)} no mês` : 'sem limite definido'}${TM ? ` · média ${brl0(TM)}` : ''}${atual && T ? ` · nesse ritmo fecha em ${brl0(ritmo)}` : ''}</p></div></div>
     ${TL ? `<div class="prog" style="margin-bottom:14px"><span style="width:${clamp(T / TL * 100, 0, 100)}%;background:${T > TL ? 'var(--neg)' : 'var(--g-est)'}"></span></div>` : ''}
-    <div class="tbl-wrap"><table><thead><tr><th>Tipo</th><th>Gasto</th><th>Limite</th><th>Vale</th><th>Débito/Pix</th><th>Crédito</th></tr></thead><tbody>
-    ${rows.map(x => `<tr data-a="catDet" data-cat="${esc(x.c)}" data-m="${m}" style="cursor:pointer"><td>${esc(x.c)} ›</td><td class="${x.lim && x.t > x.lim ? 'neg' : ''}" style="font-weight:600">${brl0(x.t)}</td><td class="muted">${x.lim ? brl0(x.lim) : '—'}</td><td>${x.f.vale ? brl0(x.f.vale) : '—'}</td><td>${x.f.conta ? brl0(x.f.conta) : '—'}</td><td>${x.f.credito ? brl0(x.f.credito) : '—'}</td></tr>`).join('')}
-    <tr class="tot"><td>Total</td><td>${brl0(T)}</td><td>${TL ? brl0(TL) : '—'}</td><td>${brl0(F.vale)}</td><td>${brl0(F.conta)}</td><td>${brl0(F.credito)}</td></tr></tbody></table></div>
+    ${rows.map(x => { const onde = [x.f.vale ? `vale ${brl0(x.f.vale)}` : '', x.f.conta ? `débito/pix ${brl0(x.f.conta)}` : '', x.f.credito ? `crédito ${brl0(x.f.credito)}` : ''].filter(Boolean).join(' · '); return `<div class="row" data-a="catDet" data-cat="${esc(x.c)}" data-m="${m}" style="cursor:pointer;gap:8px;padding:9px 0;border-top:1px solid var(--line)"><div style="flex:1;min-width:0"><div>${esc(x.c)} ›</div>${onde ? `<div class="small muted">${onde}</div>` : ''}</div><div style="text-align:right"><b class="num ${x.lim && x.t > x.lim ? 'neg' : ''}">${brl0(x.t)}</b>${x.lim ? `<div class="small muted">de ${brl0(x.lim)}</div>` : ''}</div></div>`; }).join('')}
     <p class="hint" style="margin-top:8px">Lance assim: “ifood 45 no vr”, “bar 80 nubank”, “pastel 25 débito”. Limites em Contas › Gastos do dia a dia.</p></section>`;
 }
 function semaforoAno(y) {
@@ -1112,10 +1110,11 @@ function fechamentoTexto(m) {
   const gTxt = usaGuard.length ? ` Além disso, neste mês você usa ${usaGuard.join(' e ')}.` : '';
   if (x.livre < 0) return `<b>${Nome} não fecha:</b> mesmo usando o que sobrou antes (${brl0(Math.max(0, ini || 0))}), termina com <b>${brl0(-x.livre)} faltando</b>. Siga o plano abaixo para não cair no cheque especial.${gTxt}`;
   if (x.sobra >= 0) return `<b>${Nome} fecha sozinho:</b> entra ${brl0(x.sobra)} a mais do que sai. Termina com <b>${brl0(x.livre)}</b> na conta.${gTxt}`;
-  const fontes = fut.slice(0, i).filter(f => f.sobra > 0).sort((a, b) => b.sobra - a.sobra).slice(0, 2).sort((a, b) => a.m.localeCompare(b.m));
+  // de onde vem o dinheiro: as sobras mais recentes que bastam para cobrir a diferença do mês
+  const fontes = []; for (let k = i - 1, ac = 0; k >= 0 && ac < -x.sobra && fontes.length < 2; k--) if (fut[k].sobra > 0) { fontes.unshift(fut[k]); ac += fut[k].sobra; }
   const extrasDe = mm => fixosAtivos(mm).filter(f => f.tipo === 'receita' && walletRec(f) === 'conta' && !['Salário', 'Vale alimentação', 'Vale refeição'].includes(f.cat) && valorFixo(f, mm) >= 300).sort((a, b) => valorFixo(b, mm) - valorFixo(a, mm)).slice(0, 2).map(f => f.desc.replace(/\s*\((?:estimado|líquido)\)/gi, ''));
   const de = fontes.length ? ' que sobraram de ' + fontes.map(f => { const ex = extrasDe(f.m); return ymLabel(f.m) + (ex.length ? ` (${esc(ex.join(' + '))})` : ''); }).join(' e ') : i === 0 ? ' que já estão na conta' : '';
-  return `<b>Fique tranquilo:</b> em ${nomeM} sai ${brl0(-x.sobra)} a mais do que entra, mas você começa o mês com <b>${brl0(ini)}</b>${de}. Termina com <b>${brl0(x.livre)}</b>.${x.livre < colchao() ? ' Fica apertado: segure os gastos extras.' : ''} <b>O que fazer:</b> deixe esses ${brl0(-x.sobra)} na conta até ${nomeM}; eles já estão contados para pagar ${nomeM}. O valor do dia na tela Hoje já considera isso.${gTxt}`;
+  return `<b>${x.livre < colchao() ? 'Fecha, mas apertado:' : 'Fecha com o que sobrou antes:'}</b> em ${nomeM} sai ${brl0(-x.sobra)} a mais do que entra, mas você começa o mês com <b>${brl0(ini)}</b>${de}. Termina com <b>${brl0(x.livre)}</b>${x.livre < colchao() ? `, abaixo da folga de ${brl0(colchao())}: evite gastos extras` : ''}. <b>O que fazer:</b> ${i === 0 ? `esses ${brl0(-x.sobra)} já estão na conta e são para as contas deste mês` : `deixe esses ${brl0(-x.sobra)} na conta até ${nomeM}; eles já estão contados para pagar ${nomeM}`}. O valor do dia na tela Hoje já considera isso.${gTxt}`;
 }
 function fechamentoHTML(m) {
   const fut = fluxo(), i = fut.findIndex(x => x.m === m), x = fut[i]; if (!x) return '';
@@ -1182,7 +1181,7 @@ function mesDetalheHTML(m) {
   }
   const dEnt = x.entra - sum(ent, e => e.v); if (Math.abs(dEnt) > 1) ent.push({d:'Outras entradas', v:dEnt, q:''});
   // saídas agrupadas
-  const G = {contas:{t:'Contas fixas e parcelas', it:{}}, cart:{t:'Faturas dos cartões', it:{}}, dia:{t:'Dia a dia (previsão)', it:{}}, plan:{t:'Viagens e planos', it:{}}};
+  const G = {contas:{t:'Contas fixas e parcelas', it:{}}, lanc:{t:'Compras já lançadas', it:{}}, cart:{t:'Faturas dos cartões', it:{}}, dia:{t:'Dia a dia (previsão)', it:{}}, plan:{t:'Viagens e planos', it:{}}};
   const pos = (g, k, v) => { if (v > 0.5) G[g].it[k] = (G[g].it[k] || 0) + v; };
   if (m === m0) {
     eventosFuturos(1).filter(e => e.d.slice(0, 7) === m0 && e.tipo !== 'receita').forEach(e => pos(/^Fatura /.test(e.desc) ? 'cart' : 'contas', e.desc, e.v));
@@ -1191,11 +1190,12 @@ function mesDetalheHTML(m) {
     if (l.tipo === 'objetivo') pos('plan', l.desc, l.v);
     else if (/^Crédito /.test(l.lugar)) pos('cart', l.lugar.replace('Crédito ', 'Cartão '), l.v);
     else if (l.tipo === 'previsto') pos('dia', l.cat, l.v);
+    else if (l.tipo === 'lançado') pos('lanc', l.desc, l.v);
     else pos('contas', l.desc, l.v);
   });
   if (x.cobre > 0.5) pos('dia', 'Vale não dá: completa com a conta', x.cobre);
   const totG = g => sum(Object.values(G[g].it), v => v);
-  const dSai = (x.sai + x.cobre) - ['contas', 'cart', 'dia', 'plan'].reduce((t, g) => t + totG(g), 0); if (dSai > 1) pos('contas', 'Outras saídas', dSai);
+  const dSai = (x.sai + x.cobre) - ['contas', 'lanc', 'cart', 'dia', 'plan'].reduce((t, g) => t + totG(g), 0); if (dSai > 1) pos('contas', 'Outras saídas', dSai);
   const linha = (a, b, c = '') => `<div class="row small" style="gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0">${a}${c ? ` <span class="muted">· ${c}</span>` : ''}</span><b class="num">${b}</b></div>`;
   const grupo = g => { const it = Object.entries(G[g].it).sort((a, b) => b[1] - a[1]); if (!it.length) return ''; return `<details style="margin-top:4px"><summary class="row" style="cursor:pointer;padding:8px 0;list-style:none"><span style="flex:1">${G[g].t} <span class="small" style="color:var(--accent)">ver</span></span><b class="num">− ${brl0(totG(g))}</b></summary>${it.map(([k, v]) => linha(esc(k), brl0(v))).join('')}</details>`; };
   const cor = x.livre < 0 ? 'var(--neg)' : x.saude === 'pend' ? 'var(--warn)' : 'var(--pos)';
@@ -1209,7 +1209,7 @@ function mesDetalheHTML(m) {
     <p class="small muted" style="margin:6px 0 0">${x.va > 0 ? `No vale fica ${brl0(x.va)} no fim do mês.` : ''}${x.vaPerde > 1 ? ` <b class="neg">Vencem ${brl0(x.vaPerde)} do vale sem usar: gaste comida no vale antes.</b>` : ''}${x.cobre > 1 ? ` Pela previsão, a comida planejada passa do vale em ${brl0(x.cobre)}, que sairiam da conta.` : ''}</p></section>`;
   h += `<p class="small" style="margin:0 0 12px;line-height:1.55">${fechamentoTexto(m)}</p>`;
   h += `<h3 style="margin:6px 0 2px">O que entra na conta</h3>${ent.length ? ent.sort((a, b) => b.v - a.v).map(e => linha(esc(e.d), '+ ' + brl0(e.v), e.q)).join('') : '<p class="small muted">Nada previsto.</p>'}`;
-  h += `<h3 style="margin:16px 0 2px">O que sai da conta</h3>${['contas', 'cart', 'dia', 'plan'].map(grupo).join('') || '<p class="small muted">Nada previsto.</p>'}`;
+  h += `<h3 style="margin:16px 0 2px">O que sai da conta</h3>${['contas', 'lanc', 'cart', 'dia', 'plan'].map(grupo).join('') || '<p class="small muted">Nada previsto.</p>'}`;
   // como cobrir
   const meta = colchao(), falta = x.livre < 0 ? -x.livre : 0, paraTranquilo = Math.max(0, meta - x.livre);
   if (falta >= 1) h += coberturaHTML(planoCobertura(m));
@@ -1275,7 +1275,7 @@ function planoCobertura(m) {
     const dia = sum(projMes(m).linhas.filter(l => l.tipo === 'previsto' && !isVLg(l.lugar) && !/^Crédito /.test(l.lugar)), l => l.v);
     const melhor = S.cartoes.map(c => { const d = `${m}-${pad(clamp((+c.fecha || 1) + 1, 1, diasNoMes(m)))}`, fm = mesFatura(d, c); return {c, compra:d, vence:vencFatura(c, fm), fm}; }).sort((a, b) => b.vence.localeCompare(a.vence))[0];
     const v = Math.min(resta, dia);
-    if (v >= 1 && melhor) { const fv = fut.find(f => f.m === melhor.vence.slice(0, 7)) || fut[i + 1], aguenta = fv ? fv.livre - v >= 0 : false; passos.push({tipo:'credito', nome:melhor.c.nome, v, data:melhor.compra, vence:melhor.vence, aguenta, prox:fv && fv.m, sobraProx:fv ? fv.livre : null}); resta -= v; }
+    if (v >= 1 && melhor) { const fv = fut.find(f => f.m === melhor.vence.slice(0, 7)) || fut[i + 1], sp = fv ? fv.livre + falta - v : null; passos.push({tipo:'credito', nome:melhor.c.nome, v, data:melhor.compra, vence:melhor.vence, aguenta:sp != null && sp >= 0, prox:fv && fv.m, sobraProx:sp}); resta -= v; }
   }
   // 3) o que ainda faltar: cortar ou adiar
   if (resta >= 1) passos.push({tipo:'cortar', v:resta});
@@ -1288,7 +1288,7 @@ function planoCobertura(m) {
 function coberturaHTML(pc, compacto) {
   if (!pc) return '';
   const linha = (p, k) => p.tipo === 'guardado' ? `<li><b>Usar ${brl0(p.v)} do guardado “${esc(p.nome)}”</b>${p.desde ? ` (que você guardou em ${ymLabel(p.desde)})` : ''} até ${dLabel(p.data)}.${p.alvo ? ` Ele era para ${ymLabel(p.alvo)}: devolva antes disso.` : ''}</li>`
-    : p.tipo === 'credito' ? `<li><b>Passar ${brl0(p.v)} do dia a dia de ${ymLabel(pc.m)} para o cartão ${esc(p.nome)}</b>, comprando a partir de ${dLabel(p.data)}: essa fatura só vence em ${dLabel(p.vence)}.${p.prox ? (p.aguenta ? ` Em ${ymLabel(p.prox)} sobram ${brl0(p.sobraProx)} na conta, então dá para pagar.` : ` Atenção: em ${ymLabel(p.prox)} não sobra o suficiente para pagar tudo.`) : ''} <span class="muted">Assim não precisa do cheque especial.</span></li>`
+    : p.tipo === 'credito' ? `<li><b>Passar ${brl0(p.v)} do dia a dia de ${ymLabel(pc.m)} para o cartão ${esc(p.nome)}</b>, comprando a partir de ${dLabel(p.data)}: essa fatura só vence em ${dLabel(p.vence)}.${p.prox ? (p.aguenta ? ` Seguindo este plano, a fatura cabe em ${ymLabel(p.prox)}: ficam ${brl0(p.sobraProx)} na conta depois de pagar.` : ` Atenção: em ${ymLabel(p.prox)} faltam ${brl0(-p.sobraProx)} para pagar essa fatura; corte mais agora.`) : ''} <span class="muted">Assim não precisa do cheque especial.</span></li>`
     : `<li><b>${k ? `Ainda faltam ${brl0(p.v)}: corte ou adie` : `Cortar ou adiar ${brl0(p.v)}`}</b> em gastos de ${ymLabel(pc.m)} (ou um item de viagem/compra). Não há guardado nem cartão que cubra isso. Evite o cheque especial: os juros passam de 8% ao mês.</li>`;
   const sem = pc.m > ymNow() ? `<p class="small" style="margin-top:8px"><b>Melhor caminho (sem mexer no guardado):</b> segurar <b>${brl0(pc.porMes)} por mês</b> no dia a dia até ${ymLabel(pc.m)}${pc.meses > 1 ? ` (${pc.meses} meses)` : ''}. O valor do dia na tela Hoje já desconta isso.</p><p class="small" style="margin-top:8px"><b>Se não der, nesta ordem:</b></p>` : '';
   return `<div style="border:2px solid var(--neg);border-radius:16px;padding:14px;margin-top:12px"><b>Plano para cobrir ${brl0(pc.falta)} em ${ymLabel(pc.m)}</b>${sem}<ol class="small" style="margin:${sem ? '4px' : '8px'} 0 0;padding-left:18px;line-height:1.55">${pc.passos.map(linha).join('')}</ol>${pc.devolver ? `<p class="small" style="margin-top:8px">Dá para devolver ao guardado em <b>${ymLabel(pc.devolver)}</b>.</p>` : ''}${compacto ? '' : '<p class="small muted" style="margin-top:6px">Ordem: primeiro reservas e guardados que não são para este mês, depois o crédito (nunca o cheque especial).</p>'}</div>`;
@@ -1767,7 +1767,7 @@ function vCartoes() {
   }).sort((a, b) => a.fim.localeCompare(b.fim));
   const totMes = sum(ativos, a => a.vp);
   h += `<section class="card"><div class="card-h"><div><h2>Compras parceladas em andamento</h2><p>${ativos.length} parcelamento${ativos.length === 1 ? '' : 's'} · ${brl(totMes)} por mês · ${brl(sum(ativos, a => a.rest))} ainda a pagar</p></div></div>
-    ${ativos.length ? `<div class="tbl-wrap"><table><thead><tr><th>Compra</th><th>Parcela</th><th>Valor/mês</th><th>Falta</th><th>Termina</th><th></th></tr></thead><tbody>${ativos.map(a => `<tr><td>${esc(a.f.desc)}<div class="small muted">${esc(cartao(a.f.cartaoId)?.nome || MEIOS[a.f.meio] || '')}</div></td><td>${a.prox}/${a.n}</td><td>${brl(a.vp)}</td><td>${brl(a.rest)}</td><td>${ymLabel(a.fim)}</td><td>${a.f.cartaoId && a.fim > mesFatura(hoje(), cartao(a.f.cartaoId) || {}) ? `<button class="btn sm" data-a="antecipar" data-g="${esc(a.f.grupo)}">Antecipar</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nenhuma compra parcelada em aberto.</div>'}
+    ${ativos.length ? ativos.map(a => `<div class="row" style="gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div style="flex:1;min-width:0"><div><b>${esc(a.f.desc)}</b></div><div class="small muted">${esc(cartao(a.f.cartaoId)?.nome || MEIOS[a.f.meio] || '')} · parcela ${a.prox} de ${a.n} · termina em ${ymLabel(a.fim)}</div><div class="small">${brl(a.vp)} por mês · faltam ${brl(a.rest)}</div></div>${a.f.cartaoId && a.fim > mesFatura(hoje(), cartao(a.f.cartaoId) || {}) ? `<button class="btn sm" data-a="antecipar" data-g="${esc(a.f.grupo)}">Antecipar</button>` : ''}</div>`).join('') : '<div class="empty">Nenhuma compra parcelada em aberto.</div>'}
   </section>`;
   return h;
 }
@@ -1889,12 +1889,14 @@ function histVar() {
   Object.values(cats).forEach(o => { o.tot /= Math.max(1, ms.length); Object.keys(o.lug).forEach(k => o.lug[k] /= Math.max(1, ms.length)); });
   return cats;
 }
-function projMes(m, hv = histVar(), semObj = false) {
+function projMes(m, hv = histVar(), semObj = false, soCred = false) {
   const atual = m === ymNow(), passado = m < ymNow();
-  const cats = {}, lug = {}, linhas = [];
+  const cats = {}, lug = {}, linhas = [], credPlan = [];
   const W = {conta:{e:0, s:0}, va:{e:0, s:0}, vr:{e:0, s:0}};
   const wl = lg => lg === MEIOS.va ? 'va' : lg === MEIOS.vr ? 'vr' : 'conta';
-  const add = (cat, lugar, v, desc, tipo) => { if (!(v > 0)) return; cats[cat] = (cats[cat] || 0) + v; lug[lugar] = (lug[lugar] || 0) + v; W[wl(lugar)].s += v; linhas.push({cat, lugar, v, desc, tipo}); };
+  const add0 = (cat, lugar, v, desc, tipo) => { if (!(v > 0)) return; cats[cat] = (cats[cat] || 0) + v; lug[lugar] = (lug[lugar] || 0) + v; W[wl(lugar)].s += v; linhas.push({cat, lugar, v, desc, tipo}); };
+  // Gasto planejado no crédito (dia a dia e viagens) vai para a fatura: fica guardado para o mês em que a fatura vence.
+  const add = (cat, lugar, v, desc, tipo) => { if (!(v > 0)) return; if ((tipo === 'previsto' || tipo === 'objetivo') && /^Crédito /.test(lugar)) { credPlan.push({cat, lugar, v, desc, tipo}); return; } add0(cat, lugar, v, desc, tipo); };
   S.lanc.forEach(l => { if (l.mes === m && l.tipo === 'receita' && !isRep(l)) W[walletRec(l)].e += +l.valor || 0; });
   S.lanc.filter(l => l.mes === m && l.tipo !== 'receita' && !isRep(l)).forEach(l => add(l.cat || 'Outros', lugarDe(l), +l.valor || 0, l.desc, l.grupo ? 'parcela' : isFixo(l) ? 'fixo' : 'lançado'));
   let rec = sum(S.lanc.filter(l => l.mes === m && l.tipo === 'receita' && !isRep(l)));
@@ -1921,6 +1923,8 @@ function projMes(m, hv = histVar(), semObj = false) {
     const its = o.itens || [], rem = its.map(it => Math.max(0, (+it.prev || 0) - sum(S.lanc.filter(l => l.objItem === it.id)))), tr = sum(rem, x => x);
     if (!tr) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', need, o.nome, 'objetivo');
     else its.forEach((it, i) => add('Objetivo: ' + o.nome, it.meio ? lugarMeio(it.meio) : 'Objetivo (' + o.nome + ')', need * rem[i] / tr, `${o.nome}: ${it.cat}`, 'objetivo')); });
+  if (soCred) return credPlan;
+  if (!passado) S.cartoes.forEach(c => [addM(m, -2), addM(m, -1), m].forEach(pm => { if (pm < ymNow() || mesFatura(`${pm}-15`, c) !== m) return; projMes(pm, hv, semObj, true).filter(l => l.lugar === 'Crédito ' + c.nome).forEach(l => add0(l.cat, l.lugar, l.v, l.desc + (pm !== m ? ` (compras de ${ymLabel(pm)})` : ''), l.tipo)); }));
   const desp = sum(linhas, x => x.v), recT = rec + recPrev, recVAT = recVA + recPrevVA;
   const despVA = W.va.s + W.vr.s;
   const sobra = recT - desp, sobraSemVA = (W.conta.e - W.conta.s) - Math.max(0, W.va.s - W.va.e) - Math.max(0, W.vr.s - W.vr.e);
@@ -1937,7 +1941,7 @@ function ajusteMes(m) {
   const out = {lim:{}, cortes:{}, extras:{}, gasto, fech, semFolga:0};
   ['vale', 'conta'].forEach(gr => {
     const cs = Object.keys(orc).filter(c => +orc[c] > 0 && grupo(c) === gr); cs.forEach(c => { out.lim[c] = +orc[c]; });
-    let saldo = 0; cs.forEach(c => { const v = gasto[c] || 0; if (v > orc[c]) saldo -= v - orc[c]; else if (fech.includes(c)) { saldo += orc[c] - v; out.lim[c] = v; } });
+    let saldo = 0; cs.forEach(c => { const v = gasto[c] || 0; if (v > orc[c]) { if (m <= ymNow()) saldo -= v - orc[c]; } else if (fech.includes(c)) { saldo += orc[c] - v; out.lim[c] = v; } });
     let alvo = cs.filter(c => (gasto[c] || 0) < out.lim[c] && !fech.includes(c)), rest = saldo;
     for (let k = 0; k < 6 && Math.abs(rest) > .5 && alvo.length; k++) {
       const parte = rest / alvo.length; rest = 0; const prox = [];
