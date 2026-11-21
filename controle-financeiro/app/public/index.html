@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 12:19';</script>
+<script>window.__versao = '21/11 13:08';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -2655,6 +2655,31 @@ A.recalcCartao = async el => {
   } catch (_) { S.chat.push({de:'app', h:'Não consegui terminar agora. Tente de novo.'}); }
   chatRender();
 };
+// Muda uma conta fixa ou assinatura. quando: 'a_partir' (padrão: do próximo mês ainda não pago em diante) ou 'so_mes'.
+function mesFixoAberto(f) { for (let i = 0; i < 24; i++) { const m = addM(ymNow(), i); if (fixosAtivos(m).includes(f) && !pagoFixo(f, m)) return m; } return ymNow(); }
+// No cartão, a conta aparece no mês da fatura: converte entre o mês da cobrança e o mês em que sai da conta.
+const cartaoFx = f => f.cartaoId ? cartao(f.cartaoId) : null;
+const mesContaFx = (f, cm) => { const c = cartaoFx(f); return c ? mesFatura(dataFixo(f, cm), c) : cm; };
+const mesCobrancaFx = (f, mc) => { const c = cartaoFx(f); if (!c) return mc; for (const k of [0, -1, -2]) { const cm = addM(mc, k); if (mesFatura(dataFixo(f, cm), c) === mc) return cm; } return mc; };
+const quandoFx = (f, cm, prep = 'de') => { const c = cartaoFx(f); return c ? `${prep === 'em' ? 'na' : 'da'} fatura de ${ymLabel(mesContaFx(f, cm))} (cobrança de ${dLabel(dataFixo(f, cm))})` : `${prep} ${ymLabel(cm)}`; };
+async function aplicarFixo(f, campos = {}, quando = 'a_partir', mes = null) {
+  const c = campos, novo = {...strip(f)}, aj = {...(f.ajustes || {})}, v = c.valor > 0 ? r2(+c.valor) : null, dia = c.dia >= 1 && c.dia <= 31 ? Math.round(+c.dia) : null;
+  if (quando === 'so_mes') {
+    const m = /^\d{4}-\d{2}$/.test(mes || '') ? mesCobrancaFx(f, mes) : mesFixoAberto(f);
+    aj[m] = {...(aj[m] || {}), ...(v != null ? {v} : {}), ...(dia ? {dia} : {})}; novo.ajustes = aj;
+    await put(COLS.fixos, f.id, novo);
+    return `Mudei <b>${esc(f.desc)}</b> só <b>${quandoFx(f, m, 'em')}</b>${v != null ? `: ${brl(valorFixo(f, m))} → <b>${brl(v)}</b>` : ''}${dia ? `, dia ${dia}` : ''}. Os outros meses continuam ${brl(+f.valor)}.`;
+  }
+  const m = /^\d{4}-\d{2}$/.test(mes || '') ? mesCobrancaFx(f, mes) : mesFixoAberto(f), velho = +f.valor || 0;
+  // meses antes de "m" que ainda não foram pagos guardam o valor antigo; de "m" em diante vale o novo (tira ajustes de valor antigos)
+  if (v != null) { for (let mm = ymNow(); mm < m; mm = addM(mm, 1)) if (!pagoFixo(f, mm) && !(aj[mm] && aj[mm].v != null)) aj[mm] = {...(aj[mm] || {}), v:velho}; Object.keys(aj).forEach(mm => { if (mm >= m && aj[mm] && aj[mm].v != null) { const {v:_, ...resto} = aj[mm]; if (Object.keys(resto).length) aj[mm] = resto; else delete aj[mm]; } }); novo.valor = v; }
+  if (dia) novo.dia = dia; if (c.desc) novo.desc = String(c.desc).slice(0, 80); if (c.cat && catsDesp().concat(catsRec()).some(x => x.n === c.cat)) novo.cat = c.cat;
+  novo.ajustes = aj; if (!Object.keys(aj).length) delete novo.ajustes;
+  await put(COLS.fixos, f.id, novo);
+  const onde = f.cartaoId && cartao(f.cartaoId) ? ` A fatura do ${esc(cartao(f.cartaoId).nome)} já usa o valor novo.` : '';
+  return `Mudei a conta fixa <b>${esc(f.desc)}</b>${v != null ? `: ${brl(velho)} → <b>${brl(v)}</b>` : ''}${dia ? `${v != null ? ',' : ':'} dia ${dia}` : ''} a partir <b>${quandoFx(f, m)}</b> (todos os meses seguintes).${onde}`;
+}
+A.fixoValorRapido = async el => { const f = S.fixos.find(x => x.id === el.dataset.id); if (!f) return; el.disabled = true; try { const h = await aplicarFixo(f, {valor:+el.dataset.v}); S.chat.push({de:'app', h:'✓ ' + h}); chatRender(); toast('Conta fixa atualizada'); } catch (_) { el.disabled = false; } };
 async function corrigir(txt, forcar) {
   const base = corrigirHTML(txt, forcar); if (!base) return null;
   if (!S.sample) return {h:base};
@@ -2663,22 +2688,27 @@ async function corrigir(txt, forcar) {
     const g = l.grupo ? S.lanc.filter(x => x.grupo === l.grupo).sort((a, b) => (a.mes || '').localeCompare(b.mes || '')) : null;
     cand.push({ref:l.grupo ? 'g:' + l.grupo : 'l:' + l.id, desc:l.desc, valor:l.valor, total:g ? (l.total || sum(g)) : undefined, parcelas:g ? g.length : undefined, primeira_fatura:g ? g[0].mes : l.mes, data:l.data, cat:l.cat, pagamento:l.cartaoId ? 'credito ' + (cartao(l.cartaoId)?.nome || '') : l.meio, tipo:l.tipo}); });
   const rel = cand.filter(c => norm(c.desc || '').split(/[^a-z0-9]+/).some(w => w.length > 3 && nt.includes(w))).concat(cand.slice(0, 10)).filter((c, i, a) => a.findIndex(x => x.ref === c.ref) === i).slice(0, 15);
+  const relF = S.fixos.filter(f => norm(f.desc || '').split(/[^a-z0-9]+/).some(w => w.length > 3 && nt.includes(w))).slice(0, 6).map(f => ({ref:'f:' + f.id, desc:f.desc, valor_todo_mes:+f.valor, dia:f.dia, tipo:f.tipo || 'despesa', pagamento:f.cartaoId ? 'credito ' + (cartao(f.cartaoId)?.nome || '') : f.meio, proximo_mes_aberto:mesContaFx(f, mesFixoAberto(f))}));
   try {
     const r = await S.sample.json(`Você ajuda a corrigir lançamentos de um controle financeiro pessoal brasileiro. Hoje é ${hoje()}. Cartões: ${JSON.stringify(S.cartoes.map(c => ({nome:c.nome, fecha:c.fecha, vence:c.vence})))}.
 Pedido do usuário: «${txt.slice(0, 600)}»
-Lançamentos que podem ser o citado (mais recentes primeiro): ${JSON.stringify(rel)}
+Lançamentos já feitos que podem ser o citado (mais recentes primeiro): ${JSON.stringify(rel)}
+Contas fixas e assinaturas (se repetem todo mês) que podem ser a citada: ${JSON.stringify(relF)}
 Monte um plano para atender o pedido. Ações possíveis:
 - {"tipo":"apagar","ref":"g:... ou l:..."} apaga o lançamento (ou todas as parcelas do grupo g:).
 - {"tipo":"lancar","texto":"..."} cria um lançamento novo; escreva o texto no formato do app: o quê + valor total + Nx (se parcelado) + forma de pagamento (ex.: "no cartão da mãe", "nubank", "no pix", "no vale") + "começa em <mês>" quando o usuário disser em qual mês a primeira parcela cai.
-- {"tipo":"editar","ref":"l:...","campos":{"valor":0,"desc":"","cat":"","data":"AAAA-MM-DD"}} muda um lançamento único (só os campos citados).
+- {"tipo":"editar","ref":"l:...","campos":{"valor":0,"desc":"","cat":"","data":"AAAA-MM-DD"}} muda um lançamento único já feito (só os campos citados).
+- {"tipo":"editarFixo","ref":"f:...","campos":{"valor":0,"dia":0,"desc":"","cat":""},"quando":"a_partir" ou "so_mes","mes":"AAAA-MM"} muda uma conta fixa/assinatura. "a_partir": vale do mês dito em diante (sem mês dito, use proximo_mes_aberto). "so_mes": só naquele mês. "mes" é o mês em que a conta sai do bolso: no cartão, o mês da fatura.
+Regra: se o pedido for mudar o valor ou o dia de uma conta, assinatura ou mensalidade (algo que se repete todo mês), use editarFixo. Só use "editar" num lançamento l: se o usuário falar de um gasto específico já feito (com data ou "aquele"). Na dúvida entre os dois, use editarFixo.
 Para mudar parcelas (mês, número de parcelas, valor ou cartão), apague o grupo e lance de novo. Não invente: use só os refs da lista.
 Responda só JSON: {"resumo":"uma ou duas frases simples, em português, do que será feito","acoes":[...]}. Se não ficar claro qual lançamento é, responda {"resumo":"pergunta curta para o usuário","acoes":[]}.`, {modelTier:'quick'});
     const refs = new Set(rel.map(c => c.ref));
-    const acoes = (Array.isArray(r?.acoes) ? r.acoes : []).filter(a => (a.tipo === 'lancar' && a.texto) || ((a.tipo === 'apagar' || a.tipo === 'editar') && refs.has(a.ref)));
+    relF.forEach(c => refs.add(c.ref));
+    const acoes = (Array.isArray(r?.acoes) ? r.acoes : []).filter(a => (a.tipo === 'lancar' && a.texto) || ((a.tipo === 'apagar' || a.tipo === 'editar') && refs.has(a.ref) && a.ref.startsWith(a.tipo === 'editar' ? 'l:' : '')) || (a.tipo === 'editarFixo' && refs.has(a.ref) && a.ref.startsWith('f:')));
     if (!r || !r.resumo) return {h:base};
     if (!acoes.length) return {h:`${esc(r.resumo)}<div style="margin-top:10px">${base}</div>`};
     S.planoCorr = {acoes, base};
-    const desc = acoes.map(a => a.tipo === 'apagar' ? `Apagar: ${esc((rel.find(c => c.ref === a.ref) || {}).desc || '')}${a.ref.startsWith('g:') ? ` (${(rel.find(c => c.ref === a.ref) || {}).parcelas} parcelas)` : ''}` : a.tipo === 'lancar' ? `Lançar: <i>${esc(a.texto)}</i>` : `Mudar: ${esc((rel.find(c => c.ref === a.ref) || {}).desc || '')} → ${esc(Object.entries(a.campos || {}).map(([k, v]) => k + ' ' + v).join(', '))}`);
+    const desc = acoes.map(a => a.tipo === 'editarFixo' ? (() => { const f = S.fixos.find(x => x.id === a.ref.slice(2)), c = a.campos || {}; const cm = /^\d{4}-\d{2}$/.test(a.mes || '') ? mesCobrancaFx(f, a.mes) : mesFixoAberto(f); return `Mudar a conta fixa <b>${esc(f?.desc || '')}</b>${c.valor > 0 ? `: ${brl(+f.valor)} → ${brl(+c.valor)}` : ''}${c.dia ? `, dia ${c.dia}` : ''} ${a.quando === 'so_mes' ? `só ${quandoFx(f, cm, 'em')}` : `a partir ${quandoFx(f, cm)} (todos os meses seguintes)`}`; })() : a.tipo === 'apagar' ? `Apagar: ${esc((rel.find(c => c.ref === a.ref) || {}).desc || '')}${a.ref.startsWith('g:') ? ` (${(rel.find(c => c.ref === a.ref) || {}).parcelas} parcelas)` : ''}` : a.tipo === 'lancar' ? `Lançar: <i>${esc(a.texto)}</i>` : `Mudar: ${esc((rel.find(c => c.ref === a.ref) || {}).desc || '')} → ${esc(Object.entries(a.campos || {}).map(([k, v]) => k + ' ' + v).join(', '))}`);
     return {h:`<b>Entendi assim:</b> ${esc(r.resumo)}<ul style="margin:8px 0;padding-left:18px">${desc.map(x => `<li>${x}</li>`).join('')}</ul><div class="row" style="gap:8px"><button class="btn sm pri" data-a="corrOk">Confirmar</button><button class="btn sm" data-a="corrNao">Não, eu mesmo corrijo</button></div>`};
   } catch (e) { if (AI_OFF.includes(e?.code)) S.sample = null; return {h:base}; }
 }
@@ -2689,7 +2719,8 @@ A.corrOk = async el => {
   try {
     for (const a of p.acoes) {
       if (a.tipo === 'apagar') { const [t, id] = [a.ref.slice(0, 1), a.ref.slice(2)]; const ls = t === 'g' ? S.lanc.filter(l => l.grupo === id) : S.lanc.filter(l => l.id === id); for (const l of ls) await del(COLS.lanc, l.id); feitos.push(`Apaguei ${ls.length > 1 ? ls.length + ' parcelas de ' : ''}${esc(ls[0]?.desc || '')}.`); }
-      else if (a.tipo === 'editar') { const l = S.lanc.find(x => x.id === a.ref.slice(2)); if (!l) continue; const c = a.campos || {}, novo = {...strip(l)}; if (c.valor > 0) novo.valor = r2(+c.valor); if (c.desc) novo.desc = String(c.desc).slice(0, 80); if (c.cat && catsDesp().concat(catsRec()).some(x => x.n === c.cat)) novo.cat = c.cat; if (/^\d{4}-\d{2}-\d{2}$/.test(c.data || '')) { novo.data = c.data; if (!l.cartaoId) novo.mes = c.data.slice(0, 7); } await put(COLS.lanc, l.id, novo); feitos.push(`Mudei ${esc(l.desc)}.`); }
+      else if (a.tipo === 'editarFixo') { const f = S.fixos.find(x => x.id === a.ref.slice(2)); if (!f) continue; feitos.push(await aplicarFixo(f, a.campos || {}, a.quando === 'so_mes' ? 'so_mes' : 'a_partir', a.mes)); }
+      else if (a.tipo === 'editar') { const l = S.lanc.find(x => x.id === a.ref.slice(2)); if (!l) continue; const c = a.campos || {}, novo = {...strip(l)}; if (c.valor > 0) novo.valor = r2(+c.valor); if (c.desc) novo.desc = String(c.desc).slice(0, 80); if (c.cat && catsDesp().concat(catsRec()).some(x => x.n === c.cat)) novo.cat = c.cat; if (/^\d{4}-\d{2}-\d{2}$/.test(c.data || '')) { novo.data = c.data; if (!l.cartaoId) novo.mes = c.data.slice(0, 7); } await put(COLS.lanc, l.id, novo); feitos.push(`Mudei o lançamento <b>${esc(l.desc)}</b>${l.data ? ` de ${dLabel(l.data)}` : ''} (só esse gasto)${novo.valor !== l.valor ? `: ${brl(l.valor)} → <b>${brl(novo.valor)}</b>` : ''}.`); }
       else if (a.tipo === 'lancar') { const r = await lancarTexto(a.texto); if (r && r.pergunta) { feitos.push(perguntaHTML(r)); } else if (r && r.itens) { msg.ids = (msg.ids || []).concat(r.ids); feitos.push(resHTML(r)); } }
     }
     msg.h = feitos.join('<div style="height:8px"></div>') || 'Nada a fazer.';
@@ -2710,9 +2741,13 @@ function corrigirHTML(txt, forcar) {
     vistos.add(chave); achados.push({l, pts});
   });
   achados.sort((a, b) => b.pts - a.pts);
+  const fx = S.fixos.map(f => ({f, pts:ws.filter(w => norm(f.desc || '').includes(w)).length})).filter(x => x.pts).sort((a, b) => b.pts - a.pts).slice(0, 3);
+  const vals = valoresDoTexto(txt), vNovo = vals.length === 1 ? vals[0] : null;
+  const fxHTML = fx.length ? `<p class="small" style="margin:10px 0 4px"><b>Conta fixa (se repete todo mês):</b></p>${fx.map(({f}) => `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(f.desc)}</b> <span class="muted small">· ${brl(+f.valor)} todo mês · dia ${f.dia}${f.cartaoId && cartao(f.cartaoId) ? ' · ' + esc(cartao(f.cartaoId).nome) : ''}</span><div class="row" style="gap:6px;margin-top:4px">${vNovo && Math.abs(vNovo - (+f.valor || 0)) > .005 ? `<button class="btn sm pri" data-a="fixoValorRapido" data-id="${f.id}" data-v="${vNovo}">Mudar para ${brl(vNovo)} a partir ${quandoFx(f, mesFixoAberto(f))}</button>` : ''}<button class="btn sm" data-a="editFixo" data-id="${f.id}">Editar</button></div></div>`).join('')}` : '';
   const top = achados.slice(0, 5);
+  if (!top.length && fxHTML) return `Não lancei nada novo.${fxHTML}`;
   if (!top.length) return 'Não lancei nada novo. Não achei esse lançamento pelo nome: procure em <b>Lançamentos</b> e toque nele para corrigir ou apagar.';
-  return `Não lancei nada novo. Achei ${top.length > 1 ? 'estes lançamentos' : 'este lançamento'}:<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${top.map(({l}) => { const g = l.grupo ? S.lanc.filter(x => x.grupo === l.grupo).sort((a, b) => (a.mes || '').localeCompare(b.mes || '')) : null; return `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(l.desc)}</b> <span class="muted small">· ${g ? `${g.length}x de ${brl(l.valor)} (total ${brl(l.total || sum(g))}) · 1ª parcela em ${ymLabel(g[0].mes)}` : `${brl(l.valor)} · ${ymLabel(l.mes)}`} · ${l.cartaoId ? 'Crédito ' + esc(cartao(l.cartaoId)?.nome || '') : esc(MEIOS[l.meio] || '')}</span><div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="editLanc" data-id="${(g ? g[0] : l).id}">Abrir e editar</button>${g ? `<button class="btn sm dang" data-a="delGrupo" data-g="${l.grupo}">Apagar as ${g.length} parcelas</button>` : `<button class="btn sm dang" data-a="delLanc" data-id="${l.id}">Apagar</button>`}</div></div>`; }).join('')}</div><div class="small muted" style="margin-top:8px">Para trocar o mês das parcelas: apague e lance de novo dizendo quando começa, ex.: <i>caixão 1500 6x cartão da mãe começa em novembro</i>.</div>`;
+  return `Não lancei nada novo. Achei ${top.length > 1 ? 'estes lançamentos' : 'este lançamento'}:<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${top.map(({l}) => { const g = l.grupo ? S.lanc.filter(x => x.grupo === l.grupo).sort((a, b) => (a.mes || '').localeCompare(b.mes || '')) : null; return `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(l.desc)}</b> <span class="muted small">· ${g ? `${g.length}x de ${brl(l.valor)} (total ${brl(l.total || sum(g))}) · 1ª parcela em ${ymLabel(g[0].mes)}` : `${brl(l.valor)} · ${ymLabel(l.mes)}`} · ${l.cartaoId ? 'Crédito ' + esc(cartao(l.cartaoId)?.nome || '') : esc(MEIOS[l.meio] || '')}</span><div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="editLanc" data-id="${(g ? g[0] : l).id}">Abrir e editar</button>${g ? `<button class="btn sm dang" data-a="delGrupo" data-g="${l.grupo}">Apagar as ${g.length} parcelas</button>` : `<button class="btn sm dang" data-a="delLanc" data-id="${l.id}">Apagar</button>`}</div></div>`; }).join('')}</div><div class="small muted" style="margin-top:8px">Para trocar o mês das parcelas: apague e lance de novo dizendo quando começa, ex.: <i>caixão 1500 6x cartão da mãe começa em novembro</i>.</div>${fxHTML}`;
 }
 function aplicarMeio(itens, v) { itens.forEach(it => { if (it.tipo !== 'despesa' || it.meioDito) return; if (v.startsWith('cc:')) { it.meio = 'credito'; it.cartaoId = v.slice(3); } else { it.meio = v; it.cartaoId = null; } it.meioDito = true; }); }
 function perguntaHTML(r) {
