@@ -1255,6 +1255,31 @@ function separadoInfo() { const g = podeGastar(); return g && g.falta > 0 ? {v:g
 async function movObj(o, v, extra = {}) { const mv = {d:hoje(), v:r2(v), em:new Date().toISOString(), ...extra}; await put(COLS.objs, o.id, {...strip(o), movs:[...(o.movs || []), mv]}); return mv; }
 function anelP(pct, cor, tam = 56) { const r0 = tam / 2 - 5, c = 2 * Math.PI * r0, f = clamp(pct, 0, 1); return `<span style="position:relative;width:${tam}px;height:${tam}px;flex:none;display:inline-block"><svg width="${tam}" height="${tam}" viewBox="0 0 ${tam} ${tam}" aria-hidden="true" style="transform:rotate(-90deg)"><circle cx="${tam / 2}" cy="${tam / 2}" r="${r0}" fill="none" stroke="var(--surface-2)" stroke-width="6"/><circle cx="${tam / 2}" cy="${tam / 2}" r="${r0}" fill="none" stroke="${cor}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}"/></svg><b style="position:absolute;inset:0;display:grid;place-items:center;font-size:.72rem">${Math.round(f * 100)}%</b></span>`; }
 // Para um mês que fecha no vermelho: o que fazer, em ordem, com valores e datas.
+// "Plano de <mês>": resumo do mês feito na hora com a projeção atual (os números nunca ficam velhos).
+const RX_PLANO_MES = /^Plano de [^:]{3,12}:/i;
+function planoMesTexto(m) {
+  const fut = fluxo(), x = fut.find(f => f.m === m); if (!x) return null;
+  const nome = MESL[+m.slice(5) - 1].toLowerCase(), curto = d => String(d || '').replace(/\s*\((?:estimado|líquido|Pix p\/[^)]*)\)/gi, '').trim();
+  const extras = fixosAtivos(m).filter(f => f.tipo === 'receita' && walletRec(f) === 'conta' && !['Salário', 'Vale alimentação', 'Vale refeição'].includes(f.cat) && valorFixo(f, m) >= 300 && !pagoFixo(f, m)).map(f => `${curto(f.desc)} ${brl0(valorFixo(f, m))}`);
+  const contas = pendentesMes(m).filter(p => p.tipo === 'despesa' && !p.ref.cartaoId && !isVA(p.ref)).map(p => `${curto(p.desc)} ${brl0(p.valor)} (dia ${p.dia})`);
+  const fats = S.cartoes.map(c => [c, faturaPrev(c, m).total]).filter(([c, v]) => v > 1 && !faturaPaga(c, m)).map(([c, v]) => `${c.nome} ${brl0(v)} (dia ${+vencFatura(c, m).slice(8)})`);
+  const p = projMes(m), dia = sum(p.linhas.filter(l => l.tipo === 'previsto' && !isVLg(l.lugar) && !/^Crédito /.test(l.lugar)), l => l.v);
+  const objs = {}; p.linhas.filter(l => l.tipo === 'objetivo' && !/^Crédito /.test(l.lugar)).forEach(l => { const k = l.cat.replace('Objetivo: ', ''); objs[k] = (objs[k] || 0) + l.v; });
+  const fim = x.livre < 0 ? `Pela previsão faltam ${brl0(-x.livre)} no fim do mês: veja "Plano para cobrir" na Análise do mês.` : `Livre previsto no fim do mês: ${brl0(x.livre)}${x.livre < colchao() ? ' (abaixo da folga: segure os extras)' : ''}.`;
+  return `Plano de ${nome}: entram ${brl0(x.entra)} na conta${extras.length ? ` (extras: ${extras.join('; ')})` : ''}. ${contas.length ? `Contas da conta: ${contas.join(', ')}. ` : ''}${fats.length ? `Faturas: ${fats.join(', ')}. ` : ''}${dia >= 1 ? `Dia a dia na conta: ${brl0(dia)}${x.va > 0 || x.vaE > 0 ? ' (comida no vale primeiro)' : ''}. ` : Object.keys(objs).length ? 'Dia a dia: já está dentro dos objetivos do mês. ' : ''}${Object.keys(objs).length ? `Objetivos do mês: ${Object.entries(objs).map(([k, v]) => `${k} ${brl0(v)}`).join('; ')}. ` : ''}${fim}`;
+}
+const passoTxt = a => RX_PLANO_MES.test(a.t || '') && a.d && a.d.slice(0, 7) >= ymNow() ? (planoMesTexto(a.d.slice(0, 7)) || a.t) : a.t;
+const passosDe = o => (o.passos || []).map(a => RX_PLANO_MES.test(a.t || '') ? {...a, t:passoTxt(a)} : a);
+// Deixa pronto para o lembrete do WhatsApp (o servidor não calcula a projeção): mês atual e o próximo.
+let _pmT = null;
+function sincPlanoMes() {
+  if (soVer() || !S.cfg || !S.objs.some(o => (o.passos || []).some(a => RX_PLANO_MES.test(a.t || '')))) return;
+  clearTimeout(_pmT); _pmT = setTimeout(() => {
+    const m0 = ymNow(), novo = {[m0]:planoMesTexto(m0), [addM(m0, 1)]:planoMesTexto(addM(m0, 1))}, velho = S.cfg.planoMesTxt || {};
+    if (Object.keys(novo).every(k => novo[k] === velho[k]) && Object.keys(velho).length === 2) return;
+    saveCfg({planoMesTxt:novo}).catch(() => {});
+  }, 4000);
+}
 function planoCobertura(m) {
   const fut = fluxo(), i = fut.findIndex(x => x.m === m), x = fut[i]; if (!x) return null;
   const falta = Math.max(0, -x.livre); if (falta < 1) return null;
@@ -1400,7 +1425,7 @@ function vPlanos() {
   // objetivos
   const objs = objsAtivos().sort((a, b) => String(a.alvo || '').localeCompare(String(b.alvo || '')));
   h += `<div class="sec2-h" style="margin:6px 2px 8px"><h2>Viagens e objetivos</h2>${ro ? '' : '<button class="btn sm pri" data-a="novoObj">+ Novo</button>'}</div>`;
-  h += objs.length ? objs.map(o => { const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), pct = prev ? (g + gasto) / prev : 0, pg = planoGuardar(o), prox = (o.passos || []).find(a => a.d >= T);
+  h += objs.length ? objs.map(o => { const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), pct = prev ? (g + gasto) / prev : 0, pg = planoGuardar(o), prox = passosDe(o).find(a => a.d >= T);
     const linha = pg.resto >= 1 ? `<span class="small warnc" style="font-weight:600">guardar ${brl0(pg.resto)} até ${dCurto(pg.quando)}</span>` : prox ? `<span class="small" style="color:var(--accent);font-weight:600">${dCurto(prox.d)} · ${esc(prox.t.length > 60 ? prox.t.slice(0, 57) + '…' : prox.t)}</span>` : '';
     return `<section class="sec2" style="display:flex;align-items:center;gap:14px">${anelP(pct, corObj(o))}<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><b>${esc(o.nome)}</b><span class="small muted">${o.alvo ? ymLabel(o.alvo) + ' · ' : ''}${brl0(g + gasto)} de ${brl0(prev)}${g ? ` · ${brl0(g)} guardado` : ''}</span>${linha}<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>${ro ? '' : `<button class="btn sm" data-a="guardMov" data-op="guardar" data-id="${o.id}">Guardar</button><button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>`}</div></div></section>`; }).join('') : '<p class="muted">Nenhum plano ainda.</p>';
   h += `<p style="margin-top:12px"><a class="lnk" href="#mes">Ver a análise do mês</a></p>`;
@@ -1892,7 +1917,7 @@ function vObjetivos() {
         const gi = sum(gastos.filter(l => l.objItem === it.id)), tt = TT[it.id]; it = {...it, prev:r2(tt ? tt.teto : +it.prev || 0)};
         return `<div class="bar-row"><span class="n small">${esc(it.cat)}</span><span class="v small">${gi ? `<span class="${gi > +it.prev ? 'neg' : ''}">${brl0(gi)}</span> / ` : ''}${brl0(it.prev)}</span>${gi ? `<div class="track" style="height:5px"><span class="fill" style="width:${clamp(gi / (+it.prev || 1) * 100, 0, 100)}%;background:${gi > +it.prev ? 'var(--neg)' : 'var(--g-fut)'}"></span></div>` : ''}${it.quando || it.meio ? `<span class="meta"><span>${esc(it.quando || '')}</span><span>${esc(meioNome(it.meio))}</span></span>` : ''}</div>`;
       }).join(''); })()}</div>
-      ${(() => { const T = hoje(), prox = (o.passos || []).filter(a => a.d >= T).slice(0, 3); return prox.length && o.status !== 'concluido' ? `<div class="agenda" style="margin-top:14px"><p class="eyebrow" style="margin-bottom:4px">Próximos passos</p>${prox.map(a => `<div class="ag"><b class="dt">${dLabel(a.d)}</b><span>${esc(a.t)}</span></div>`).join('')}</div>` : ''; })()}
+      ${(() => { const T = hoje(), prox = passosDe(o).filter(a => a.d >= T).slice(0, 3); return prox.length && o.status !== 'concluido' ? `<div class="agenda" style="margin-top:14px"><p class="eyebrow" style="margin-bottom:4px">Próximos passos</p>${prox.map(a => `<div class="ag"><b class="dt">${dLabel(a.d)}</b><span>${esc(a.t)}</span></div>`).join('')}</div>` : ''; })()}
       <div class="row" style="margin-top:14px">${o.status !== 'concluido' ? `<button class="btn sm" data-a="guardarObj" data-id="${o.id}">Guardar dinheiro</button><button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>` : ''}<button class="btn sm pri" data-a="objGuia" data-id="${o.id}">Guia completo</button><button class="btn sm" data-a="objRes" data-id="${o.id}">Ver resultado</button></div></section>`;
   }).join('')}</div>`;
   return h;
@@ -1973,7 +1998,7 @@ function projMes(m, hv = histVar(), semObj = false, soCred = false) {
     if (!tr) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', need, o.nome, 'objetivo');
     else its.forEach((it, i) => add('Objetivo: ' + o.nome, it.meio ? lugarMeio(it.meio) : 'Objetivo (' + o.nome + ')', need * rem[i] / tr, `${o.nome}: ${it.cat}`, 'objetivo')); });
   if (soCred) return credPlan;
-  if (!passado) S.cartoes.forEach(c => [addM(m, -2), addM(m, -1), m].forEach(pm => { if (pm < ymNow() || mesFatura(`${pm}-15`, c) !== m) return; projMes(pm, hv, semObj, true).filter(l => l.lugar === 'Crédito ' + c.nome).forEach(l => add0(l.cat, l.lugar, l.v, l.desc + (pm !== m ? ` (compras de ${ymLabel(pm)})` : ''), l.tipo)); }));
+  if (!passado) S.cartoes.forEach(c => [addM(m, -2), addM(m, -1), m].forEach(pm => { if (pm < ymNow() || mesFatura(pm === ymNow() ? hoje() : `${pm}-15`, c) !== m) return; projMes(pm, hv, semObj, true).filter(l => l.lugar === 'Crédito ' + c.nome).forEach(l => add0(l.cat, l.lugar, l.v, l.desc + (pm !== m ? ` (compras de ${ymLabel(pm)})` : ''), l.tipo)); }));
   const desp = sum(linhas, x => x.v), recT = rec + recPrev, recVAT = recVA + recPrevVA;
   const despVA = W.va.s + W.vr.s;
   const sobra = recT - desp, sobraSemVA = (W.conta.e - W.conta.s) - Math.max(0, W.va.s - W.va.e) - Math.max(0, W.vr.s - W.vr.e);
@@ -2127,6 +2152,7 @@ let _raf = 0;
 function render() { _flx = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
   document.body.classList.toggle('sover', soVer());
+  try { sincPlanoMes(); } catch (_) {}
   renderNav();
   const main = $('#main');
   if (S.blocked) { main.innerHTML = `<div class="loading"><h2>Este controle financeiro é privado</h2><p style="margin-top:8px">Só o dono consegue ver e editar os dados.</p></div>`; return; }
@@ -3172,7 +3198,7 @@ function parseAgenda(txt) {
 const agendaTxt = o => (o.passos || []).map(a => `${a.d.slice(8)}/${a.d.slice(5, 7)}/${a.d.slice(0, 4)} - ${a.t}`).join('\n');
 function agendaProxima(dias) {
   const T = hoje(), out = [];
-  S.objs.filter(o => o.status !== 'concluido').forEach(o => (o.passos || []).forEach(a => { const n = ddiff(T, a.d); if (n >= -1 && n <= dias) out.push({...a, o, dias:n}); }));
+  S.objs.filter(o => o.status !== 'concluido').forEach(o => passosDe(o).forEach(a => { const n = ddiff(T, a.d); if (n >= -1 && n <= dias) out.push({...a, o, dias:n}); }));
   return out.sort((a, b) => a.d.localeCompare(b.d));
 }
 function guiaHTML(txt) {
@@ -3212,7 +3238,7 @@ function objGuiaHTML(o) {
     <h3 style="margin-top:14px">O que gastar, quanto, quando e de onde</h3>
     <p class="small muted" style="margin-top:6px">Se um item passar do teto, o excesso sai igualmente dos outros itens da mesma fonte (vale com vale, conta com conta). Quando terminar um item gastando menos, toque em <b>Terminei este item</b> e a sobra vai para os outros.</p>
     <div class="gitens">${its.map(it => { const g = sum(gastos.filter(l => l.objItem === it.id)), t = TT[it.id] || {teto:+it.prev || 0, ajuste:0}; return `<div class="gi"><div class="row" style="justify-content:space-between;gap:10px;align-items:baseline"><b style="min-width:0">${esc(it.cat)}${t.fechado ? ' <span class="pill ok">terminado</span>' : ''}</b><b class="num" style="white-space:nowrap">${brl0(t.teto)}</b></div>${Math.abs(t.teto - (+it.prev || 0)) > .5 ? `<div class="small ${t.teto < +it.prev ? 'warnc' : 'pos'}">Teto ajustado (era ${brl0(it.prev)}${t.estourou ? `; passou ${brl0(t.estourou)}` : t.sobrou ? `; sobraram ${brl0(t.sobrou)} para os outros` : t.ajuste < 0 ? `; ${brl0(-t.ajuste)} foram cobrir outros itens` : `; recebeu ${brl0(t.ajuste)} de sobras`})</div>` : ''}<div class="small"><span class="pill">${esc(meioNome(it.meio))}</span>${it.quando ? ` <span>🗓 ${esc(it.quando)}</span>` : ''}</div>${it.onde ? `<div class="small muted">${esc(it.onde)}</div>` : ''}${g ? `<div class="small ${g > t.teto + .5 ? 'neg' : 'pos'}">Já gasto: ${brl(g)}${t.estourou ? ` (passou ${brl(t.estourou)} do planejado)` : t.fechado ? '' : ` · resta ${brl(t.teto - g)}`}</div>` : ''}${o.status !== 'concluido' && (g || it.fechado) && !t.estourou ? `<div><button class="lnk small" data-a="fecharItem" data-o="${o.id}" data-i="${it.id}">${it.fechado ? 'Reabrir item' : 'Terminei este item'}</button></div>` : ''}</div>`; }).join('')}</div>
-    ${(o.passos || []).length ? `<h3 style="margin-top:16px">Agenda (vira lembrete no dia)</h3><div class="agenda">${o.passos.map(a => `<div class="ag ${a.d < T ? 'passou' : ''}"><b class="dt">${dLabel(a.d)}</b><span>${esc(a.t)}</span></div>`).join('')}</div>` : ''}
+    ${passosDe(o).length ? `<h3 style="margin-top:16px">Agenda (vira lembrete no dia)</h3><div class="agenda">${passosDe(o).map(a => `<div class="ag ${a.d < T ? 'passou' : ''}"><b class="dt">${dLabel(a.d)}</b><span>${esc(a.t)}</span></div>`).join('')}</div>` : ''}
     ${o.guia ? `<div class="guia" style="margin-top:6px">${guiaHTML(o.guia)}</div>` : ''}
     <div class="form-actions"><button class="btn" data-a="editObj" data-id="${o.id}">Editar</button><button class="btn" data-a="closeSheet">Fechar</button></div>`;
 }

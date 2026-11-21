@@ -44,7 +44,9 @@ export function montar(dados, HOJE) {
   const hoje = [], amanha = [];
   for (const o of dados.objetivos || []) {
     if (o.status === "concluido") continue;
-    for (const p of o.passos || []) { if (p.d === HOJE) hoje.push(`${p.t} (${o.nome})`); else if (p.d === AMANHA) amanha.push(`${p.t} (${o.nome})`); }
+    // "Plano de <mês>": usa o texto que o app recalcula com a projeção atual (cfg.planoMesTxt), não o escrito no dia do plano.
+    const txt = (p) => /^Plano de [^:]{3,12}:/i.test(p.t || "") && cfg.planoMesTxt && cfg.planoMesTxt[p.d.slice(0, 7)] ? cfg.planoMesTxt[p.d.slice(0, 7)] : p.t;
+    for (const p of o.passos || []) { if (p.d === HOJE) hoje.push(`${txt(p)} (${o.nome})`); else if (p.d === AMANHA) amanha.push(`${txt(p)} (${o.nome})`); }
     for (const it of o.itens || []) if (it.quando && it.quando.includes(ddmm)) hoje.push(`${it.cat}: até ${brl(it.prev)} · sai de ${ORIGEM(it.meio)}${it.onde ? " · " + it.onde : ""}`);
   }
   // Guardar para objetivos (caixinhas) no dia em que o dinheiro cai.
