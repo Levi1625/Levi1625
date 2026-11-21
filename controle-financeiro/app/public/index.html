@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 17:10';</script>
+<script>window.__versao = '21/11 17:29';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -1259,6 +1259,7 @@ function mesDetalheHTML(m) {
     S.lanc.forEach(l => { if (l.mes === m && l.tipo === 'receita' && !isRep(l) && walletRec(l) === 'conta') ent.push({d:l.desc, v:+l.valor || 0, q:'já entrou'}); });
     empsAtivos(m).forEach(e => { if (e.direcao === 'receber' && !empPagoNoMes(e, m)) ent.push({d:e.desc, v:+e.parcela || 0, q:''}); });
   }
+  if (m !== m0) (projMes(m).usos || []).forEach(u => ent.push({d:`Tirar da caixinha ${u.o.nome}${u.para ? ' (' + u.para + ')' : ''}`, v:u.v, q:'volta para a conta'}));
   const dEnt = x.entra - sum(ent, e => e.v); if (Math.abs(dEnt) > 1) ent.push({d:'Outras entradas', v:dEnt, q:''});
   // saídas agrupadas
   const G = {contas:{t:'Contas fixas e parcelas', it:{}}, lanc:{t:'Compras já lançadas', it:{}}, cart:{t:'Faturas dos cartões', it:{}}, dia:{t:'Dia a dia (previsão)', it:{}}, plan:{t:'Viagens e planos', it:{}}};
@@ -1267,8 +1268,8 @@ function mesDetalheHTML(m) {
     eventosFuturos(1).filter(e => e.d.slice(0, 7) === m0 && e.tipo !== 'receita').forEach(e => pos(/^Fatura /.test(e.desc) ? 'cart' : 'contas', e.desc, e.v));
     p.linhas.filter(l => (l.tipo === 'previsto' || l.tipo === 'objetivo') && !/^Crédito /.test(l.lugar) && !isVL(l.lugar)).forEach(l => pos(l.tipo === 'objetivo' ? 'plan' : 'dia', l.tipo === 'objetivo' ? l.desc : l.cat, l.v));
   } else p.linhas.filter(l => !isVL(l.lugar)).forEach(l => {
-    if (l.tipo === 'objetivo') pos('plan', l.desc, l.v);
-    else if (/^Crédito /.test(l.lugar)) pos('cart', l.lugar.replace('Crédito ', 'Cartão '), l.v);
+    if (/^Crédito /.test(l.lugar)) pos('cart', l.lugar.replace('Crédito ', 'Cartão '), l.v);
+    else if (l.tipo === 'objetivo') pos('plan', l.desc, l.v);
     else if (l.tipo === 'previsto') pos('dia', l.cat, l.v);
     else if (l.tipo === 'lançado') pos('lanc', l.desc, l.v);
     else pos('contas', l.desc, l.v);
@@ -1355,6 +1356,15 @@ function planoMesTexto(m) {
 }
 const passoTxt = a => RX_PLANO_MES.test(a.t || '') && a.d && a.d.slice(0, 7) >= ymNow() ? (planoMesTexto(a.d.slice(0, 7)) || a.t) : a.t;
 const passosDe = o => (o.passos || []).map(a => RX_PLANO_MES.test(a.t || '') ? {...a, t:passoTxt(a)} : a);
+// Ajuste combinado em 21/11: saídas ~R$ 800 (restaurante/lanche/padaria no vale + bar na conta) e um pouco mais de mercado.
+// Roda uma vez, só para quem pode lançar, e nunca baixa um limite que já esteja maior.
+let _ajLimT = null;
+function ajusteLimites2611() {
+  if (soVer() || !S.cfg || S.cfg.ajLim2611 || !S.fixos.length || !S.cfg.orc) return;
+  clearTimeout(_ajLimT); _ajLimT = setTimeout(async () => { if (S.cfg.ajLim2611) return; const o = {...(S.cfg.orc || {})}, novo = {Mercado:1700, 'Restaurantes e lanches':600, 'Bares e saídas':200}, mud = [];
+    Object.entries(novo).forEach(([c, v]) => { if (!(+o[c] >= v)) { mud.push(`${c} ${brl0(+o[c] || 0)} → ${brl0(v)}`); o[c] = v; } });
+    try { await saveCfg({orc:o, ajLim2611:true}); if (mud.length) toast('Limites atualizados: ' + mud.join(' · '), 6000); } catch (_) {} }, 2500);
+}
 // Deixa pronto para o lembrete do WhatsApp (o servidor não calcula a projeção): mês atual e o próximo.
 let _pmT = null;
 function sincPlanoMes() {
@@ -1494,6 +1504,26 @@ async function comandoGuardado(txt) {
 A.guardEscolhe = async el => { const p = S.pend; if (!p || p.tipo !== 'guard') return; S.pend = null; const msg = {de:'app', h:await executarGuardado(p.op, p.v, el.dataset.id)}; S.chat.push(msg); chatRender(); };
 
 // ---------- Planos: barras do livre no fim de cada mês + objetivos ----------
+// Mês a mês em palavras simples: entra, sai (por tipo), como o mês fecha sozinho e onde fica o dinheiro no fim
+function partesMes(x, i) {
+  let fx = 0, fat = 0, dia = 0; const obj = {};
+  const isVL = lg => /^Vale /.test(lg);
+  if (i === 0) { eventosFuturos(1).filter(e => e.d.slice(0, 7) === x.m && e.tipo !== 'receita').forEach(e => { if (/^Fatura /.test(e.desc)) fat += e.v; else fx += e.v; });
+    projMes(x.m).linhas.filter(l => (l.tipo === 'previsto' || l.tipo === 'objetivo') && !/^Crédito /.test(l.lugar) && !isVL(l.lugar)).forEach(l => { if (l.tipo === 'previsto') dia += l.v; else { const k = l.cat.replace('Objetivo: ', ''); obj[k] = (obj[k] || 0) + l.v; } }); }
+  else projMes(x.m).linhas.filter(l => !isVL(l.lugar)).forEach(l => { if (/^Crédito /.test(l.lugar)) fat += l.v; else if (l.tipo === 'objetivo') { const k = l.cat.replace('Objetivo: ', ''); obj[k] = (obj[k] || 0) + l.v; } else if (l.tipo === 'previsto') dia += l.v; else fx += l.v; });
+  return {fx, fat, dia:dia + x.cobre, obj};
+}
+function mesAMesHTML(fut) {
+  const curto = n => String(n).replace(/\s*\(.*\)\s*$/, '').replace(/^Plano 2027 e /, '').slice(0, 28);
+  const rows = fut.map((x, i) => { const P = partesMes(x, i), res = x.entra - x.sai - x.cobre, ext = x.nota.filter(t => t.startsWith('+')).map(t => t.slice(2).replace(/\s*\((estimado|líquido)\)/g, ''));
+    const sai = [P.fx > 1 ? `contas ${brl0(P.fx)}` : '', P.fat > 1 ? `faturas ${brl0(P.fat)}` : '', P.dia > 1 ? `dia a dia ${brl0(P.dia)}` : '', ...Object.entries(P.obj).filter(([, v]) => v > 1).map(([k, v]) => `${esc(curto(k))} ${brl0(v)}`)].filter(Boolean).join(' · ');
+    const fim = sobraCx() && x.livre >= 0 ? `No fim: <b>${brl0(x.livre)}</b> = conta ${brl0(x.contaFim)} + caixinha ${brl0(x.cx)} <span class="${x.cxMov < -1 ? 'neg' : 'pos'}">(${x.cxMov > 1 ? 'guarda ' + brl0(x.cxMov) : x.cxMov < -1 ? 'tira ' + brl0(-x.cxMov) : 'não mexe'})</span>` : `No fim fica <b class="${x.livre < 0 ? 'neg' : ''}">${brl0(x.livre)}</b> na conta`;
+    return `<div class="li" data-a="projIr2" data-m="${x.m}" role="button" tabindex="0" style="align-items:flex-start"><span class="tx"><span class="t1">${MESL[+x.m.slice(5) - 1]} ${x.m.slice(0, 4)} · <span class="${res < 0 ? 'neg' : 'pos'}">o mês ${res < 0 ? 'gasta ' + brl0(-res) + ' a mais do que entra' : 'sobra ' + brl0(res)}</span></span>
+      <span class="t2" style="white-space:normal">Entra ${brl0(x.entra)}${ext.length ? ` (inclui ${esc(ext.join(', '))})` : ''}</span>
+      <span class="t2" style="white-space:normal">Sai ${brl0(x.sai + x.cobre)}: ${sai || '—'}</span>
+      <span class="t2" style="white-space:normal">${fim}</span></span><span class="chev">›</span></div>`; }).join('');
+  return `<section class="sec2"><div class="sec2-h"><h2>Mês a mês</h2></div><p class="small muted" style="margin:-4px 0 6px">"O mês sobra/gasta a mais" é só o que entra e sai naquele mês. "No fim" é todo o dinheiro que vocês terão (somando os meses anteriores)${sobraCx() ? `: na conta fica a folga de ${brl0(colchao())} e o resto na caixinha ${NOME_SOBRAS}` : ''}. Toque para ver tudo.</p>${rows}</section>`;
+}
 function vPlanos() {
   const fut = fluxo(), T = hoje(), ro = soVer();
   let h = header('Planos', 'Seus próximos meses, viagens e compras', '');
@@ -1504,6 +1534,7 @@ function vPlanos() {
     <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:3px;border-top:1.5px solid var(--line);padding-top:4px;font-size:.6rem;color:var(--muted);text-align:center">${fut.map(x => `<span>${MES[+x.m.slice(5) - 1]}</span>`).join('')}</div>
     <div class="row small muted" style="gap:12px;margin-top:8px;flex-wrap:wrap">${sobraCx() ? '<span><em class="lg" style="background:#3B5BDB"></em> caixinha Sobras</span><span><em class="lg" style="background:#10B981"></em> na conta</span>' : '<span><em class="lg" style="background:#10B981"></em> livre de verdade</span><span><em class="lg" style="background:color-mix(in srgb, #10B981 22%, var(--surface-2))"></em> já tem destino</span>'}<span><em class="lg" style="background:#F59F00"></em> apertado</span><span><em class="lg" style="background:var(--neg)"></em> vai faltar</span></div>
     <p class="small muted" style="margin-top:8px;border-top:1px solid var(--surface-2);padding-top:8px">${sobraCx() ? `Número = quanto terá na caixinha ${NOME_SOBRAS} no fim do mês, em R$ mil (2,5 = R$ 2.500). No fim de cada mês o que passa da folga de ${brl0(colchao())} vai para a caixinha; nos meses apertados sai dela só o que faltar. Toque num mês para ver quanto guarda ou tira.` : 'Número = o que fica livre de verdade no fim do mês, em R$ mil (2,9 = R$ 2.900):'} o que dá para usar sem faltar em nenhum mês até ${ymLabel(fut[fut.length - 1].m)}. A parte clara da barra também está na conta, mas já tem destino (viagens, reservas e meses mais justos à frente). O guardado fica à parte, em <a href="#guardado">Guardado</a> (${brl0(totalGuardadoObj())}).</p></section>`;
+  h += mesAMesHTML(fut);
   // meses no vermelho: o plano
   fut.filter(x => x.livre < 0).slice(0, 3).forEach(x => { const pc = planoCobertura(x.m); h += `<button class="sec2" data-a="projIr2" data-m="${x.m}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:2px solid var(--neg);cursor:pointer;font:inherit;color:inherit"><span class="cic" style="background:var(--neg-soft);color:var(--neg)">${svgI('M12 8v5M12 16h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</span><span class="tx" style="flex:1"><b>${ymLong(x.m)}: vai faltar ${brl0(-x.livre)}</b><span class="small muted" style="display:block">Plano: ${esc(resumoCobertura(pc))}${pc && pc.passos.length > 1 ? ' e mais' : ''}</span></span><span class="muted">›</span></button>`; });
   const sep = separadoInfo();
@@ -2145,13 +2176,19 @@ function projMes0(m, hv = histVar(), semObj = false, soCred = false) {
   }
   const usos = [];
   if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido').forEach(o => (o.usos || []).forEach(u => { if (u.feito) return;
-    if (u.m === m && m > ymNow()) { W.conta.e += +u.v || 0; usos.push({o, v:+u.v || 0}); }
+    if (u.m === m && m > ymNow()) usos.push({o, v:+u.v || 0, para:u.para || ''});
     if (u.repor && u.repor === m && u.repor >= ymNow()) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', +u.v || 0, `Repor no guardado ${o.nome}`, 'objetivo'); }));
   if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido').forEach(o => { const rp = objRepor(o); if (rp && rp.mes === m) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', rp.v, `Repor no guardado ${o.nome}`, 'objetivo'); });
   if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido' && o.alvo === m).forEach(o => { const need = objFalta(o); if (!need) return;
     const its = o.itens || [], rem = its.map(it => Math.max(0, (+it.prev || 0) - sum(S.lanc.filter(l => l.objItem === it.id)))), tr = sum(rem, x => x);
     if (!tr) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', need, o.nome, 'objetivo');
     else its.forEach((it, i) => add('Objetivo: ' + o.nome, it.meio ? lugarMeio(it.meio) : 'Objetivo (' + o.nome + ')', need * rem[i] / tr, `${o.nome}: ${it.cat}`, 'objetivo')); });
+  // Usar parte da caixinha no mesmo mês em que ela é formada (ex.: reserva do carro em jan): guarda menos, não é "entrada".
+  // Se a caixinha não recebe nada no mês, o dinheiro volta da caixinha para a conta (entrada "Tirar da caixinha").
+  usos.forEach(u => { let rest = u.v; linhas.filter(l => l.tipo === 'objetivo' && l.cat === 'Objetivo: ' + u.o.nome && wl(l.lugar) === 'conta' && !/^Crédito /.test(l.lugar)).forEach(l => { if (rest <= 0) return; const c = Math.min(l.v, rest); l.v -= c; W.conta.s -= c; cats[l.cat] -= c; lug[l.lugar] -= c; rest -= c; l.desc += ` (guarda ${brl0(l.v)}: ${brl0(c)} já vão ${u.para ? 'para ' + u.para : 'ser usados'})`; });
+    u.v = rest; if (rest > 0) W.conta.e += rest; });
+  for (let i = linhas.length - 1; i >= 0; i--) if (!(linhas[i].v > 0.005)) linhas.splice(i, 1);
+  const usosR = usos.filter(u => u.v > 0.5); usos.length = 0; usos.push(...usosR);
   if (soCred) return credPlan;
   if (!passado) S.cartoes.forEach(c => [addM(m, -2), addM(m, -1), m].forEach(pm => { if (pm < ymNow() || mesFatura(pm === ymNow() ? hoje() : `${pm}-15`, c) !== m) return; projMes(pm, hv, semObj, true).filter(l => l.lugar === 'Crédito ' + c.nome).forEach(l => add0(l.cat, l.lugar, l.v, l.desc + (pm !== m ? ` (compras de ${ymLabel(pm)})` : ''), l.tipo)); }));
   const desp = sum(linhas, x => x.v), recT = rec + recPrev, recVAT = recVA + recPrevVA;
@@ -2318,7 +2355,7 @@ let _raf = 0;
 function render() { _flx = null; _base = null; _pmC = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
   document.body.classList.toggle('sover', soVer());
-  try { sincPlanoMes(); guardarFoto(); } catch (_) {}
+  try { sincPlanoMes(); guardarFoto(); ajusteLimites2611(); } catch (_) {}
   renderNav();
   const main = $('#main');
   if (S.blocked) { main.innerHTML = `<div class="loading"><h2>Este controle financeiro é privado</h2><p style="margin-top:8px">Só o dono consegue ver e editar os dados.</p></div>`; return; }
