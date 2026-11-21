@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 13:08';</script>
+<script>window.__versao = '21/11 13:24';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -134,7 +134,7 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .cnt{font-size:.78rem;color:#fff;background:#E8590C;border-radius:999px;padding:1px 8px;margin-left:6px;font-family:var(--f-body)}
 .ri{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--surface-2);min-width:0}
 .ri:first-of-type{border-top:0}
-.ri .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.ri .t1{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ri .t2{font-size:.82rem;color:var(--muted)}
+.ri .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.ri .t1{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}.ri .t2{font-size:.82rem;color:var(--muted)}
 .ri .v{font-weight:700;white-space:nowrap}
 .cic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none}.cic svg{width:20px;height:20px}
 .cic.sm{width:36px;height:36px;border-radius:11px}.cic.sm svg{width:18px;height:18px}
@@ -356,7 +356,10 @@ button.bar-row:hover{background:var(--surface-2)}
 .li .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:.78rem;font-weight:700;flex:none;font-family:var(--f-display)}
 .li .tx{flex:1;min-width:0}
 .li .t1,.li .t2{display:block}
-.li .t1{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .t1{font-weight:500;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
+.chev{color:var(--muted);font-size:1.15rem;margin-left:-4px}
+.stk{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;background:var(--surface-2);margin:10px 0 4px}.stk span{display:block;height:100%}
+.lg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.78rem;color:var(--muted)}.lg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
 .li .t2{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .li .am{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;text-align:right}
 .dayh{font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:14px 4px 4px}
@@ -821,7 +824,7 @@ ICON.contas = ICON.fixos; ICON.planos = ICON.projecao; ICON.mes = ICON.anual;
 ICON.ajuda = '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5M12 16.5h.01"/>';
 const VIEWS = [
   ['inicio','Hoje'], ['contas','Contas'], ['planos','Planos'], ['ajuda','Ajuda'],
-  ['extrato','Lançamentos'], ['guardado','Guardado'], ['mes','Análise do mês'], ['fixos','Contas fixas e rendas'], ['cartoes','Cartões'], ['emprestimos','Empréstimos'], ['investimentos','Investimentos'], ['anual','Visão anual'], ['ajustes','Ajustes'],
+  ['extrato','Lançamentos'], ['guardado','Guardado'], ['mes','Análise do mês'], ['fixos','Contas e limites'], ['cartoes','Cartões'], ['emprestimos','Empréstimos'], ['investimentos','Investimentos'], ['anual','Visão anual'], ['ajustes','Ajustes'],
 ];
 function renderNav() {
   $('#sidenav').innerHTML = VIEWS.map(([k, n], i) => `${i === 4 ? '<div class="nav-sep"></div><p class="eyebrow" style="padding:0 10px 4px">Mais</p>' : ''}<a class="nav-a${i >= 4 ? ' sec' : ''}" href="#${k}" ${S.view === k || (k === 'projecao' && S.view === 'objetivos') ? 'aria-current="page"' : ''}>${ico(k)}${n}${k === 'fixos' && S.db && alertasContas().length ? `<span class="pill bad" style="margin-left:auto">${alertasContas().length}</span>` : ''}</a>`).join('');
@@ -870,13 +873,13 @@ function lazerCard(m) {
   const D = S.lanc.filter(l => mesGasto(l) === m && l.tipo !== 'receita' && !isRep(l) && LAZER.includes(l.cat) && !isFixo(l));
   const rows = LAZER.map(c => { const L = D.filter(l => l.cat === c); const f = {vale:0, conta:0, credito:0}; L.forEach(l => { f[fonteDe(l)] += +l.valor || 0; }); return {c, t:sum(L), f, lim:+orc[c] || 0, me:med.media[c] || 0, n:L.length}; });
   const T = sum(rows, x => x.t), TL = sum(rows, x => x.lim), TM = sum(rows, x => x.me), F = {vale:sum(rows, x => x.f.vale), conta:sum(rows, x => x.f.conta), credito:sum(rows, x => x.f.credito)};
-  const atual = m === ymNow(), dm = diasNoMes(m), dia = atual ? new Date().getDate() : dm, ritmo = T / dia * dm;
-  const st = TL ? (T > TL ? ['bad', 'Passou do limite'] : atual && ritmo > TL * 1.05 ? ['pend', 'Ritmo acima do limite'] : ['ok', 'Dentro do limite']) : ['', ''];
+  const atual = m === ymNow();
+  const st = TL ? (T > TL ? ['bad', 'Passou do limite'] : atual && T >= TL * .85 ? ['pend', 'Perto do limite'] : ['ok', 'Dentro do limite']) : ['', ''];
   return `<section class="card"><div class="card-h"><div><h2>Seu lazer</h2><p>Comer fora, delivery, bares e passeios. Toque para ver o dia a dia.</p></div>${st[0] ? `<span class="pill ${st[0]}">${st[1]}</span>` : ''}</div>
-    <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px"><div><div style="font-family:var(--f-display);font-size:1.6rem;font-weight:600" class="num">${brl(T)}</div><p class="small muted">${TL ? `de ${brl(TL)} no mês` : 'sem limite definido'}${TM ? ` · média ${brl0(TM)}` : ''}${atual && T ? ` · nesse ritmo fecha em ${brl0(ritmo)}` : ''}</p></div></div>
+    <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px"><div><div style="font-family:var(--f-display);font-size:1.6rem;font-weight:600" class="num">${brl(T)}</div><p class="small muted">${TL ? `de ${brl(TL)} no mês` : 'sem limite definido'}${TM ? ` · média ${brl0(TM)}` : ''}${TL && atual ? ` · ${T > TL ? `passou ${brl0(T - TL)}` : `restam ${brl0(TL - T)}`}` : ''}</p></div></div>
     ${TL ? `<div class="prog" style="margin-bottom:14px"><span style="width:${clamp(T / TL * 100, 0, 100)}%;background:${T > TL ? 'var(--neg)' : 'var(--g-est)'}"></span></div>` : ''}
     ${rows.map(x => { const onde = [x.f.vale ? `vale ${brl0(x.f.vale)}` : '', x.f.conta ? `débito/pix ${brl0(x.f.conta)}` : '', x.f.credito ? `crédito ${brl0(x.f.credito)}` : ''].filter(Boolean).join(' · '); return `<div class="row" data-a="catDet" data-cat="${esc(x.c)}" data-m="${m}" style="cursor:pointer;gap:8px;padding:9px 0;border-top:1px solid var(--line)"><div style="flex:1;min-width:0"><div>${esc(x.c)} ›</div>${onde ? `<div class="small muted">${onde}</div>` : ''}</div><div style="text-align:right"><b class="num ${x.lim && x.t > x.lim ? 'neg' : ''}">${brl0(x.t)}</b>${x.lim ? `<div class="small muted">de ${brl0(x.lim)}</div>` : ''}</div></div>`; }).join('')}
-    <p class="hint" style="margin-top:8px">Lance assim: “ifood 45 no vr”, “bar 80 nubank”, “pastel 25 débito”. Limites em Contas › Gastos do dia a dia.</p></section>`;
+    <p class="hint" style="margin-top:8px">Lance assim: “ifood 45 no vr”, “bar 80 nubank”, “pastel 25 débito”. Limites em Contas e limites.</p></section>`;
 }
 function semaforoAno(y) {
   const hv = histVar();
@@ -897,17 +900,18 @@ function alertasMes(m) {
   if (atual) agendaProxima(3).forEach(a => out.push({k:'agenda', t:a.dias <= 0 ? 'warn' : 'info', h:`<b>${a.dias < 0 ? 'Era para ' + dLabel(a.d) : a.dias === 0 ? 'Hoje' : a.dias === 1 ? 'Amanhã' : dLabel(a.d)}</b> · ${esc(a.t)} <span class="muted">(${esc(a.o.nome)})</span>`, btn:`<button class="btn sm" data-a="objGuia" data-id="${a.o.id}">Guia</button>`}));
   const r = resumo(m), med = mediaCat(m, 3, true), dm = diasNoMes(m), dia = atual ? new Date().getDate() : dm, orc = orcDoMes(m);
   Object.entries(r.porCatVar).forEach(([c, v]) => {
-    const me = med.media[c] || 0, lim = +orc[c] || 0, ritmo = v / dia * dm;
+    const me = med.media[c] || 0, lim = +orc[c] || 0;
     const btn = `<button class="btn sm" data-a="catDet" data-cat="${esc(c)}" data-m="${m}">Ver</button>`;
-    if (lim && v > lim) { const aj = ajusteMes(m), cs = Object.entries(aj.cortes).filter(x => x[1] > .5); out.push({t:'bad', h:`<b>${esc(c)}</b> passou ${brl(v - lim)} do limite (${brl(v)} de ${brl(lim)}). ${cs.length ? `Para compensar, tirei igualmente dos outros gastos do mês: ${cs.map(([k, x]) => `${esc(k)} −${brl0(x)} (fica ${brl0(aj.lim[k])})`).join(' · ')}.` : (m > ymNow() ? 'Como é um mês à frente, os outros gastos continuam previstos e a diferença sai da sobra do mês.' : 'Não há outro gasto com folga: o excesso sai da sobra do mês.')}`, btn}); }
-    else if (me >= 50 && v > me * 1.05) out.push({t:'warn', h:`<b>${esc(c)}</b>: você já gastou ${brl(v)}, mais que a sua média do mês inteiro (${brl(me)}).`, btn});
-    else if (atual && dia >= 7 && me >= 50 && ritmo > me * 1.2) out.push({t:'warn', h:`<b>${esc(c)}</b>: nesse ritmo vai fechar o mês em ${brl(ritmo)}, ${pct(ritmo / me - 1)} acima da sua média.`, btn});
+    if (lim && v > lim) { const aj = ajusteMes(m), cs = Object.entries(aj.cortes).filter(x => x[1] > .5); out.push({t:'bad', h:`<b>${esc(c)}</b> passou ${brl(v - lim)} do limite (${brl(v)} de ${brl(lim)}). ${cs.length ? `Para compensar, os outros limites do mês baixaram ${cs.every(([, x]) => Math.abs(x - cs[0][1]) < 1) ? `${brl0(cs[0][1])} cada` : 'um pouco cada'} (${cs.map(([k]) => esc(k)).join(', ')}).` : (m > ymNow() ? 'Como é um mês à frente, os outros gastos continuam previstos e a diferença sai da sobra do mês.' : 'Não há outro gasto com folga: o excesso sai da sobra do mês.')}`, btn}); }
+    else if (!lim && me >= 50 && v > me * 1.05) out.push({t:'warn', h:`<b>${esc(c)}</b>: você já gastou ${brl(v)}, mais que a sua média do mês inteiro (${brl(me)}).`, btn});
+    else if (lim && atual && v >= lim * .85 && dm - dia >= 5) out.push({t:'warn', h:`<b>${esc(c)}</b>: já usou ${pct(v / lim)} do limite. Restam ${brl0(lim - v)} para ${dm - dia} dias.`, btn});
   });
   if (m >= ymNow()) S.objs.filter(o => o.status !== 'concluido' && o.alvo && o.alvo >= ymNow()).forEach(o => {
     const need = objFalta(o); if (!need) return;
     const f = fluxoDe(o.alvo); if (!f) return;
-    if (f.livre < 0) out.push({t:'bad', h:`Objetivo <b>${esc(o.nome)}</b> em risco: depois dele, ${ymLong(o.alvo)} termina com <b>${brl(-f.livre)} faltando</b>. Corte gastos, adie a data ou reduza o plano.`, btn:'<a class="btn sm" href="#projecao">Ajustar</a>'});
-    else if (monthsBetween(ymNow(), o.alvo) <= 1) out.push({t:'good', h:`Objetivo <b>${esc(o.nome)}</b> no caminho: mesmo pagando ${brl(need)}, ${ymLong(o.alvo)} termina com ${brl(f.livre)} livres.`, btn:`<button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>`});
+    if (f.livre < 0) out.push({t:'bad', h:`Objetivo <b>${esc(o.nome)}</b> em risco: depois dele, ${ymLong(o.alvo)} termina com <b>${brl(-f.livre)} faltando</b>. Corte gastos, adie a data ou reduza o plano.`, btn:`<button class="btn sm" data-a="projIr2" data-m="${o.alvo}">Como cobrir</button>`});
+    else if (monthsBetween(ymNow(), o.alvo) <= 1) { const noMes = sum(projMes(o.alvo).linhas.filter(l => l.tipo === 'objetivo' && l.cat === 'Objetivo: ' + o.nome), l => l.v), resto = need - noMes;
+      out.push({t:'good', h:`<b>${esc(o.nome)}</b> cabe: faltam ${brl0(need)} para pagar${resto > 1 && noMes > 0 ? ` (${brl0(resto)} no cartão, nas faturas seguintes)` : ''} e ${ymLong(o.alvo)} ainda termina com ${brl0(f.livre)} na conta.`, btn:`<button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>`}); }
   });
   const ord = {bad:0, warn:1, info:1.5, good:2};
   return out.sort((a, b) => ord[a.t] - ord[b.t]);
@@ -970,7 +974,7 @@ function vaDuracao() {
   const mensal = sum(vaCats(), c => +orc[c] || (hv[c] ? hv[c].tot : 0)), porDia = mensal / 30;
   let txt = '';
   if (sva < 20) txt = fv ? `acabou · volta ${dCurto(fv)}` : 'acabou';
-  else if (porDia > 0) { const dt = new Date(T + 'T12:00'); dt.setDate(dt.getDate() + Math.floor(sva / porDia)); const ate = isoDate(dt); txt = fv && ate >= fv ? `dá até o próximo (${dCurto(fv)})` : `dura até ~${dCurto(ate)}`; }
+  else if (porDia > 0) { const dt = new Date(T + 'T12:00'); dt.setDate(dt.getDate() + Math.floor(sva / porDia)); const ate = isoDate(dt); txt = fv && ate >= fv ? `dá até ${dLabel(fv)}` : `até ~${dLabel(ate)}`; }
   return {sva, fv, porDia, txt};
 }
 // Avisos do vale: dinheiro que vai vencer sem usar.
@@ -1028,7 +1032,7 @@ function vHoje() {
     const frac = pg ? (orcConta ? pg.total / Math.max(orcConta, pg.total) : 1) : 0;
     let centro, dir;
     if (pj.livre1 != null && pj.livre1 < 0) { centro = `<b>${brl0(-pj.livre1)}</b><small>vai faltar</small>`; dir = `<small>Até ${dCurto(pj.P1)} a conta não fecha</small><span class="big">Segure</span><span style="font-size:.86rem;opacity:.85">veja em Contas o que dá para adiar</span>`; }
-    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Pode gastar até ${dCurto(pg.fim)}</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">no total (dá ${brl0(pg.porDia)} por dia), sem atrapalhar contas, guardado e meses à frente</span>${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(pg.reserva)} deste mês ficam para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
+    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Pode gastar até ${dCurto(pg.fim)}</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">já sem contas, faturas, viagens e o que fica para os próximos meses</span>${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(pg.reserva)} deste mês ficam para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
     else { centro = `<b>${brl0(sh)}</b><small>na conta</small>`; dir = `<small>Cadastre seu salário em Contas</small><span style="font-size:.86rem;opacity:.85">para eu dizer quanto pode gastar por dia</span>`; }
     h += `<section class="hz s-${st}"><div class="hero-top"><div class="ring">${anelHTML(pj.livre1 != null && pj.livre1 < 0 ? 0 : frac)}<div class="in">${centro}</div></div><div class="hero-r">${dir}</div></div>
       <div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div></section>`;
@@ -1432,11 +1436,11 @@ function vPlanos() {
   let h = header('Planos', 'Seus próximos meses, viagens e compras', '');
   const mx = Math.max(1, ...fut.map(x => Math.abs(x.livre)));
   h += `<section class="sec2"><div class="sec2-h"><h2>Livre no fim de cada mês</h2><span class="small muted">toque num mês</span></div>
-    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:3px;align-items:end;height:150px;margin-top:8px">${fut.map(x => { const cor = x.livre < 0 ? 'var(--neg)' : x.saude === 'pend' ? '#F59F00' : '#10B981', hgt = Math.max(5, Math.round(Math.abs(x.livre) / mx * 118)), lbl = kfmt(x.livre);
+    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:3px;align-items:end;height:150px;margin-top:8px">${fut.map(x => { const cor = x.livre < 0 ? 'var(--neg)' : x.saude === 'pend' ? '#F59F00' : '#10B981', hgt = Math.max(5, Math.round(Math.abs(x.livre) / mx * 118)), lbl = (x.livre / 1000).toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
       return `<button data-a="projIr2" data-m="${x.m}" aria-label="${ymLong(x.m)}: ${brl0(x.livre)}" style="border:0;background:none;padding:0;height:150px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;cursor:pointer;font:inherit;color:var(--ink);min-width:0"><span style="font-size:.6rem;font-weight:700;white-space:nowrap">${lbl}</span><span style="width:100%;height:${hgt}px;border-radius:6px 6px 2px 2px;background:${cor}"></span></button>`; }).join('')}</div>
     <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:3px;border-top:1.5px solid var(--line);padding-top:4px;font-size:.6rem;color:var(--muted);text-align:center">${fut.map(x => `<span>${MES[+x.m.slice(5) - 1]}</span>`).join('')}</div>
     <div class="row small muted" style="gap:12px;margin-top:8px;flex-wrap:wrap"><span><em class="lg" style="background:#10B981"></em> tranquilo</span><span><em class="lg" style="background:#F59F00"></em> apertado</span><span><em class="lg" style="background:var(--neg)"></em> vai faltar</span></div>
-    <p class="small muted" style="margin-top:8px;border-top:1px solid var(--surface-2);padding-top:8px">Barras = dinheiro livre na conta no fim do mês. O guardado fica à parte, em <a href="#guardado">Guardado</a> (${brl0(totalGuardadoObj())}).</p></section>`;
+    <p class="small muted" style="margin-top:8px;border-top:1px solid var(--surface-2);padding-top:8px">Barras = dinheiro livre na conta no fim do mês, em R$ mil (15,8 = R$ 15.800). O guardado fica à parte, em <a href="#guardado">Guardado</a> (${brl0(totalGuardadoObj())}).</p></section>`;
   // meses no vermelho: o plano
   fut.filter(x => x.livre < 0).slice(0, 3).forEach(x => { const pc = planoCobertura(x.m); h += `<button class="sec2" data-a="projIr2" data-m="${x.m}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:2px solid var(--neg);cursor:pointer;font:inherit;color:inherit"><span class="cic" style="background:var(--neg-soft);color:var(--neg)">${svgI('M12 8v5M12 16h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</span><span class="tx" style="flex:1"><b>${ymLong(x.m)}: vai faltar ${brl0(-x.livre)}</b><span class="small muted" style="display:block">Plano: ${esc(resumoCobertura(pc))}${pc && pc.passos.length > 1 ? ' e mais' : ''}</span></span><span class="muted">›</span></button>`; });
   const sep = separadoInfo();
@@ -1496,10 +1500,11 @@ function vInicio() {
   const al = alertasMes(m);
   if (al.length) h += `<section class="card alertas"><h2 style="margin-bottom:6px">Atenção</h2><div>${al.slice(0, 8).map(a => `<div class="al al-${a.t}"><i></i><span class="tx">${a.h}</span>${a.btn || ''}</div>`).join('')}</div>${al.length > 8 ? `<p class="hint">+ ${al.length - 8} avisos</p>` : ''}</section>`;
 
-  const ano = semaforoAno(+m.slice(0, 4));
-  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Seu ano, mês a mês</h2><p>Resultado de cada mês sozinho: o que entrou menos o que saiu da conta (sem o vale e sem contar a sobra de meses anteriores). Meses passados: o que aconteceu. Próximos: a previsão.</p></div><div class="legend" style="margin:0"><span><i style="background:var(--pos)"></i>folgado</span><span><i style="background:var(--warn)"></i>apertado</span><span><i style="background:var(--neg)"></i>no vermelho</span></div></div>
-    <div class="ano">${ano.map(x => `<button class="mes-chip ${x.vazio ? 'vazio' : 'c-' + x.saude}${x.m === m ? ' sel' : ''}" data-a="irMesProj" data-m="${x.m}"><span>${MES[+x.m.slice(5) - 1]}${x.m === ymNow() ? ' •' : ''}</span><b class="num">${x.vazio ? '—' : (x.s < 0 ? '−' : '') + kfmt(Math.abs(x.s))}</b></button>`).join('')}</div></section>`;
   const extra = [];
+  const ano = semaforoAno(+m.slice(0, 4));
+  extra.push(`<section class="card"><div class="card-h"><div><h2>Seu ano, mês a mês</h2><p>Resultado de cada mês sozinho: o que entrou menos o que saiu da conta (sem o vale e sem contar a sobra de meses anteriores). Meses passados: o que aconteceu. Próximos: a previsão.</p></div><div class="legend" style="margin:0"><span><i style="background:var(--pos)"></i>folgado</span><span><i style="background:var(--warn)"></i>apertado</span><span><i style="background:var(--neg)"></i>no vermelho</span></div></div>
+    <div class="ano">${ano.map(x => `<button class="mes-chip ${x.vazio ? 'vazio' : 'c-' + x.saude}${x.m === m ? ' sel' : ''}" data-a="irMesProj" data-m="${x.m}"><span>${MES[+x.m.slice(5) - 1]}${x.m === ymNow() ? ' •' : ''}</span><b class="num">${x.vazio ? '—' : (x.s < 0 ? '−' : '') + kfmt(Math.abs(x.s))}</b></button>`).join('')}</div></section>`);
+
 
   const left = [], right = [];
   if (atual) extra.push(projecaoCard());
@@ -1565,11 +1570,9 @@ function vInicio() {
     <div class="row" style="margin-top:14px"><button class="btn sm" data-a="aiDicas" ${S.aiBusy ? 'disabled' : ''}>${S.aiBusy ? 'Analisando…' : 'Pedir dicas de economia ao Claude'}</button></div>
     ${S.aiText ? `<div class="ai-out" id="ai-out">${esc(S.aiText)}</div>` : '<div id="ai-out" hidden class="ai-out"></div>'}
   </section>`);
-  // contas pendentes
+  // contas pendentes: só o resumo (a lista fica em Contas)
   const pend = r.pend.filter(p => !p.ref.cartaoId), pPag = pend.filter(p => p.tipo === 'despesa'), pRec = pend.filter(p => p.tipo === 'receita');
-  right.push(`<section class="card"><div class="card-h"><div><h2>Contas do mês</h2><p>${pend.length ? [pPag.length ? `${pPag.length} a pagar (${brl(sum(pPag))})` : '', pRec.length ? `${pRec.length} a receber (${brl(sum(pRec))})` : ''].filter(Boolean).join(' · ') : 'Tudo em dia'}</p></div><a class="lnk" href="#fixos">Ver e editar</a></div>
-    ${pend.length ? `<div class="list">${pend.slice(0, 6).map(p => `<div class="li" style="cursor:default"><span class="ic" style="background:var(--warn-soft);color:var(--warn)">${pad(p.dia)}</span><span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${p.kind === 'emp' ? 'Empréstimo' : esc(p.cat || '')} · dia ${p.dia}</span></span><span class="am ${p.tipo === 'receita' ? 'pos' : ''}">${brl(p.valor)}</span><button class="btn sm" data-a="pagar" data-kind="${p.kind}" data-id="${p.ref.id}">${p.tipo === 'receita' ? 'Recebi' : 'Paguei'}</button></div>`).join('')}</div>` : `<div class="empty">${S.fixos.length ? 'Nenhuma conta fixa pendente neste mês.' : 'Cadastre aluguel, contas, assinaturas e salário em Contas fixas para acompanhar o que falta pagar.'}</div>`}
-  </section>`);
+  if (pend.length) right.push(`<a class="card" href="#contas" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit"><span style="flex:1"><b>Contas do mês</b><br><span class="small muted">${[pPag.length ? `${pPag.length} a pagar (${brl0(sum(pPag))})` : '', pRec.length ? `${pRec.length} a receber (${brl0(sum(pRec))})` : ''].filter(Boolean).join(' · ')}</span></span><span class="chev">›</span></a>`);
   // maiores
   const top = [...r.D].sort((a, b) => b.valor - a.valor).slice(0, 5);
   right.push(`<section class="card"><div class="card-h"><div><h2>Maiores gastos</h2><p>Os 5 lançamentos mais altos do mês</p></div><a class="lnk" href="#extrato">Extrato</a></div>${top.length ? `<div class="list">${top.map(lancRow).join('')}</div>` : '<div class="empty">Sem gastos ainda.</div>'}</section>`);
@@ -1647,7 +1650,7 @@ function projecaoCard() {
     const dv = Math.max(1, ddiff(T, prox)); vaTxt = `<div class="row small" style="margin-top:12px;justify-content:space-between"><span><b>Vale alimentação</b> <span class="muted">até ${dCurto(prox)}</span></span><span class="num ${vaLivre < 0 ? 'neg' : 'pos'}" style="font-weight:600">${vaLivre > 0 ? `${brl(vaLivre / dv)}/dia · resta ${brl(vaLivre)}` : 'acabou'}</span></div>`; }
   if (p.saldo == null) return `<section class="card"><div class="card-h"><div><h2>Até o próximo salário</h2><p>Informe quanto tem na conta hoje e eu calculo se dá para chegar até o próximo pagamento e quanto você pode gastar por dia.</p></div></div>
     <form class="quick" data-f="saldo" style="margin:0"><input id="saldo-v" name="v" inputmode="decimal" placeholder="Saldo na conta hoje (sem o vale)" aria-label="Saldo na conta hoje"><button class="btn pri" type="submit">Calcular</button></form>${vaTxt}</section>`;
-  if (!p.P1) return `<section class="card"><div class="card-h"><div><h2>Até o próximo salário</h2><p>Cadastre seu salário em Minhas contas para eu saber quando entra dinheiro.</p></div><button class="lnk" data-a="saldoEdit">Atualizar saldo</button></div></section>`;
+  if (!p.P1) return `<section class="card"><div class="card-h"><div><h2>Até o próximo salário</h2><p>Cadastre seu salário em Contas e limites para eu saber quando entra dinheiro.</p></div><button class="lnk" data-a="saldoEdit">Atualizar saldo</button></div></section>`;
   const ok = p.livre1 >= 0;
   const linha = (e, run) => `<div class="row small" style="gap:8px;padding:5px 0;border-top:1px solid var(--line)"><span class="muted num" style="width:52px">${dCurto(e.d)}</span><span style="flex:1;min-width:0">${esc(e.desc)}</span><span class="num ${e.tipo === 'receita' ? 'pos' : ''}">${e.tipo === 'receita' ? '+' : '−'} ${brl(e.v)}</span><span class="num muted" style="width:92px;text-align:right">${brl(run)}</span></div>`;
   let run = p.saldo, tl = '';
@@ -1751,46 +1754,47 @@ function extratoLista() {
 
 /* ---------- FIXOS ---------- */
 function vFixos() {
-  const m = S.mes, r = resumo(m);
-  const fx = fixosAtivos(m), em = empsAtivos(m);
-  const despF = fx.filter(f => f.tipo !== 'receita'), recF = fx.filter(f => f.tipo === 'receita');
-  const vf = f => valorFixo(f, m);
-  const emD = em.filter(e => e.direcao !== 'receber');
-  const totD = sum(despF, vf) + sum(emD, e => e.parcela), totR = sum(recF, vf);
-  const orc = orcDoMes(m);
+  const m = S.mes, r = resumo(m), ro = soVer();
+  const fx = fixosAtivos(m), em = empsAtivos(m), vf = f => valorFixo(f, m);
+  const despF = fx.filter(f => f.tipo !== 'receita').sort((a, b) => diaFixo(a, m) - diaFixo(b, m)), recF = fx.filter(f => f.tipo === 'receita').sort((a, b) => diaFixo(a, m) - diaFixo(b, m));
+  const emD = em.filter(e => e.direcao !== 'receber'), emR = em.filter(e => e.direcao === 'receber');
+  const orc = orcDoMes(m), med = mediaCat(m >= ymNow() ? m : addM(ymNow(), 1), 3, true).media;
   const varCats = [...new Set([...Object.keys(orc).filter(c => +orc[c] > 0), ...Object.keys(r.porCatVar)])].sort((a, b) => (+orc[b] || 0) - (+orc[a] || 0) || (r.porCatVar[b] || 0) - (r.porCatVar[a] || 0));
-  const totV = sum(varCats, c => +orc[c] || 0), gastoV = sum(varCats, c => r.porCatVar[c] || 0);
   const extrasR = sum(r.R.filter(l => EXTRAS.includes(l.cat) && !l.fixoId));
-  const sobra = totR + extrasR - totD - totV;
-  let h = header('Minhas contas', 'O plano do mês: o que entra e o que sai') + exBanner();
-  h += `<p class="muted small" style="margin:-6px 0 14px">Contas no crédito (ex.: streaming no Nubank) entram <b>sozinhas</b> na fatura no dia da cobrança. Toque em <b>Editar</b> para mudar valor, dia ou apagar. Dá para mudar <b>só este mês</b> ou <b>todos os meses</b>. Use as setas do mês para planejar os próximos.</p>`;
-  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Plano de ${MESL[+m.slice(5) - 1].toLowerCase()}</h2><p>Renda prevista menos contas fixas e limites do dia a dia</p></div><span class="pill ${sobra < 0 ? 'bad' : 'ok'}">${sobra < 0 ? 'Plano no vermelho' : 'Plano fecha'}</span></div>
-    <div class="split" style="display:grid;grid-template-columns:1fr;gap:6px;font-size:.9rem">
-      <div class="row" style="justify-content:space-between"><span>Renda fixa${extrasR ? ' + extras' : ''}</span><b class="num pos">${brl(totR + extrasR)}</b></div>
-      <div class="row" style="justify-content:space-between"><span>− Contas fixas e parcelas</span><b class="num">${brl(totD)}</b></div>
-      <div class="row" style="justify-content:space-between"><span>− Gastos do dia a dia planejados</span><b class="num">${brl(totV)}</b></div>
-      <div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px"><span><b>Sobra do plano (conta + vale)</b></span><b class="num ${sobra < 0 ? 'neg' : 'pos'}">${brl(sobra)}</b></div>
-    </div><div style="margin-top:14px">${bolsosHTML(projMes(m))}</div>${totR ? `<p class="hint" style="margin-top:8px">Contas fixas levam ${pct(totD / totR)} da renda fixa (ideal abaixo de 50%).</p>` : ''}</section>`;
-  const row = (f, tipo) => {
-    const pg = pagoFixo(f, m), aj = ajusteFixo(f, m), v = vf(f);
-    return `<div class="li" style="cursor:default"><span class="ic" style="background:${pg ? 'var(--pos-soft)' : 'var(--warn-soft)'};color:${pg ? 'var(--pos)' : 'var(--warn)'}">${pad(diaFixo(f, m))}</span><span class="tx"><span class="t1">${esc(f.desc)}${aj ? ' <span class="pill acc">só este mês</span>' : ''}</span><span class="t2">${pg ? (tipo === 'receita' ? 'recebido' : 'pago') + (+pg.valor !== v ? ` ${brl(pg.valor)}` : '') : 'dia ' + diaFixo(f, m)} · ${esc(f.cat || '')}${f.cartaoId ? ' · ' + esc(cartao(f.cartaoId)?.nome || '') : f.meio ? ' · ' + (MEIOS[f.meio] || '') : ''}</span></span><span class="am ${tipo === 'receita' ? 'pos' : ''}">${brl(v)}</span><button class="lnk small" data-a="editFixo" data-id="${f.id}">Editar</button>${f.cartaoId && tipo !== 'receita' ? (pg ? '<span class="pill ok" title="Lançado na fatura">✓ fatura</span>' : `<span class="pill acc" title="Entra sozinho na fatura no dia ${diaFixo(f, m)}">auto</span>`) : pg ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazer" data-id="${pg.id}" title="Desfazer">✓</button>` : `<button class="btn sm" data-a="pagar" data-kind="fixo" data-id="${f.id}">${tipo === 'receita' ? 'Recebi' : 'Paguei'}</button>`}</div>`;
-  };
-  const sec = (titulo, arr, tipo, btn) => `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>${titulo}</h2><p class="num">${brl(sum(arr, vf))} no mês</p></div>${btn}</div>${arr.length ? `<div class="list">${arr.sort((a, b) => diaFixo(a, m) - diaFixo(b, m)).map(f => row(f, tipo)).join('')}</div>` : '<div class="empty">Nenhuma cadastrada.</div>'}</section>`;
-  h += sec('Renda fixa', recF, 'receita', '<button class="btn sm" data-a="novoFixo" data-tipo="receita">+ Renda</button>');
-  h += sec('Contas fixas', despF, 'despesa', `<div class="row">${pendentesMes(m).some(p => p.tipo === 'despesa') ? '<button class="lnk small" data-a="pagarTodos">Marcar todas pagas</button>' : ''}<button class="btn sm pri" data-a="novoFixo">+ Conta</button></div>`);
-  // faturas
-  if (S.cartoes.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Faturas de cartão</h2><p>Somam as compras lançadas no crédito</p></div><a class="lnk" href="#cartoes">Cartões</a></div><div class="list">${S.cartoes.map(c => { const v = valorFatura(c, m), pg = faturaPaga(c, m); return `<div class="li" style="cursor:default"><span class="ic" style="background:${pg ? 'var(--pos-soft)' : 'var(--warn-soft)'};color:${pg ? 'var(--pos)' : 'var(--warn)'}">${pad(+c.vence || 1)}</span><span class="tx"><span class="t1">Fatura ${esc(c.nome)}</span><span class="t2">${pg ? 'paga' : 'vence dia ' + c.vence}</span></span><span class="am">${brl(v)}</span>${pg ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazerFatura" data-k="${fatKey(c, m)}" title="Desfazer">✓</button>` : v > 0 ? `<button class="btn sm" data-a="pagarFatura" data-id="${c.id}" data-m="${m}">Paguei</button>` : ''}</div>`; }).join('')}</div></section>`;
+  const totR = sum(recF, vf) + sum(emR, e => +e.parcela || 0) + extrasR, totF = sum(despF, vf) + sum(emD, e => +e.parcela || 0), totV = sum(varCats, c => +orc[c] || 0), sobra = totR - totF - totV;
+  const fut = fluxo(), pior = fut.length ? fut.reduce((a, b) => b.livre < a.livre ? b : a) : null;
+  let h = header('Contas e limites', 'Tudo o que entra e sai todo mês') + exBanner();
+  // resumo
+  const T = Math.max(1, totR, totF + totV), pc = v => (Math.max(0, v) / T * 100).toFixed(1);
+  h += `<section class="card" style="margin-bottom:14px"><div class="card-h"><div><h2>${MESL[+m.slice(5) - 1]} no plano</h2><p>Renda e contas fixas, mais os limites do dia a dia</p></div><span class="pill ${sobra < 0 ? 'bad' : 'ok'}">${sobra < 0 ? 'não fecha' : 'fecha'}</span></div>
+    <div class="row" style="justify-content:space-between"><span>Entra</span><b class="num pos">${brl0(totR)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Contas fixas e parcelas</span><b class="num">− ${brl0(totF)}</b></div>
+    <div class="row" style="justify-content:space-between"><span>Dia a dia (limites)</span><b class="num">− ${brl0(totV)}</b></div>
+    <div class="stk" aria-hidden="true"><span style="width:${pc(totF)}%;background:#E8590C"></span><span style="width:${pc(totV)}%;background:#3B5BDB"></span><span style="width:${pc(sobra)}%;background:var(--pos)"></span></div>
+    <div class="lg"><span><i style="background:#E8590C"></i>fixas</span><span><i style="background:#3B5BDB"></i>dia a dia</span><span><i style="background:var(--pos)"></i>sobra</span></div>
+    <div class="row" style="justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><b>Sobra do plano</b><b class="num ${sobra < 0 ? 'neg' : 'pos'}" style="font-size:1.15rem">${brl0(sobra)}</b></div>
+    ${pior ? `<div data-a="projIr2" data-m="${pior.m}" role="button" style="cursor:pointer;margin-top:10px;padding:10px 12px;border-radius:12px;background:${pior.livre < 0 ? 'var(--neg-soft)' : pior.livre < colchao() ? 'var(--warn-soft)' : 'var(--surface-2)'}"><span class="small">Mês mais apertado até ${ymLabel(fut[fut.length - 1].m)}: <b>${ymLabel(pior.m)}</b>, fecha com <b class="${pior.livre < 0 ? 'neg' : ''}">${brl0(pior.livre)}</b> na conta ›</span></div>` : ''}
+    <details style="margin-top:10px"><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Ver conta e vale separados</summary><div style="margin-top:8px">${bolsosHTML(projMes(m))}</div></details></section>`;
+  // linhas: toque para editar
+  const linha = (at, dia, t1, t2, v, cls = '') => `<div class="li" ${at} role="button" tabindex="0"><span class="ic" style="background:var(--surface-2);color:var(--muted);font-weight:700">${dia}</span><span class="tx"><span class="t1">${t1}</span><span class="t2">${t2}</span></span><span class="am ${cls}">${v}</span>${ro ? '' : '<span class="chev">›</span>'}</div>`;
+  const onde = f => f.cartaoId ? (cartao(f.cartaoId)?.nome || 'cartão') : f.tipo === 'receita' ? (walletRec(f) === 'conta' ? 'na conta' : MEIOS[walletRec(f)] || 'vale') : (MEIOS[f.meio] || 'Pix');
+  const rowF = f => { const pg = pagoFixo(f, m), aj = ajusteFixo(f, m); return linha(`data-a="editFixo" data-id="${f.id}"`, pad(diaFixo(f, m)), esc(f.desc), [pg ? `<span class="pos">✓ ${f.tipo === 'receita' ? 'recebido' : 'pago'}</span>` : '', aj && aj.v != null ? '<b class="warnc">valor só deste mês</b>' : '', esc(onde(f)), esc(f.cat || '')].filter(Boolean).join(' · '), brl(vf(f)), f.tipo === 'receita' ? 'pos' : ''); };
+  const rowE = e => linha(`data-a="irEmp"`, pad(+e.dia || 1), esc(e.desc), `parcela ${parcNum(e, m)} de ${e.n}${empPagoNoMes(e, m) ? ' · <span class="pos">✓ pago</span>' : ''}`, brl(+e.parcela || 0), e.direcao === 'receber' ? 'pos' : '');
+  const sec = (titulo, sub, corpo, btn = '') => `<section class="card" style="margin-bottom:14px"><div class="card-h"><div><h2>${titulo}</h2><p>${sub}</p></div>${ro ? '' : btn}</div>${corpo}</section>`;
+  h += sec('Renda', `${brl(sum(recF, vf) + sum(emR, e => +e.parcela || 0))} no mês`, recF.length || emR.length ? `<div class="list">${recF.map(rowF).join('')}${emR.map(rowE).join('')}</div>` : '<div class="empty">Cadastre o salário e o vale para o app prever o mês.</div>', '<button class="btn sm" data-a="novoFixo" data-tipo="receita">+ Renda</button>');
+  h += sec('Contas fixas', `${brl(sum(despF, vf) + sum(emD, e => +e.parcela || 0))} no mês · toque para mudar valor ou dia`, despF.length || emD.length ? `<div class="list">${despF.map(rowF).join('')}${emD.map(rowE).join('')}</div>` : '<div class="empty">Aluguel, luz, internet, assinaturas…</div>', '<button class="btn sm pri" data-a="novoFixo">+ Conta</button>');
   // dia a dia
-  h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Gastos do dia a dia (variáveis)</h2><p>${Object.keys((S.cfg.orcMes || {})[m] || {}).length ? '<span class="pill acc">plano próprio deste mês</span> ' : ''}Quanto você planeja gastar por categoria. ${brl(sum(varCats.filter(c => +orc[c] > 0), c => r.porCatVar[c] || 0))} gastos dos ${brl(totV)} planejados (só categorias com limite).</p></div><button class="btn sm pri" data-a="editLimites" data-m="${m}">Editar valores</button></div>
-    ${varCats.length ? `<div class="bars">${varCats.map(c => { const lim = +orc[c] || 0, g = r.porCatVar[c] || 0, over = lim && g > lim; return `<div class="bar-row"><span class="n">${esc(c)}</span><span class="v ${over ? 'neg' : ''}">${brl0(g)} <span class="muted small">/ ${lim ? brl0(lim) : 'sem limite'}</span></span><div class="track"><span class="fill" style="width:${lim ? clamp(g / lim * 100, 0, 100) : 0}%;background:${over ? 'var(--neg)' : 'var(--g-est)'}"></span></div><div class="meta"><span>${lim ? (over ? `passou ${brl(g - lim)}` : `resta ${brl(lim - g)}`) : ''}</span><span></span></div></div>`; }).join('')}</div>` : '<div class="empty">Defina quanto quer gastar com mercado, gasolina, lazer… em Editar valores.</div>'}</section>`;
+  const rowV = c => { const lim = +orc[c] || 0, g = r.porCatVar[c] || 0, over = lim && g > lim, its = lim ? itensTxt(c, lim) : '';
+    return `<div class="li" data-a="limCat" data-c="${esc(c)}" data-m="${m}" role="button" tabindex="0" style="flex-wrap:wrap;row-gap:4px"><span class="tx"><span class="t1">${esc(c)}</span><span class="t2">${lim ? `${over ? `<b class="neg">passou ${brl0(g - lim)}</b>` : `gasto ${brl0(g)} · resta ${brl0(lim - g)}`}` : `gasto ${brl0(g)} · sem limite${med[c] ? ` (média ${brl0(med[c])})` : ''}`}${its ? ' · ' + its : ''}</span></span><span class="am">${lim ? brl0(lim) : '—'}</span>${ro ? '' : '<span class="chev">›</span>'}<div class="track" style="flex-basis:100%;height:6px"><span class="fill" style="width:${lim ? clamp(g / lim * 100, 0, 100) : 0}%;background:${over ? 'var(--neg)' : 'var(--g-est)'}"></span></div></div>`; };
+  h += sec('Dia a dia', `Limites por categoria${Object.keys((S.cfg.orcMes || {})[m] || {}).length ? ' · <span class="pill acc">limites só deste mês</span>' : ''} · toque para mudar`, varCats.length ? `<div class="list">${varCats.map(rowV).join('')}</div>` : '<div class="empty">Defina quanto querem gastar com mercado, gasolina, lazer…</div>', `<button class="btn sm" data-a="editLimites" data-m="${m}">Todos os limites</button>`);
+  // faturas e repasses
+  if (S.cartoes.length) h += sec('Faturas', 'Toque para ver o que tem em cada uma', `<div class="list">${S.cartoes.map(c => { const fp = faturaPrev(c, m), pg = faturaPaga(c, m); return fp.total > 0.5 || pg ? linha(`data-a="verFatura" data-c="${c.id}" data-m="${m}"`, pad(+c.vence || 1), 'Fatura ' + esc(c.nome), pg ? '<span class="pos">✓ paga</span>' : `vence dia ${c.vence}${m > ymNow() ? ' · prevista' : ''}`, brl(fp.total)) : ''; }).join('') || '<div class="empty">Nenhuma fatura neste mês.</div>'}</div>`);
   const rp = repassesAtivos(m);
-  if (rp.length) h += `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Repasses</h2><p>Contas de outras pessoas que passam por você. Não entram no seu orçamento.</p></div></div><div class="list">${rp.map(f => { const pg = pagoFixo(f, m); return `<div class="li" style="cursor:default"><span class="ic" style="background:var(--surface-2);color:var(--muted)">${pad(diaFixo(f, m))}</span><span class="tx"><span class="t1">${esc(f.desc)}</span><span class="t2">${pg ? 'pago' : 'dia ' + diaFixo(f, m)}${f.de ? ' · de ' + esc(f.de) : ''}</span></span><span class="am muted">${brl(valorFixo(f, m))}</span><button class="lnk small" data-a="editFixo" data-id="${f.id}">Editar</button>${pg ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazer" data-id="${pg.id}">✓</button>` : `<button class="btn sm" data-a="pagar" data-kind="fixo" data-id="${f.id}">Paguei</button>`}</div>`; }).join('')}</div></section>`;
-  if (em.length) h += `<section class="card"><div class="card-h"><h2>Parcelas de empréstimos</h2><a class="lnk" href="#emprestimos">Empréstimos</a></div><div class="list">${em.map(e => {
-    const pg = empPagoNoMes(e, m), l = pagoEmpL(e, m), rec = e.direcao === 'receber';
-    return `<div class="li" style="cursor:default"><span class="ic" style="background:${pg ? 'var(--pos-soft)' : 'var(--warn-soft)'};color:${pg ? 'var(--pos)' : 'var(--warn)'}">${pad(+e.dia || 1)}</span><span class="tx"><span class="t1">${esc(e.desc)}</span><span class="t2">parcela ${parcNum(e, m)} de ${e.n}${rec ? ' · a receber' : ''}</span></span><span class="am ${rec ? 'pos' : ''}">${brl(e.parcela)}</span>${pg ? (l ? `<button class="pill ok" style="border:0;cursor:pointer" data-a="desfazer" data-id="${l.id}">✓</button>` : '<span class="pill ok">✓ Pago</span>') : `<button class="btn sm" data-a="pagar" data-kind="emp" data-id="${e.id}">${rec ? 'Recebi' : 'Paguei'}</button>`}</div>`;
-  }).join('')}</div></section>`;
+  if (rp.length) h += sec('Repasses', 'Contas de outras pessoas que passam por você (fora do seu orçamento)', `<div class="list">${rp.map(f => linha(`data-a="editFixo" data-id="${f.id}"`, pad(diaFixo(f, m)), esc(f.desc), `${f.de ? 'de ' + esc(f.de) : 'repasse'}${pagoFixo(f, m) ? ' · <span class="pos">✓ pago</span>' : ''}`, brl(valorFixo(f, m)), 'muted')).join('')}</div>`);
   return h;
 }
+A.irEmp = () => { location.hash = '#emprestimos'; };
+A.limCat = el => { S.orcItAb = el.dataset.c; A.editLimites({dataset:{m:el.dataset.m || S.mes}}); setTimeout(() => { const row = [...document.querySelectorAll('#orc-ed .orc-row')].find(x => x.dataset.c === el.dataset.c); if (row) { row.scrollIntoView({block:'start', behavior:'smooth'}); row.style.outline = '2px solid var(--accent)'; } else { const b = document.querySelector(`#orc-ed [data-a="orcAdd"][data-c="${CSS.escape(el.dataset.c)}"]`); if (b) { b.scrollIntoView({block:'center', behavior:'smooth'}); b.style.outline = '2px solid var(--accent)'; } } }, 120); };
 
 /* ---------- CARTÕES ---------- */
 A.verFatura = el => {
@@ -1808,6 +1812,7 @@ A.verFatura = el => {
   h += bloco('Dia a dia previsto', fp.dia, Object.entries(dia).sort((a, b) => b[1] - a[1]).map(([k, v]) => linha(esc(k), brl(v), itensTxt(k, v))), 'Pela média dos últimos meses e pelos limites. Some conforme vocês lançam.');
   h += bloco('Viagens e planos', fp.plano, P.filter(l => l.tipo === 'objetivo').map(l => linha(esc(l.desc), brl(l.v))));
   if (!L.length && !F.length && !P.length) h += '<div class="empty" style="margin-top:14px">Nada nesta fatura.</div>';
+  if (!paga && m <= mesFatura(hoje(), c) && valorFatura(c, m) > 0 && !soVer()) h += `<div class="form-actions" style="margin-top:14px"><button class="btn pri" data-a="pagarFatura" data-id="${c.id}" data-m="${m}">Paguei esta fatura</button></div>`;
   openSheet(`${c.nome} · fatura de ${ymLabel(m)}`, h);
 };
 function vCartoes() {
@@ -1984,7 +1989,13 @@ function mediaPor(n, key, soVar = false) {
   Object.keys(out).forEach(k => out[k] /= Math.max(1, ms.length));
   return {m:out, n:ms.length};
 }
+// Cache por "foto" dos dados: qualquer mudança (os arrays são trocados a cada atualização) ou novo dia descarta tudo.
+let _pmC = null;
+function cacheDados() { const k = [S.lanc, S.fixos, S.cartoes, S.objs, S.emps, S.inv, S.cfg], d = hoje(); if (!_pmC || _pmC.d !== d || _pmC.k.some((x, i) => x !== k[i])) _pmC = {k, d, hv:null, pm:new Map()}; return _pmC; }
 function histVar() {
+  const C = cacheDados(); if (C.hv) return C.hv; C.hv = histVar0(); return C.hv;
+}
+function histVar0() {
   const B = baseMedia(), ms = B.ms, ev = new Set(B.eventuais.map(e => e.c)), cats = {};
   S.lanc.forEach(l => { if (!varLanc(l) || !ms.includes(mesGasto(l)) || ev.has(l.cat || 'Outros')) return; const c = l.cat || 'Outros', lg = lugarDe(l); const o = cats[c] = cats[c] || {tot:0, lug:{}}; o.tot += +l.valor || 0; o.lug[lg] = (o.lug[lg] || 0) + (+l.valor || 0); });
   Object.values(cats).forEach(o => { o.tot /= Math.max(1, ms.length); Object.keys(o.lug).forEach(k => o.lug[k] /= Math.max(1, ms.length)); });
@@ -2005,7 +2016,11 @@ function itensCat(c, total) {
   return Object.entries(base).filter(([, v]) => +v > 0).map(([n, v]) => ({n, v:total * v / t})).sort((a, b) => b.v - a.v);
 }
 const itensTxt = (c, total) => { const it = itensCat(c, total); return it.length > 1 || (it.length === 1 && norm(it[0].n) !== norm(c)) ? it.map(x => `${esc(x.n)} ${brl0(x.v)}`).join(' · ') : ''; };
-function projMes(m, hv = histVar(), semObj = false, soCred = false) {
+function projMes(m, hv, semObj = false, soCred = false) {
+  const C = cacheDados(); if (hv !== undefined && hv !== C.hv) return projMes0(m, hv, semObj, soCred);
+  const k = `${m}|${semObj ? 1 : 0}|${soCred ? 1 : 0}`; if (!C.pm.has(k)) C.pm.set(k, projMes0(m, histVar(), semObj, soCred)); return C.pm.get(k);
+}
+function projMes0(m, hv = histVar(), semObj = false, soCred = false) {
   const atual = m === ymNow(), passado = m < ymNow();
   const cats = {}, lug = {}, linhas = [], credPlan = [];
   const W = {conta:{e:0, s:0}, va:{e:0, s:0}, vr:{e:0, s:0}};
@@ -2169,7 +2184,7 @@ function vAjustes() {
     <label class="fld"><span>Forma de pagamento padrão</span><select id="cfg-meio" name="meioPadrao">${Object.entries(MEIOS).map(([k, n]) => `<option value="${k}" ${(S.cfg.meioPadrao || 'pix') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
     <label class="fld"><span>O vale acumula por quantos meses antes de zerar</span><input name="vaMeses" inputmode="numeric" value="${esc(vaMeses())}"></label></div>
     <div class="form-actions"><button class="btn pri" type="submit">Salvar</button></div></form></section>
-  <section class="card"><div class="card-h"><div><h2>Gastos do dia a dia</h2><p>Os limites por categoria ficam em Minhas contas, junto com as contas fixas.</p></div></div><div class="row"><button class="btn" data-a="editLimites">Editar limites</button><a class="btn" href="#fixos">Abrir Minhas contas</a></div></section>
+  <section class="card"><div class="card-h"><div><h2>Gastos do dia a dia</h2><p>Os limites por categoria ficam em Contas e limites, junto com as contas fixas.</p></div></div><div class="row"><button class="btn" data-a="editLimites">Editar limites</button><a class="btn" href="#fixos">Abrir Minhas contas</a></div></section>
   </div><div class="col">
   <section class="card"><div class="card-h"><div><h2>Categorias</h2><p>Palavras-chave fazem a categorização automática. O app também aprende com as suas correções.</p></div></div>
     <div class="list">${catsDesp().map((c, i) => `<button class="li" data-a="editCat" data-i="${i}"><span class="ic" style="background:color-mix(in srgb, ${GRUPOS[c.g]?.c || 'var(--muted)'} 14%, var(--surface));color:${GRUPOS[c.g]?.c || 'var(--muted)'}">${catInicial(c.n)}</span><span class="tx"><span class="t1">${esc(c.n)}</span><span class="t2">${esc(GRUPOS[c.g]?.n || '')} · ${esc(String(c.k || '').split(',').slice(0, 5).join(', '))}</span></span></button>`).join('')}</div>
@@ -2192,7 +2207,7 @@ function vAjustes() {
 /* ---------- roteamento ---------- */
 const RENDER = {guardado:vGuardado, inicio:vHoje, contas:vContasHoje, planos:vPlanos, ajuda:vAjuda, mes:vInicio, projecao:vInicio, extrato:vExtrato, fixos:vFixos, cartoes:vCartoes, emprestimos:vEmprestimos, investimentos:vInvest, objetivos:vObjetivos, anual:vAnual, ajustes:vAjustes};
 let _raf = 0;
-function render() { _flx = null; _base = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
+function render() { _flx = null; _base = null; _pmC = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
   document.body.classList.toggle('sover', soVer());
   try { sincPlanoMes(); } catch (_) {}
@@ -2656,6 +2671,8 @@ A.recalcCartao = async el => {
   chatRender();
 };
 // Muda uma conta fixa ou assinatura. quando: 'a_partir' (padrão: do próximo mês ainda não pago em diante) ou 'so_mes'.
+// Agrupa meses seguidos com o mesmo valor: "jun/27 a set/27 R$ 271 · out/27 a mar/28 R$ 421"
+function faixasAj(esp) { const out = []; esp.forEach(([k, a]) => { const u = out[out.length - 1]; if (u && Math.abs(u.v - a.v) < .01 && addM(u.ate, 1) === k) u.ate = k; else out.push({de:k, ate:k, v:+a.v}); }); return out.map(x => `${x.de === x.ate ? ymLabel(x.de) : `${ymLabel(x.de)} a ${ymLabel(x.ate)}`} ${brl0(x.v)}`).join(' · '); }
 function mesFixoAberto(f) { for (let i = 0; i < 24; i++) { const m = addM(ymNow(), i); if (fixosAtivos(m).includes(f) && !pagoFixo(f, m)) return m; } return ymNow(); }
 // No cartão, a conta aparece no mês da fatura: converte entre o mês da cobrança e o mês em que sai da conta.
 const cartaoFx = f => f.cartaoId ? cartao(f.cartaoId) : null;
@@ -2672,12 +2689,13 @@ async function aplicarFixo(f, campos = {}, quando = 'a_partir', mes = null) {
   }
   const m = /^\d{4}-\d{2}$/.test(mes || '') ? mesCobrancaFx(f, mes) : mesFixoAberto(f), velho = +f.valor || 0;
   // meses antes de "m" que ainda não foram pagos guardam o valor antigo; de "m" em diante vale o novo (tira ajustes de valor antigos)
-  if (v != null) { for (let mm = ymNow(); mm < m; mm = addM(mm, 1)) if (!pagoFixo(f, mm) && !(aj[mm] && aj[mm].v != null)) aj[mm] = {...(aj[mm] || {}), v:velho}; Object.keys(aj).forEach(mm => { if (mm >= m && aj[mm] && aj[mm].v != null) { const {v:_, ...resto} = aj[mm]; if (Object.keys(resto).length) aj[mm] = resto; else delete aj[mm]; } }); novo.valor = v; }
+  if (v != null) { for (let mm = ymNow(); mm < m; mm = addM(mm, 1)) if (!pagoFixo(f, mm) && !(aj[mm] && aj[mm].v != null)) aj[mm] = {...(aj[mm] || {}), v:velho}; if (aj[m] && aj[m].v != null) { const {v:_, ...resto} = aj[m]; if (Object.keys(resto).length) aj[m] = resto; else delete aj[m]; } novo.valor = v; }
+  const esp = Object.entries(aj).filter(([k, a]) => k > m && a && a.v != null).sort();
   if (dia) novo.dia = dia; if (c.desc) novo.desc = String(c.desc).slice(0, 80); if (c.cat && catsDesp().concat(catsRec()).some(x => x.n === c.cat)) novo.cat = c.cat;
   novo.ajustes = aj; if (!Object.keys(aj).length) delete novo.ajustes;
   await put(COLS.fixos, f.id, novo);
   const onde = f.cartaoId && cartao(f.cartaoId) ? ` A fatura do ${esc(cartao(f.cartaoId).nome)} já usa o valor novo.` : '';
-  return `Mudei a conta fixa <b>${esc(f.desc)}</b>${v != null ? `: ${brl(velho)} → <b>${brl(v)}</b>` : ''}${dia ? `${v != null ? ',' : ':'} dia ${dia}` : ''} a partir <b>${quandoFx(f, m)}</b> (todos os meses seguintes).${onde}`;
+  return `Mudei a conta fixa <b>${esc(f.desc)}</b>${v != null ? `: ${brl(velho)} → <b>${brl(v)}</b>` : ''}${dia ? `${v != null ? ',' : ':'} dia ${dia}` : ''} a partir <b>${quandoFx(f, m)}</b> (todos os meses seguintes).${onde}${esp.length ? ` Meses com valor próprio continuam como estão: ${faixasAj(esp)}.` : ''}`;
 }
 A.fixoValorRapido = async el => { const f = S.fixos.find(x => x.id === el.dataset.id); if (!f) return; el.disabled = true; try { const h = await aplicarFixo(f, {valor:+el.dataset.v}); S.chat.push({de:'app', h:'✓ ' + h}); chatRender(); toast('Conta fixa atualizada'); } catch (_) { el.disabled = false; } };
 async function corrigir(txt, forcar) {
@@ -2978,7 +2996,7 @@ document.addEventListener('submit', e => { const f = e.target; const h = F[f.dat
 // Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
 const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
 const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
-const OK_VER = new Set(["pinToggle", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
+const OK_VER = new Set(["pinToggle", "irEmp", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
 const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
@@ -3155,31 +3173,43 @@ A.desfazer = async el => { try { await del(COLS.lanc, el.dataset.id); toast('Des
 
 // contas fixas
 function formFixo(f = {}) {
-  const tipo = f.tipo || 'despesa', m = S.mes, edit = !!f.id;
-  const v = edit ? valorFixo(f, m) : f.valor, dia = edit ? diaFixo(f, m) : (f.dia || 5);
+  const tipo = f.tipo || 'despesa', m = S.mes, edit = !!f.id, rec = tipo === 'receita';
+  const v = edit ? valorFixo(f, m) : f.valor, dia = edit ? diaFixo(f, m) : (f.dia || 5), so = edit && ajusteFixo(f, m) && ajusteFixo(f, m).v != null;
   const mesNome = `${MESL[+m.slice(5) - 1].toLowerCase()}/${m.slice(2, 4)}`;
-  openSheet(edit ? 'Editar ' + f.desc : (tipo === 'receita' ? 'Nova renda fixa' : 'Nova conta fixa'), `<form class="form" data-f="fixo" autocomplete="off"><input type="hidden" name="id" value="${esc(f.id || '')}"><input type="hidden" name="tipo" value="${tipo}"><input type="hidden" name="m" value="${m}">
-    ${edit ? `<div class="seg" role="radiogroup" aria-label="Aplicar mudança"><label><input type="radio" name="escopo" value="mes" ${ajusteFixo(f, m) ? 'checked' : ''}><span>Só em ${mesNome}</span></label><label><input type="radio" name="escopo" value="todos" ${ajusteFixo(f, m) ? '' : 'checked'}><span>Todos os meses</span></label></div>` : ''}
-    <label class="fld"><span>Descrição</span><input id="fx-desc" name="desc" value="${esc(f.desc || '')}" placeholder="${tipo === 'receita' ? 'Salário' : 'Aluguel, Internet, Netflix…'}" required ${edit ? '' : 'autofocus'}></label>
-    <div class="f2"><label class="fld big"><span>Valor</span><input id="fx-valor" name="valor" inputmode="decimal" value="${fv(v)}" required ${edit ? 'autofocus' : ''}></label>
-    <label class="fld"><span>Dia ${tipo === 'receita' ? 'que cai' : 'do vencimento'}</span><input id="fx-dia" name="dia" type="number" min="1" max="31" value="${dia}"></label></div>
-    <div class="f2"><label class="fld"><span>Categoria</span><select id="fx-cat" name="cat">${catOpts(tipo, f.cat || (tipo === 'receita' ? 'Salário' : ''))}</select></label>
-    <label class="fld"><span>${tipo === 'receita' ? 'Entra em' : 'Sai de'}</span><select id="fx-meio" name="meio">${meioOpts(f.meio || (tipo === 'receita' ? (walletRec(f) === 'conta' ? 'pix' : walletRec(f)) : 'boleto'), f.cartaoId, tipo)}</select></label></div>
-    <div class="f2" id="fx-datas"><label class="fld"><span>Começa em</span><input id="fx-ini" name="inicio" type="month" value="${esc(f.inicio || ymNow())}"></label>
-    <label class="fld"><span>Termina em (opcional)</span><input id="fx-fim" name="fim" type="month" value="${esc(f.fim || '')}"></label></div>
-    <label class="chk"><input id="fx-rep" type="checkbox" name="repasse" ${f.repasse ? 'checked' : ''}> É de outra pessoa (repasse): não conta no meu orçamento</label>
-    ${edit ? `<label class="chk"><input id="fx-pular" type="checkbox" name="pular"> Não tem essa ${tipo === 'receita' ? 'renda' : 'conta'} em ${mesNome}</label>` : ''}
+  const nome = `<label class="fld"><span>Nome</span><input id="fx-desc" name="desc" value="${esc(f.desc || '')}" placeholder="${rec ? 'Salário, vale…' : 'Aluguel, internet, Netflix…'}" required ${edit ? '' : 'autofocus'}></label>`;
+  openSheet(edit ? f.desc : (rec ? 'Nova renda fixa' : 'Nova conta fixa'), `<form class="form" data-f="fixo" autocomplete="off"><input type="hidden" name="id" value="${esc(f.id || '')}"><input type="hidden" name="tipo" value="${tipo}"><input type="hidden" name="m" value="${m}">
+    ${edit ? '' : nome}
+    <div class="f2"><label class="fld big"><span>Valor ${rec ? 'que entra' : 'por mês'}</span><input id="fx-valor" name="valor" inputmode="decimal" value="${fv(v)}" required ${edit ? 'autofocus' : ''}></label>
+    <label class="fld"><span>Dia ${rec ? 'que cai' : 'que vence'}</span><input id="fx-dia" name="dia" type="number" min="1" max="31" value="${dia}"></label></div>
+    <label class="fld"><span>${rec ? 'Entra em' : 'Paga com'}</span><select id="fx-meio" name="meio">${meioOpts(f.meio || (rec ? (walletRec(f) === 'conta' ? 'pix' : walletRec(f)) : 'boleto'), f.cartaoId, tipo)}</select></label>
+    ${edit ? `<p class="small" style="margin:6px 0 4px"><b>Essa mudança vale:</b></p><div class="seg" role="radiogroup" aria-label="Quando vale"><label><input type="radio" name="escopo" value="todos" ${so ? '' : 'checked'}><span>Daqui pra frente</span></label><label><input type="radio" name="escopo" value="mes" ${so ? 'checked' : ''}><span>Só em ${mesNome}</span></label></div>` : ''}
     <p class="hint" id="fx-hint"></p>
-    <div class="form-actions"><button class="btn pri" type="submit">Salvar</button>${edit ? `<button class="btn dang" type="button" data-a="delFixo" data-id="${f.id}">Excluir de vez</button>` : ''}</div></form>`, sh => {
+    <details style="margin:8px 0"><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Mais opções</summary><div style="margin-top:8px">
+      ${edit ? nome : ''}
+      <label class="fld"><span>Categoria</span><select id="fx-cat" name="cat">${catOpts(tipo, f.cat || (rec ? 'Salário' : ''))}</select></label>
+      <div class="f2" id="fx-datas"><label class="fld"><span>Começa em</span><input id="fx-ini" name="inicio" type="month" value="${esc(f.inicio || ymNow())}"></label>
+      <label class="fld"><span>Termina em (opcional)</span><input id="fx-fim" name="fim" type="month" value="${esc(f.fim || '')}"></label></div>
+      <label class="chk"><input id="fx-rep" type="checkbox" name="repasse" ${f.repasse ? 'checked' : ''}> É de outra pessoa (repasse): não conta no meu orçamento</label>
+      ${edit ? `<button class="btn dang sm" type="button" data-a="delFixo" data-id="${f.id}" style="margin-top:8px">Apagar de vez (some também dos meses passados)</button>` : ''}
+    </div></details>
+    <div class="form-actions"><button class="btn pri" type="submit">Salvar</button></div>
+    ${edit ? `<div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn sm" type="button" data-a="fixoPular" data-id="${f.id}" data-m="${m}">Não tem em ${mesNome}</button><button class="btn sm" type="button" data-a="fixoEncerrar" data-id="${f.id}" data-m="${m}">${rec ? 'Não recebo mais' : 'Não tenho mais'}</button></div>` : ''}</form>`, sh => {
     const fm = $('form', sh); let touched = !!f.cat;
     fm.cat.addEventListener('change', () => touched = true);
     fm.desc.addEventListener('input', () => { if (!touched) { const c = autoCat(fm.desc.value, tipo); if (c) fm.cat.value = c; } });
-    const upd = () => { const so = fm.escopo && fm.escopo.value === 'mes'; $('#fx-datas', sh).hidden = !!so; ['desc', 'cat', 'meio'].forEach(n => { fm[n].disabled = !!so; });
-      const cc = fm.meio.value.startsWith('cc:');
-      $('#fx-hint', sh).textContent = (cc ? 'No crédito: entra sozinho na fatura do cartão todo mês, no dia indicado. ' : '') + (!edit ? '' : so ? `Muda só o valor e o dia em ${mesNome}. Os outros meses continuam com ${brl(f.valor)} no dia ${f.dia}.` : `Vale para ${mesNome} e os meses seguintes. O que já foi pago não muda.`); };
-    fm.addEventListener('change', upd); upd();
+    const esp = Object.entries(f.ajustes || {}).filter(([k, a]) => k > m && a && a.v != null).sort();
+    const upd = () => { const soM = fm.escopo && fm.escopo.value === 'mes'; ['desc', 'cat', 'meio', 'inicio', 'fim', 'repasse'].forEach(n => { if (fm[n]) fm[n].disabled = !!soM; });
+      const cc = fm.meio.value.startsWith('cc:'), nv = parseValor(fm.valor.value);
+      $('#fx-hint', sh).innerHTML = !edit ? (cc ? 'No cartão: entra sozinho na fatura todo mês, no dia indicado.' : 'Entra na previsão de todos os meses a partir de agora.')
+        : soM ? `Muda só ${mesNome}${nv > 0 ? ` para <b>${brl(nv)}</b>` : ''}. Os outros meses continuam ${brl(+f.valor)}.`
+        : `${nv > 0 && Math.abs(nv - (+f.valor || 0)) > .005 ? `${brl(+f.valor)} → <b>${brl(nv)}</b>. ` : ''}Vale de ${mesNome} em diante. O que já foi pago não muda.${cc ? ' No cartão, entra sozinho na fatura.' : ''}${esp.length ? ` <b>Meses com valor próprio continuam como estão:</b> ${faixasAj(esp)}.` : ''}`; };
+    fm.addEventListener('change', upd); fm.addEventListener('input', upd); upd();
   });
 }
+A.fixoPular = async el => { const f = S.fixos.find(x => x.id === el.dataset.id), m = el.dataset.m; if (!f) return; try { await put(COLS.fixos, f.id, {...strip(f), ajustes:{...(f.ajustes || {}), [m]:{pular:true}}}); toast(`${f.desc}: fora só de ${ymLong(m)}`); closeSheet(); } catch (_) {} };
+A.fixoEncerrar = async el => { const f = S.fixos.find(x => x.id === el.dataset.id), m = el.dataset.m; if (!f) return;
+  if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = `Confirmar: some de ${ymLabel(pagoFixo(f, m) ? addM(m, 1) : m)} em diante`; return; }
+  const fim = pagoFixo(f, m) ? m : addM(m, -1); try { await put(COLS.fixos, f.id, {...strip(f), fim, ...(fim < (f.inicio || fim) ? {ativo:false} : {})}); toast(`${f.desc} encerrada. O histórico continua no extrato.`); closeSheet(); } catch (_) {} };
 A.novoFixo = el => formFixo({tipo:el.dataset.tipo || 'despesa'});
 A.editFixo = el => { const f = S.fixos.find(x => x.id === el.dataset.id); if (f) formFixo(f); };
 F.fixo = async fm => {
@@ -3191,7 +3221,8 @@ F.fixo = async fm => {
   Reflect.deleteProperty(o, 'cartaoId'); Reflect.deleteProperty(o, 'fim'); o.repasse = !!d.repasse; if (o.repasse) o.cat = 'Repasse';
   if (d.meio.startsWith('cc:')) o.cartaoId = d.meio.slice(3);
   if (d.fim) o.fim = d.fim;
-  if (old && old.ajustes) { const aj = {...old.ajustes}; delete aj[m]; o.ajustes = aj; }
+  // "de m em diante": valores e dias só-do-mês a partir de m deixam de valer (o "não tem neste mês" continua)
+  if (old && old.ajustes) { const aj = {...old.ajustes}; delete aj[m]; o.ajustes = aj; if (!Object.keys(aj).length) delete o.ajustes; }
   if (old && old.inicio && old.inicio < m && (+old.valor !== o.valor || +old.dia !== o.dia)) {
     // guarda o valor antigo para os meses anteriores ainda não pagos
     const aj = {...(o.ajustes || {})}; for (let x = old.inicio; x < m; x = addM(x, 1)) if (!pagoFixo(old, x) && !aj[x]) aj[x] = {v:+old.valor, dia:+old.dia}; o.ajustes = aj;
@@ -3420,7 +3451,7 @@ function orcEdBody(m) {
   const tot = sum(com, c => +orc[c]), totMed = sum(com, c => med[c] || 0);
   const meioDe = c => (S.cfg.orcMeio || {})[c] || (vaCats().includes(c) ? 'va' : '');
   const row = c => { const lim = +orc[c], g = aj.gasto[c] || 0, pc = lim ? g / lim * 100 : 0, cor = pc > 100 ? 'var(--neg)' : pc > 85 ? 'var(--warn)' : 'var(--pos)', md = med[c] || 0;
-    return `<div class="orc-row"><div class="orc-top"><b class="orc-n">${esc(c)}</b><div class="orc-step"><button type="button" class="ib" data-a="orcPasso" data-c="${esc(c)}" data-d="-1" aria-label="Diminuir ${esc(c)}">−</button><input class="orc-v num" data-c="${esc(c)}" inputmode="decimal" value="${String(Math.round(lim))}" aria-label="Limite de ${esc(c)}"><button type="button" class="ib" data-a="orcPasso" data-c="${esc(c)}" data-d="1" aria-label="Aumentar ${esc(c)}">+</button></div></div>
+    return `<div class="orc-row" data-c="${esc(c)}"><div class="orc-top"><b class="orc-n">${esc(c)}</b><div class="orc-step"><button type="button" class="ib" data-a="orcPasso" data-c="${esc(c)}" data-d="-1" aria-label="Diminuir ${esc(c)}">−</button><input class="orc-v num" data-c="${esc(c)}" inputmode="decimal" value="${String(Math.round(lim))}" aria-label="Limite de ${esc(c)}"><button type="button" class="ib" data-a="orcPasso" data-c="${esc(c)}" data-d="1" aria-label="Aumentar ${esc(c)}">+</button></div></div>
       <div class="orc-bar"><span style="width:${clamp(pc, 0, 100).toFixed(0)}%;background:${cor}"></span></div>
       <div class="orc-sub"><span>${m === ymNow() ? `gasto ${brl0(g)} de ${brl0(lim)}` : ymLabel(m)}</span>${md && Math.abs(md - lim) > 20 ? `<button type="button" class="lnk" data-a="orcMedia" data-c="${esc(c)}">média ${brl0(md)} · usar</button>` : md ? `<span>média ${brl0(md)}</span>` : ''}
 </div><div class="orc-sub2"><select class="orc-m" data-c="${esc(c)}" aria-label="De onde sai ${esc(c)}">${ORC_MEIO_CURTO().map(([v, l]) => `<option value="${v}" ${meioDe(c) === v ? 'selected' : ''}>Sai de: ${esc(v ? l : 'automático')}</option>`).join('')}</select>
