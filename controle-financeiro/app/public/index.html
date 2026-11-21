@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 10:37';</script>
+<script>window.__versao = '21/11 10:45';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -2733,22 +2733,69 @@ A.respMeio = async el => {
   chatRender();
 };
 const descItem = it => `${it.tipo === 'receita' ? '+ ' : ''}<b class="num">${brl(it.valor)}</b> ${esc(it.desc)} <span class="muted">· ${esc(it.cat)} · ${it.cartaoId ? 'Crédito ' + esc(cartao(it.cartaoId)?.nome || '') : MEIOS[it.meio] || ''}${it.nparc > 1 ? ` · ${it.nparc}×` : ''}${it.cartaoId || it.nparc > 1 ? ` · 1ª na fatura de ${ymLabel(it.mes || (it.cartaoId ? mesFatura(it.data, cartao(it.cartaoId)) : it.data.slice(0, 7)))}` : ''}${it._baixa === 'fatura' ? ' · fatura marcada como paga' : it._baixa ? ` · ${it.tipo === 'receita' ? 'recebido' : 'pago'}: ${esc(it._baixa)}${it.refMes && it.refMes !== ymNow() ? ' (' + ymLabel(it.refMes) + ')' : ''}` : it.fixoId ? ' · todo mês' : ''}${it.data !== hoje() ? ' · ' + dLabel(it.data) : ''}</span>`;
+// "Posso gastar?": o app decide (SIM / SÓ SE / NÃO) com os próprios números, sem depender da IA.
+function valoresDoTexto(txt) {
+  const out = [], re = /(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?:\s*(mil|k)\b)?/gi; let mt;
+  while ((mt = re.exec(txt))) {
+    const antes = txt.slice(Math.max(0, mt.index - 5), mt.index), depois = txt.slice(re.lastIndex, re.lastIndex + 9);
+    if (/[\/\d]$/.test(antes) || /^\s*\//.test(depois) || /^\s*(x\b|vezes|parcela|dias?\b|meses|%|h\b|horas)/i.test(depois) || /\bdia\s*$/i.test(antes)) continue;
+    let v = parseValor(mt[1]); if (mt[2]) v *= 1000; if (v > 0) out.push(v);
+  }
+  return out;
+}
+const PERG_GASTO = /\b(posso|podemos|d[aá] (pra|para)|consigo|cabe|devo|vale a pena|se eu (gastar|comprar|pagar)|t[oô] pensando em (gastar|comprar))\b/i;
+const COMIDA_TXT = /\b(feira|mercado|supermercado|padaria|p[aã]o|p[aã]es|pastel|a[cç]ougue|ovos?|carne|frango|fruta|verdura|lanche|almo[cç]o|janta|jantar|restaurante|ifood|comida|caf[eé])\b/i;
+function vereditoGasto(txt) {
+  const nt = norm(txt), vals = valoresDoTexto(txt), g = podeGastar(); if (!g) return null;
+  const sv = saldoVAHoje(), vaTxt = sv != null && sv > 1 ? brl0(sv) : null;
+  if (!vals.length) {
+    if (!/quanto (posso|podemos|da pra|da para) gastar/.test(nt)) return null;
+    return `<p style="margin:0"><b>Hoje: ${brl0(g.porDia)}.</b> Até ${dCurto(g.fim)}: ${brl0(g.total)} no total para o dia a dia, já sem as contas, faturas, viagens e o que precisa ficar para os próximos meses.${vaTxt ? ` Comida sai do vale primeiro (saldo ${vaTxt}).` : ''}</p>`;
+  }
+  const V = sum(vals, v => v), p = parseRapido(txt), cred = !!p.cartaoId || /\b(credito|cartao|parcel|nubank)\b|\d+\s*x\b/.test(nt), noVale = /\b(vale|va|vr)\b/.test(nt);
+  const fut = fluxo(), base = Math.max(0, g.dia - g.reserva);
+  const somaTxt = vals.length > 1 ? `${vals.map(v => brl0(v)).join(' + ')} = <b>${brl0(V)}</b>` : `<b>${brl0(V)}</b>`;
+  // impacto nos meses: o que passa do dia a dia planejado sai da sobra dos meses à frente
+  const depois = (desconto, desde) => fut.reduce((a, x) => { const l = x.livre - (x.m >= desde ? desconto(x.m) : 0); return l < a.l ? {l, m:x.m} : a; }, {l:Infinity, m:null});
+  const dica = COMIDA_TXT.test(txt) && !noVale && vaTxt ? ` <b>Dica:</b> o que for comida (feira, padaria, ovos, pastel) passe no vale, que tem ${vaTxt}. Assim sobra mais na conta.` : '';
+  const w0 = depois(() => 0, ymNow()), jaNeg = w0.l < 0 ? ` Em ${ymLabel(w0.m)} a conta já está prevista para fechar com ${brl0(w0.l)}; com esse gasto vai para` : null;
+  const maxTxt = g.total > 1 ? `Gaste no máximo ${brl0(g.total)} até ${dCurto(g.fim)}.` : `Até cobrir ${ymLabel(w0.m)}, só o essencial: contas e comida no vale.`;
+  let h;
+  if (noVale && sv != null && !cred) {
+    h = sv >= V ? `<b class="pos">SIM, no vale.</b> ${somaTxt}. O vale tem ${brl0(sv)} e fica com ${brl0(sv - V)}.`
+      : `<b class="warnc">SÓ SE completar na conta.</b> ${somaTxt}, mas o vale só tem ${brl0(sv)}. Os outros ${brl0(V - sv)} saem da conta${V - sv <= g.total ? ` e cabem nos ${brl0(g.total)} que você pode gastar até ${dCurto(g.fim)}` : `, e isso passa dos ${brl0(g.total)} que você pode gastar até ${dCurto(g.fim)}`}.`;
+  } else if (cred) {
+    const c = p.cartaoId ? cartao(p.cartaoId) : S.cartoes[0], n = clamp(p.nparc || 1, 1, 48); if (!c) return null;
+    const ini = mesFatura(hoje(), c), pago = mm => { let t = 0; for (let i = 0; i < n; i++) if (addM(ini, i) <= mm) t += V / n; return t; };
+    const w = depois(pago, ini), parc = n > 1 ? `${n}x de ${brl0(V / n)}` : 'à vista';
+    h = w.l >= colchao() ? `<b class="pos">SIM.</b> ${somaTxt} no ${esc(c.nome)} ${parc}: a 1ª cobrança vem na fatura de ${ymLabel(ini)} (vence ${dLabel(vencFatura(c, ini))}) e todos os meses continuam com folga. O mês mais justo fica com ${brl0(w.l)} (${ymLabel(w.m)}).`
+      : w.l >= 0 ? `<b class="warnc">SÓ SE cortar em outro lugar.</b> ${somaTxt} no ${esc(c.nome)} ${parc} não deixa nenhum mês no vermelho, mas ${ymLabel(w.m)} fecha com só ${brl0(w.l)}, abaixo da folga de ${brl0(colchao())}.`
+      : `<b class="neg">NÃO.</b> ${somaTxt} no ${esc(c.nome)} ${parc}:${jaNeg || ` deixa ${ymLabel(w.m)} com`} ${brl0(w.l)} (cheque especial ou fatura sem pagar).`;
+  } else {
+    const exc = Math.max(0, V - base), w = depois(() => exc, ymNow()), resto = g.total - V, ate = g.limCaixa && g.pj && g.pj.P1 ? g.pj.P1 : null;
+    if (V <= g.total) h = `<b class="pos">SIM.</b> ${somaTxt} cabe nos <b>${brl0(g.total)}</b> que você pode gastar no dia a dia até ${dCurto(g.fim)}. Depois ainda sobram <b>${brl0(resto)}</b>${g.dias > 1 ? ` (${brl0(resto / Math.max(1, g.dias - 1))} por dia nos ${g.dias - 1} dias seguintes)` : ''}.${ate && V > g.caixa ? ` Atenção: até o salário de ${dLabel(ate)} a conta só tem ${brl0(g.caixa)} livres; deixe o resto para depois do dia ${+ate.slice(8)}.` : ''}`;
+    else if (w.l >= 0) h = `<b class="warnc">SÓ SE cortar ${brl0(V - g.total)}.</b> ${somaTxt} passa dos ${brl0(g.total)} que você pode gastar até ${dCurto(g.fim)}. Nenhum mês fica no vermelho, mas ${ymLabel(w.m)} cai para ${brl0(w.l)}${w.l < colchao() ? `, abaixo da folga de ${brl0(colchao())}` : ''}.`;
+    else h = `<b class="neg">NÃO.</b> ${somaTxt} ${g.total > 1 ? `passa dos ${brl0(g.total)} que você pode gastar até ${dCurto(g.fim)}.` : `não cabe: este mês não sobra nada para gastos extras.`}${jaNeg || ` Deixaria ${ymLabel(w.m)} com`} ${brl0(w.l)}. ${maxTxt}`;
+  }
+  const viagem = /viage|ferias|f[eé]rias|passeio|trip/.test(nt) ? ` Os gastos da viagem já têm dinheiro separado no plano dela e não saem desse valor.` : '';
+  return `<p style="margin:0;line-height:1.55">${h}${viagem}${dica}</p>`;
+}
 function simulacaoCompra(txt) {
   const p = parseRapido(txt); if (!(p.valor > 0)) return '';
   const nt = norm(txt), hv = histVar(), n = clamp(p.nparc || 1, 1, 48);
   const pj = projecao();
   const cenario = (credito, parc) => {
     const c = credito ? (p.cartaoId ? cartao(p.cartaoId) : S.cartoes[0]) : null; if (credito && !c) return '';
-    const ini = c ? mesFatura(hoje(), c) : ymNow(), vp = p.valor / parc; let neg = 0; const L = [];
-    for (let i = 0; i < Math.max(parc, 3) && i < 14; i++) { const m = addM(ini, i), s0 = projMes(m, hv).sobraSemVA, d = i < parc ? vp : 0; if (s0 - d < 0) neg++; L.push(`${ymLabel(m)}: ${brl0(s0)} → ${brl0(s0 - d)}`); }
+    const ini = c ? mesFatura(hoje(), c) : ymNow(), vp = p.valor / parc; let neg = 0, acc = 0; const L = [];
+    fluxo().forEach((x, i) => { if (x.m < ini) return; const k = monthsBetween(ini, x.m); if (k < parc) acc += vp; if (k > Math.max(parc, 3) || k >= 14) return; const s0 = x.livre; if (s0 - acc < 0) neg++; L.push(`${ymLabel(x.m)}: ${brl0(s0)} → ${brl0(s0 - acc)}`); });
     const hojeTxt = !c && pj.livre1 != null ? ` Livre até o próximo salário: ${brl(pj.livre1)} → ${brl(pj.livre1 - p.valor)}.` : '';
-    return `- ${c ? `Crédito ${c.nome} em ${parc}x de ${brl(vp)} (1ª parcela na fatura de ${ymLabel(ini)})` : 'Débito/Pix à vista (sai agora da conta)'}: sobra do mês antes → depois: ${L.join('; ')}. Meses no vermelho: ${neg}.${hojeTxt}`;
+    return `- ${c ? `Crédito ${c.nome} em ${parc}x de ${brl(vp)} (1ª parcela na fatura de ${ymLabel(ini)})` : 'Débito/Pix à vista (sai agora da conta)'}: fica na conta no fim do mês (já somando as sobras anteriores), antes → depois: ${L.join('; ')}. Meses no vermelho: ${neg}.${hojeTxt}`;
   };
   const cen = [];
   const querCred = p.cartaoId || /credito|cartao|parcel|\d+\s*x\b/.test(nt), querDeb = /debito|pix|a vista|dinheiro/.test(nt);
   if (querDeb || !querCred) cen.push(cenario(false, 1));
   if (querCred || !querDeb) { cen.push(cenario(true, n)); if (n === 1) cen.push(cenario(true, 3)); }
-  return `SIMULAÇÃO (valores calculados pelo app; a sobra é em dinheiro, sem os vales; negativo = vira dívida no cheque especial ou no cartão):
+  return `SIMULAÇÃO (valores calculados pelo app; é o dinheiro na conta no fim de cada mês, sem os vales; negativo = cheque especial ou fatura sem pagar):
 Compra de ${brl(p.valor)}.
 ${cen.filter(Boolean).join('\n')}`;
 }
@@ -2786,11 +2833,12 @@ async function enviarChat(txt) {
   try {
     const cg = await comandoGuardado(txt);
     if (cg) { msg.h = cg; S.chatBusy = false; chatRender(); return; }
+    if ((PERG.test(txt) || PERG_GASTO.test(txt) || soVer()) && (PERG_GASTO.test(txt) || /quanto (posso|podemos) gastar/i.test(txt))) { const vg = vereditoGasto(txt); if (vg) { msg.h = vg; S.chatBusy = false; chatRender(); return; } }
     if (PERG.test(txt) || soVer()) {
       if (!S.sample) { msg.h = 'Para responder perguntas preciso do Claude, que não está disponível nesta tela. Os números estão no Início e na Visão anual.'; }
       else {
         msg.h = '<span class="muted">Pensando…</span>'; chatRender();
-        await S.sample(`Você é o assistente de um controle financeiro pessoal de uma família brasileira que está no limite do orçamento e quer economizar. Responda em português do Brasil, em texto simples sem markdown, de forma direta e simples (até 7 frases), com valores. Use apenas os dados abaixo; se faltar algo, diga o que falta. Se a pergunta for sobre comprar ou gastar algo: comece com SIM, NÃO ou SÓ SE, diga claramente se a compra faz algum mês ficar no vermelho (isso é se endividar), compare débito/Pix com crédito (à vista e parcelado) usando a SIMULAÇÃO, e diga o melhor jeito ou o melhor momento (por exemplo, esperar o salário, o 13º ou terminar uma parcela).\n\nDADOS:\n${contextoFinanceiro()}\n\n${simulacaoCompra(txt)}\n\nPERGUNTA: ${txt}`, {cache:false, onText:({text}) => { msg.h = esc(text); chatRender(); }});
+        await S.sample(`Você é o assistente de um controle financeiro pessoal de uma família brasileira que está no limite do orçamento e quer economizar. Responda em português do Brasil, em texto simples sem markdown, de forma direta e curta (no máximo 4 frases curtas), com valores. A primeira frase já responde a pergunta. Não repita números à toa, não use condicionais vagos ("se", "talvez", "pode ser") e nunca diga que falta simulação. Use apenas os dados abaixo. Se a pergunta for sobre comprar ou gastar algo: comece com SIM, NÃO ou SÓ SE (dizendo a condição exata), diga se algum mês fica no vermelho pela SIMULAÇÃO (que já soma as sobras dos meses anteriores) e diga o melhor jeito ou momento de pagar.\n\nDADOS:\n${contextoFinanceiro()}\n\n${simulacaoCompra(txt)}\n\nPERGUNTA: ${txt}`, {cache:false, onText:({text}) => { msg.h = esc(text); chatRender(); }});
       }
     } else {
       let r = null;
