@@ -1024,7 +1024,7 @@ function vHoje() {
     const frac = pg ? (orcConta ? pg.total / Math.max(orcConta, pg.total) : 1) : 0;
     let centro, dir;
     if (pj.livre1 != null && pj.livre1 < 0) { centro = `<b>${brl0(-pj.livre1)}</b><small>vai faltar</small>`; dir = `<small>Até ${dCurto(pj.P1)} a conta não fecha</small><span class="big">Segure</span><span style="font-size:.86rem;opacity:.85">veja em Contas o que dá para adiar</span>`; }
-    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Pode gastar até ${dCurto(pg.fim)}</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">o que ainda dá para gastar no dia a dia, na conta ou no cartão. Cada gasto lançado já desconta.${sobraCx() ? ' O que sobrar vai para a caixinha.' : ''}</span>${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(pg.reserva)} deste mês ficam para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
+    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Pode gastar até ${dCurto(pg.fim)}</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">o que ainda dá para gastar no dia a dia fora comida, na conta ou no cartão. Cada gasto lançado já desconta.${sobraCx() ? ' O que sobrar vai para a caixinha.' : ''}</span>${pg.comida > 0.5 ? `<span class="mint">🍽️ Comida à parte: falta ${brl0(pg.comida)} no mês${pg.vaHoje != null ? ` · vale ${brl0(pg.vaHoje)}${pg.vaProx ? ` (+ ${brl0(pg.vaProx.v)} dia ${pg.vaProx.d})` : ''}` : ''}</span>` : ''}${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(pg.reserva)} deste mês ficam para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
     else { centro = `<b>${brl0(sh)}</b><small>na conta</small>`; dir = `<small>Cadastre seu salário em Contas</small><span style="font-size:.86rem;opacity:.85">para eu dizer quanto pode gastar por dia</span>`; }
     h += `<section class="hz s-${st}"><div class="hero-top"><div class="ring">${anelHTML(pj.livre1 != null && pj.livre1 < 0 ? 0 : frac)}<div class="in">${centro}</div></div><div class="hero-r">${dir}</div></div>
       <div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div></section>`;
@@ -1260,8 +1260,10 @@ function podeGastar() {
   const fim = `${m0}-${pad(new Date(y, mm, 0).getDate())}`, dias = Math.max(1, ddiff(T, fim) + 1);
   const isVL = lg => lg === MEIOS.va || lg === MEIOS.vr;
   const linhas = [...projMes(m0).linhas.filter(l => l.tipo === 'previsto' && !isVL(l.lugar) && !/^Crédito /.test(l.lugar)), ...projMes(m0, undefined, false, true).filter(l => l.tipo === 'previsto')].filter(l => ehDia(l.cat));
-  if (fut[0] && fut[0].cobre > 0.5) linhas.push({cat:'Comida pela conta (o vale não cobre)', v:fut[0].cobre, lugar:'Pix', tipo:'previsto'});
   const cats = {}; linhas.forEach(l => { cats[l.cat] = (cats[l.cat] || 0) + l.v; });
+  // comida tem limite e dinheiro próprios (o vale): fica à parte do "pode gastar"
+  const comida = r2(sum(projMes(m0).linhas.filter(l => l.tipo === 'previsto' && isVL(l.lugar)), l => l.v)), vaHoje = saldoVAHoje(), cobre = fut[0] ? fut[0].cobre : 0;
+  const vaProx = fixosAtivos(m0).filter(f => f.tipo === 'receita' && walletRec(f) !== 'conta' && !pagoFixo(f, m0) && diaFixo(f, m0) >= +T.slice(8)).map(f => ({d:diaFixo(f, m0), v:valorFixo(f, m0)})).sort((a, b) => a.d - b.d)[0] || null;
   const dia = sum(linhas, l => l.v);
   const piorX = fut.reduce((a, b) => b.livre < a.livre ? b : a), minL = piorX.livre;
   // Sobra acima da folga: quanto dá para gastar A MAIS por mês, todo mês, sem nenhum mês até o fim da projeção ficar abaixo da folga.
@@ -1273,19 +1275,20 @@ function podeGastar() {
   const caixa = Math.max(0, pj.livre1);  // até o salário cair, só dá para usar o que está na conta
   let porDia = total / dias, limCaixa = false;
   if (pj.P1 && pj.P1 <= fim && porDia > caixa / pj.dias1) { porDia = caixa / pj.dias1; limCaixa = true; }
-  return {porDia:Math.max(0, porDia), total, dia, cats, falta, extra, extraTot, mesesExtra, mesLim, minL, pior:piorX.m, fim, dias, caixa, limCaixa, pj, reserva, porMesRes, mesesAte};
+  return {porDia:Math.max(0, porDia), total, dia, cats, falta, extra, extraTot, mesesExtra, mesLim, minL, pior:piorX.m, fim, dias, caixa, limCaixa, pj, reserva, porMesRes, mesesAte, comida, vaHoje, vaProx, cobre};
 }
 A.porDiaDet = () => {
   const g = podeGastar(); if (!g) return;
   const m = ymNow(), aj = ajusteMes(m), pj = g.pj, linha = (a, b, c = '') => `<div class="row small" style="gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1">${a}${c ? ` <span class="muted">· ${c}</span>` : ''}</span><b class="num">${b}</b></div>`;
-  let h = `<p class="small" style="margin-top:0">É o que ainda falta do <b>dia a dia</b> de ${MESL[+m.slice(5) - 1].toLowerCase()}, somando conta e cartão. <b>Todo gasto lançado já desconta</b>; comida paga no vale sai do vale.${sobraCx() ? ' O que não gastar vai para a caixinha no fim do mês.' : ''}</p>`;
+  let h = `<p class="small" style="margin-top:0">É o que ainda falta do <b>dia a dia fora comida</b> em ${MESL[+m.slice(5) - 1].toLowerCase()}, somando conta e cartão. <b>Todo gasto lançado já desconta.</b> Comida tem limite próprio (abaixo).${sobraCx() ? ' O que não gastar vai para a caixinha no fim do mês.' : ''}</p>`;
   h += `<h3 style="margin:12px 0 2px">Quanto falta em cada categoria</h3>`;
   h += Object.entries(g.cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div data-a="catDet" data-cat="${esc(k)}" data-m="${m}" style="cursor:pointer">${linha(esc(k) + ' ›', brl0(v), itensTxt(k, v))}</div>`).join('') || '<p class="small muted">Nada mais planejado para o resto do mês.</p>';
   // o que já foi descontado de outras categorias
   const desc = []; Object.entries(aj.gasto).forEach(([c, v]) => { const o = +(orcDoMes(m)[c] || 0); if (o > 0 && v > o + 0.5) desc.push([`${esc(c)} passou do limite`, v - o]); });
-  if (aj.foraVale > 0.5) desc.push(['Comida paga na conta ou no cartão (o vale vai sobrar)', aj.foraVale]);
   if (aj.semLimite > 0.5) desc.push(['Gastos acima do normal em categorias sem limite', aj.semLimite]);
   if (desc.length) h += `<h3 style="margin:16px 0 2px">Já tirado das outras categorias</h3>` + desc.map(([t, v]) => linha(t, '− ' + brl0(v))).join('') + (aj.semFolga > 0.5 ? `<p class="small neg" style="margin:6px 0 0">Passou ${brl0(aj.semFolga)} do total do dia a dia: isso sai da sobra do mês.</p>` : '');
+  // comida: limite próprio, sai do vale
+  if (g.comida > 0.5 || aj.comidaFora > 0.5) h += `<h3 style="margin:16px 0 2px">Comida (à parte)</h3>` + linha('Falta de mercado, restaurante e delivery no mês', brl0(g.comida)) + `<p class="small" style="margin:6px 0 0">Sai do vale${g.vaHoje != null ? ` (tem ${brl0(g.vaHoje)}${g.vaProx ? `; cai ${brl0(g.vaProx.v)} no dia ${g.vaProx.d}` : ''})` : ''}.${aj.comidaFora > 0.5 ? ` Neste mês ${brl0(aj.comidaFora)} de comida foram pagos na conta ou no cartão: isso diminui a sobra do mês, não o "pode gastar".` : ''}${g.cobre > 0.5 ? ` O vale não cobre tudo: ${brl0(g.cobre)} da comida vão sair da conta (já separados).` : ''}</p>`;
   // fora do dia a dia: não entra aqui, sai da sobra do mês
   const fora = {}; S.lanc.filter(l => mesGasto(l) === m && l.tipo === 'despesa' && !isFixo(l) && !l.grupo && !isRep(l) && !l.objId && !isVA(l) && !ehDia(l.cat) && l.cat !== 'Cartão (sem detalhe)').forEach(l => { fora[l.cat] = (fora[l.cat] || 0) + (+l.valor || 0); });
   if (Object.keys(fora).length) h += `<h3 style="margin:16px 0 2px">Fora do dia a dia (saem da sobra, não daqui)</h3>` + Object.entries(fora).sort((a, b) => b[1] - a[1]).map(([c, v]) => linha(esc(c), brl0(v))).join('');
@@ -2298,20 +2301,14 @@ function ajusteMes(m, hv) {
   const orc = orcDoMes(m), gasto = {}, fora = {}, fech = ((S.cfg.orcFech || {})[m]) || [];
   S.lanc.forEach(l => { if (mesGasto(l) === m && l.tipo !== 'receita' && !isFixo(l) && !l.grupo && !isRep(l) && !l.objId) { const c = l.cat || 'Outros', v = +l.valor || 0; gasto[c] = (gasto[c] || 0) + v; if (!isVA(l)) fora[c] = (fora[c] || 0) + v; } });
   const grupo = c => ((S.cfg.orcMeio || {})[c] === 'va' || vaCats().includes(c)) ? 'vale' : 'conta';
-  const out = {lim:{}, cortes:{}, extras:{}, gasto, fech, semFolga:0, foraVale:0, semLimite:0};
+  const out = {lim:{}, cortes:{}, extras:{}, gasto, fech, semFolga:0, comidaFora:r2(sum(Object.keys(fora).filter(c => grupo(c) === 'vale'), c => fora[c])), semLimite:0};
   ['vale', 'conta'].forEach(gr => {
     const cs = Object.keys(orc).filter(c => +orc[c] > 0 && grupo(c) === gr); cs.forEach(c => { out.lim[c] = +orc[c]; });
     let saldo = 0; cs.forEach(c => { const v = gasto[c] || 0; if (v > orc[c]) { if (m <= ymNow()) saldo -= v - orc[c]; } else if (fech.includes(c)) { saldo += orc[c] - v; out.lim[c] = v; } });
-    // Mês atual: o "pode gastar" desconta TODO gasto que não foi no vale.
-    // (a) comida paga pela conta/cartão enquanto o vale vai sobrar no mês: o vale fica para depois, a conta paga agora.
-    // (b) gasto em categoria sem limite acima do que costuma ser: sai do que resta do dia a dia.
-    if (gr === 'conta' && m === ymNow()) { const H0 = hv || histVar(), plano = c => c in out.lim ? out.lim[c] : (H0[c] ? H0[c].tot : 0);
-      const valeCs = new Set([...Object.keys(gasto), ...Object.keys(H0), ...Object.keys(out.lim)].filter(c => grupo(c) === 'vale'));
-      const falta = sum([...valeCs], c => Math.max(0, plano(c) - (gasto[c] || 0)));
-      const vaDisp = (saldoVAHoje() || 0) + sum(fixosAtivos(m).filter(f => f.tipo === 'receita' && walletRec(f) !== 'conta' && !pagoFixo(f, m)), f => valorFixo(f, m));
-      out.foraVale = r2(Math.min(sum([...valeCs], c => fora[c] || 0), Math.max(0, vaDisp - falta)));
+    // Mês atual: gasto do dia a dia (fora comida) em categoria sem limite, acima do que costuma ser, sai do que resta das outras.
+    if (gr === 'conta' && m === ymNow()) { const H0 = hv || histVar();
       out.semLimite = r2(sum(Object.keys(gasto).filter(c => grupo(c) === 'conta' && !cs.includes(c) && DIA_CATS.includes(c)), c => Math.max(0, gasto[c] - (H0[c] ? H0[c].tot : 0))));
-      saldo -= out.foraVale + out.semLimite; }
+      saldo -= out.semLimite; }
     let alvo = cs.filter(c => (gasto[c] || 0) < out.lim[c] && !fech.includes(c)), rest = saldo;
     for (let k = 0; k < 6 && Math.abs(rest) > .5 && alvo.length; k++) {
       const parte = rest / alvo.length; rest = 0; const prox = [];
@@ -3105,7 +3102,7 @@ function vereditoGasto(txt) {
   const sv = saldoVAHoje(), vaTxt = sv != null && sv > 1 ? brl0(sv) : null;
   if (!vals.length) {
     if (!/quanto (posso|podemos|da pra|da para) gastar/.test(nt)) return null;
-    return `<p style="margin:0"><b>Hoje: ${brl0(g.porDia)}.</b> Até ${dCurto(g.fim)}: ${brl0(g.total)} no total para o dia a dia, já sem as contas, faturas, viagens e o que precisa ficar para os próximos meses.${vaTxt ? ` Comida sai do vale primeiro (saldo ${vaTxt}).` : ''}</p>`;
+    return `<p style="margin:0"><b>Hoje: ${brl0(g.porDia)}.</b> Até ${dCurto(g.fim)}: ${brl0(g.total)} para o dia a dia fora comida, já sem as contas, faturas, viagens e o que precisa ficar para os próximos meses. Comida à parte: falta ${brl0(g.comida || 0)} no mês${vaTxt ? `, e sai do vale primeiro (saldo ${vaTxt})` : ''}.</p>`;
   }
   const V = sum(vals, v => v), p = parseRapido(txt), cred = !!p.cartaoId || /\b(credito|cartao|parcel|nubank)\b|\d+\s*x\b/.test(nt), noVale = /\b(vale|va|vr)\b/.test(nt);
   const fut = fluxo(), base = Math.max(0, g.dia - g.reserva);
@@ -3118,7 +3115,7 @@ function vereditoGasto(txt) {
   let h;
   if (noVale && sv != null && !cred) {
     h = sv >= V ? `<b class="pos">SIM, no vale.</b> ${somaTxt}. O vale tem ${brl0(sv)} e fica com ${brl0(sv - V)}.`
-      : `<b class="warnc">SÓ SE completar na conta.</b> ${somaTxt}, mas o vale só tem ${brl0(sv)}. Os outros ${brl0(V - sv)} saem da conta${V - sv <= g.total ? ` e cabem nos ${brl0(g.total)} que você pode gastar até ${dCurto(g.fim)}` : `, e isso passa dos ${brl0(g.total)} que você pode gastar até ${dCurto(g.fim)}`}.`;
+      : `<b class="warnc">SÓ SE completar na conta.</b> ${somaTxt}, mas o vale só tem ${brl0(sv)}. Os outros ${brl0(V - sv)} saem da conta e diminuem a sobra do mês${V > (g.comida || 0) + 0.5 ? ` (e passa do limite de comida: falta só ${brl0(g.comida || 0)})` : ''}.`;
   } else if (cred) {
     const c = p.cartaoId ? cartao(p.cartaoId) : S.cartoes[0], n = clamp(p.nparc || 1, 1, 48); if (!c) return null;
     const ini = mesFatura(hoje(), c), pago = mm => { let t = 0; for (let i = 0; i < n; i++) if (addM(ini, i) <= mm) t += V / n; return t; };
@@ -3126,6 +3123,10 @@ function vereditoGasto(txt) {
     h = w.l >= colchao() ? `<b class="pos">SIM.</b> ${somaTxt} no ${esc(c.nome)} ${parc}: a 1ª cobrança vem na fatura de ${ymLabel(ini)} (vence ${dLabel(vencFatura(c, ini))}) e todos os meses continuam com folga. O mês mais justo fica com ${brl0(w.l)} (${ymLabel(w.m)}).`
       : w.l >= 0 ? `<b class="warnc">SÓ SE cortar em outro lugar.</b> ${somaTxt} no ${esc(c.nome)} ${parc} não deixa nenhum mês no vermelho, mas ${ymLabel(w.m)} fecha com só ${brl0(w.l)}, abaixo da folga de ${brl0(colchao())}.`
       : `<b class="neg">NÃO.</b> ${somaTxt} no ${esc(c.nome)} ${parc}:${jaNeg || ` deixa ${ymLabel(w.m)} com`} ${brl0(w.l)} (cheque especial ou fatura sem pagar).`;
+  } else if (COMIDA_TXT.test(txt) && !/\b(bar|cerveja|chopp|balada)\b/.test(nt)) {
+    const doVale = sv != null ? Math.min(V, Math.max(0, sv)) : 0, daConta = r2(V - doVale);
+    h = V <= (g.comida || 0) + 0.5 ? `<b class="pos">SIM.</b> ${somaTxt} cabe no limite de comida (falta ${brl0(g.comida)} no mês).${daConta < 0.5 ? ` Pague no vale (tem ${brl0(sv)}).` : ` O vale ${sv > 1 ? `só tem ${brl0(sv)}` : 'está vazio'}: ${brl0(daConta)} saem da conta e diminuem a sobra do mês, não o "pode gastar"${g.vaProx ? ` (o vale cai de novo no dia ${g.vaProx.d})` : ''}.`}`
+      : `<b class="warnc">PASSA do limite de comida.</b> ${somaTxt}, mas falta só ${brl0(g.comida || 0)} de comida no mês. O que passar sai da sobra do mês.`;
   } else {
     const exc = Math.max(0, V - base), w = depois(() => exc, ymNow()), resto = g.total - V, ate = g.limCaixa && g.pj && g.pj.P1 ? g.pj.P1 : null;
     if (V <= g.total) h = `<b class="pos">SIM.</b> ${somaTxt} cabe nos <b>${brl0(g.total)}</b> que você pode gastar no dia a dia até ${dCurto(g.fim)}. Depois ainda sobram <b>${brl0(resto)}</b>${g.dias > 1 ? ` (${brl0(resto / Math.max(1, g.dias - 1))} por dia nos ${g.dias - 1} dias seguintes)` : ''}.${ate && V > g.caixa ? ` Atenção: até o salário de ${dLabel(ate)} a conta só tem ${brl0(g.caixa)} livres; deixe o resto para depois do dia ${+ate.slice(8)}.` : ''}`;
@@ -3167,7 +3168,7 @@ Próximos meses na conta (sem vales; "fica" = quanto fica na conta no fim do mê
 Previsão do dia a dia (quando não há limite): ${baseTxt()}
 Parcelamentos em aberto: ${(() => { const G = {}; S.lanc.filter(l => l.grupo && l.mes >= ymNow()).forEach(l => { (G[l.grupo] = G[l.grupo] || []).push(l); }); return Object.values(G).map(a => { a.sort((x, y) => x.mes.localeCompare(y.mes)); return `${a[0].desc} ${a.length}x de ${brl0(a[0].valor)} (${ymLabel(a[0].mes)} a ${ymLabel(a[a.length - 1].mes)}, ${a[0].cartaoId ? 'crédito ' + (cartao(a[0].cartaoId)?.nome || '') : lugarDe(a[0])})`; }).join('; ') || 'nenhum'; })()}.
 Contas fixas puladas em meses futuros (pagas por um guardado/objetivo, não saem da conta): ${S.fixos.filter(f => f.tipo !== 'receita' && f.ajustes && Object.entries(f.ajustes).some(([mm, a]) => mm >= ymNow() && a && a.pular)).map(f => `${f.desc} ${brl0(f.valor)} em ${Object.entries(f.ajustes).filter(([mm, a]) => mm >= ymNow() && a && a.pular).map(([mm]) => ymLabel(mm)).join(', ')}`).join('; ') || 'nenhuma'}.
-Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(), g = podeGastar(); return pj.livre1 != null ? ` Na conta, sem as contas até o próximo salário (${pj.P1}): ${brl(pj.livre1)}. Pode gastar de verdade (o que falta do dia a dia do mês, na conta ou no cartão; todo gasto lançado fora do vale já foi descontado; comida no vale não entra; o que sobrar no fim do mês vai para a caixinha Sobras${g && g.falta ? `, menos ${brl(g.reserva)} que fica segurado este mês porque em ${ymLabel(g.pior)} a conta fica em ${brl(g.minL)} (segurar ${brl(g.porMesRes)} por mês até lá)` : g && g.extra ? `, mais ${brl(g.extra)} livres de verdade` : ''}): ${g ? brl(g.total) + ' até ' + g.fim + ' = ' + brl(g.porDia) + '/dia' : ''}. Use este valor por dia quando perguntarem quanto pode gastar.` : ''; })()}
+Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(), g = podeGastar(); return pj.livre1 != null ? ` Na conta, sem as contas até o próximo salário (${pj.P1}): ${brl(pj.livre1)}. Pode gastar de verdade (o que falta do dia a dia do mês FORA COMIDA, na conta ou no cartão; todo gasto lançado já foi descontado; comida tem limite próprio${g ? `, falta ${brl(g.comida || 0)} de comida no mês e sai do vale` : ''}; o que sobrar no fim do mês vai para a caixinha Sobras${g && g.falta ? `, menos ${brl(g.reserva)} que fica segurado este mês porque em ${ymLabel(g.pior)} a conta fica em ${brl(g.minL)} (segurar ${brl(g.porMesRes)} por mês até lá)` : g && g.extra ? `, mais ${brl(g.extra)} livres de verdade` : ''}): ${g ? brl(g.total) + ' até ' + g.fim + ' = ' + brl(g.porDia) + '/dia' : ''}. Use este valor por dia quando perguntarem quanto pode gastar.` : ''; })()}
 Investido: ${brl(sum(S.inv, saldoInv))}. Objetivos: ${S.objs.map(o => `${o.nome} (${o.alvo || 'sem data'}): previsto ${brl(objPrevisto(o))}, guardado ${brl(objGuardado(o))}, gasto até agora ${brl(sum(S.lanc.filter(l => l.objId === o.id)))}; itens: ${(o.itens || []).map(it => `${it.cat} ${brl0(it.prev)}${it.meio ? ' via ' + lugarMeio(it.meio) : ''}`).join(', ')}`).join(' | ') || 'nenhum'}.
 Receitas extras previstas: ${S.fixos.filter(f => f.tipo === 'receita' && f.fim && f.fim >= ymNow()).map(f => `${f.desc} ${brl0(f.valor)} em ${f.inicio}`).join('; ') || 'nenhuma'}.
 Últimos lançamentos:\n${ult || 'nenhum'}`;
