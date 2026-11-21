@@ -2549,16 +2549,23 @@ function acharFixo(it) {
   if (!(it.valor > 0) || (it.nparc || 1) > 1 || it.recorrente) return null;
   const nd = norm(it.desc || ''), d0 = it.data || hoje(), m0 = d0.slice(0, 7), cands = [];
   const IGN = ['dia', 'liquido', 'para', 'estimado'];
+  // palavras com nome próprio na frase (ex.: "netflix"): se nenhuma bate com o nome da conta, não liga só pelo valor
+  const GEN = ['paguei', 'pago', 'paga', 'pagar', 'conta', 'contas', 'valor', 'aumentou', 'mudou', 'baixou', 'hoje', 'ontem', 'reais', 'debito', 'credito', 'boleto', 'cartao', 'recebi', 'mensal', 'mensalidade', 'parcela'];
+  const proprias = nd.split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !/^\d+$/.test(w) && !GEN.includes(w));
   [addM(m0, -1), m0, addM(m0, 1)].forEach(mm => [...fixosAtivos(mm), ...repassesAtivos(mm)].forEach(f => {
     if ((f.tipo || 'despesa') !== it.tipo || f.cartaoId || pagoFixo(f, mm)) return;
     const ws = norm(f.desc).split(/[^a-z0-9]+/).filter(w => w.length > 3 && !IGN.includes(w));
     const nome = ws.some(w => nd.includes(w.slice(0, 6)));
-    const v = valorFixo(f, mm), perto = v > 0 && Math.abs(v - it.valor) / v <= .15;
-    if (!nome && !(perto && f.cat === it.cat)) return;
+    // sem o nome bater, só liga se o valor for praticamente o mesmo (até 3%) e da mesma categoria
+    const v = valorFixo(f, mm), perto = v > 0 && Math.abs(v - it.valor) / v <= .03;
+    if (!nome && !(perto && f.cat === it.cat && !proprias.length)) return;
     const dist = Math.abs(ddiff(d0, dataFixo(f, mm))); if (dist > 25) return;
-    cands.push({f, mm, s:(nome ? 0 : 100) + dist + (perto ? 0 : 10)});
+    cands.push({f, mm, nome, s:(nome ? 0 : 100) + dist + (perto ? 0 : 10)});
   }));
-  cands.sort((a, b) => a.s - b.s); return cands[0] || null;
+  cands.sort((a, b) => a.s - b.s);
+  const c = cands[0]; if (!c) return null;
+  if (!c.nome && new Set(cands.filter(x => !x.nome).map(x => x.f.id)).size > 1) return null;  // mais de uma conta parecida: não chuta
+  return c;
 }
 async function pagarFaturaTexto(it, txt) {
   const nt = norm(txt); let c = it.cartaoId ? cartao(it.cartaoId) : null;
@@ -2594,7 +2601,7 @@ async function processarItens(itens, txt) {
   const out = [];
   for (const it of itens) {
     if (it.tipo === 'despesa' && /\bfatura\b/.test(norm(txt + ' ' + (it.desc || '')))) { const fp = await pagarFaturaTexto(it, txt); if (fp) { out.push(fp); continue; } }
-    if (!it.recorrente) { const fx = acharFixo(it); if (fx) { it.fixoId = fx.f.id; it.refMes = fx.mm; it.cat = fx.f.repasse ? 'Repasse' : (fx.f.cat || it.cat); it._baixa = fx.f.desc; if (it.tipo === 'receita' && walletRec(fx.f) !== 'conta') it.meio = fx.f.meio || it.meio; if (it.tipo === 'despesa' && !it.meioDito) { it.meio = fx.f.meio || it.meio; it.meioDito = true; } } }
+    if (!it.recorrente) { const fx = acharFixo(it); if (fx) { it.fixoId = fx.f.id; it.refMes = fx.mm; it._porNome = fx.nome; it.cat = fx.f.repasse ? 'Repasse' : (fx.f.cat || it.cat); it._baixa = fx.f.desc; if (it.tipo === 'receita' && walletRec(fx.f) !== 'conta') it.meio = fx.f.meio || it.meio; if (it.tipo === 'despesa' && !it.meioDito) { it.meio = fx.f.meio || it.meio; it.meioDito = true; } } }
     if (objV && !it.objId && it.tipo === 'despesa' && !it.fixoId) it.objId = objV.id;
     out.push(it);
   }
@@ -2617,7 +2624,7 @@ async function salvarItens(out, txt) {
       fixos.push(fid); it.fixoId = fid; it.nparc = 1; it.refMes = it.data.slice(0, 7);
     }
     const novos = await criarLanc(it); it._ids = novos; ids.push(...novos);
-    if (it.fixoId && it._baixa && it.refMes) { const f = S.fixos.find(x => x.id === it.fixoId), vp = f && valorFixo(f, it.refMes);
+    if (it.fixoId && it._baixa && it._porNome && it.refMes) { const f = S.fixos.find(x => x.id === it.fixoId), vp = f && valorFixo(f, it.refMes);
       if (f && (!f.fim || f.fim > it.refMes) && Math.abs(vp - it.valor) > 1 && !(f.ajustes && f.ajustes[it.refMes] && f.ajustes[it.refMes].v != null)) { try { revs.push({id:f.id, data:strip(f)}); await put(COLS.fixos, f.id, {...strip(f), valor:r2(it.valor)}); it._prevAtual = [vp, it.valor]; } catch (_) {} } }
   }
   S.pend = null;
@@ -2676,6 +2683,7 @@ async function aplicarFixo(f, campos = {}, quando = 'a_partir', mes = null) {
     return `Mudei <b>${esc(f.desc)}</b> só <b>${quandoFx(f, m, 'em')}</b>${v != null ? `: ${brl(valorFixo(f, m))} → <b>${brl(v)}</b>` : ''}${dia ? `, dia ${dia}` : ''}. Os outros meses continuam ${brl(+f.valor)}.`;
   }
   const m = /^\d{4}-\d{2}$/.test(mes || '') ? mesCobrancaFx(f, mes) : mesFixoAberto(f), velho = +f.valor || 0;
+  if (quando === 'todos' && v != null) Object.keys(aj).forEach(mm => { if (mm >= m && aj[mm] && aj[mm].v != null) { const {v:_, ...resto} = aj[mm]; if (Object.keys(resto).length) aj[mm] = resto; else delete aj[mm]; } });
   // meses antes de "m" que ainda não foram pagos guardam o valor antigo; de "m" em diante vale o novo (tira ajustes de valor antigos)
   if (v != null) { for (let mm = ymNow(); mm < m; mm = addM(mm, 1)) if (!pagoFixo(f, mm) && !(aj[mm] && aj[mm].v != null)) aj[mm] = {...(aj[mm] || {}), v:velho}; if (aj[m] && aj[m].v != null) { const {v:_, ...resto} = aj[m]; if (Object.keys(resto).length) aj[m] = resto; else delete aj[m]; } novo.valor = v; }
   const esp = Object.entries(aj).filter(([k, a]) => k > m && a && a.v != null).sort();
@@ -2683,9 +2691,25 @@ async function aplicarFixo(f, campos = {}, quando = 'a_partir', mes = null) {
   novo.ajustes = aj; if (!Object.keys(aj).length) delete novo.ajustes;
   await put(COLS.fixos, f.id, novo);
   const onde = f.cartaoId && cartao(f.cartaoId) ? ` A fatura do ${esc(cartao(f.cartaoId).nome)} já usa o valor novo.` : '';
-  return `Mudei a conta fixa <b>${esc(f.desc)}</b>${v != null ? `: ${brl(velho)} → <b>${brl(v)}</b>` : ''}${dia ? `${v != null ? ',' : ':'} dia ${dia}` : ''} a partir <b>${quandoFx(f, m)}</b> (todos os meses seguintes).${onde}${esp.length ? ` Meses com valor próprio continuam como estão: ${faixasAj(esp)}.` : ''}`;
+  return `Mudei a conta fixa <b>${esc(f.desc)}</b>${v != null ? `: ${brl(velho)} → <b>${brl(v)}</b>` : ''}${dia ? `${v != null ? ',' : ':'} dia ${dia}` : ''} ${quando === 'todos' ? 'em <b>todos os meses</b>, a partir' : 'a partir'} <b>${quandoFx(f, m)}</b>${quando === 'todos' ? '' : ' (todos os meses seguintes)'}.${onde}${esp.length ? ` Meses com valor próprio continuam como estão: ${faixasAj(esp)}.` : ''}`;
 }
 A.fixoValorRapido = async el => { const f = S.fixos.find(x => x.id === el.dataset.id); if (!f) return; el.disabled = true; try { const h = await aplicarFixo(f, {valor:+el.dataset.v}); S.chat.push({de:'app', h:'✓ ' + h}); chatRender(); toast('Conta fixa atualizada'); } catch (_) { el.disabled = false; } };
+const FX_GEN = ['conta', 'contas', 'fixa', 'fixo', 'para', 'assinatura', 'pix', 'sogra', 'sabrina', 'mensal', 'mensalidade', 'estimado', 'liquido', 'credito', 'debito', 'nubank', 'cartao'];
+const RX_MUDA_FX = /\b(mud|alter|corrig|troc|ajust|reajust|aument|baix|diminu|subiu|caiu|passou|passa a|agora (e|eh|é|custa|vem|fica)|ficou|vai ser|vai custar|todo mes|todos os meses|por mes|mensal|\bso (em|no|na)\b|apenas (em|no|na))/;
+function achaFixos(txt) { const nt = norm(txt); return S.fixos.filter(f => !f.repasse && f.ativo !== false && (!f.fim || f.fim >= ymNow())).map(f => ({f, n:norm(f.desc).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !FX_GEN.includes(w) && new RegExp('\\b' + w + '\\b').test(nt)).length})).filter(x => x.n).sort((a, b) => b.n - a.n).map(x => x.f); }
+function comandoFixo(txt) {
+  const nt = norm(txt); if (!RX_MUDA_FX.test(nt) || /\b(paguei|gastei|comprei|recebi|lanc)/.test(nt)) return null;
+  const vals = valoresDoTexto(txt); if (vals.length !== 1) return null;
+  const fx = achaFixos(txt); if (!fx.length) return null;
+  const v = vals[0], so = /\bso (em|no|na|neste|nesse|esse|este)\b|\bapenas (em|no|na)\b/.test(nt), todos = /todos os meses|todo mes|sempre|daqui (pra|para) frente|a partir de agora|de agora em diante|mensal|por mes/.test(nt) || !so;
+  if (fx.length > 1 && fx[0] === fx[1]) fx.pop();
+  const mn = nt.match(/\b(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/); let mes = null;
+  if (mn) { const k = MESL.findIndex(x => norm(x) === mn[1]); for (let i = 0; i <= 12; i++) { const mm = addM(ymNow(), i); if (+mm.slice(5) === k + 1) { mes = mm; break; } } }
+  if (fx.length === 1 && so && mes) return {f:fx[0], v, auto:true, so:true, mes};
+  if (fx.length === 1 && todos && !so) return {f:fx[0], v, auto:true};
+  return {lista:fx.slice(0, 3), v};
+}
+A.fixoTodos = async el => { const f = S.fixos.find(x => x.id === el.dataset.id); if (!f) return; el.disabled = true; try { const h = await aplicarFixo(f, {valor:+el.dataset.v}, el.dataset.q || 'todos'); S.chat.push({de:'app', h:'✓ ' + h}); chatRender(); toast('Conta fixa atualizada'); } catch (_) { el.disabled = false; } };
 async function corrigir(txt, forcar) {
   const base = corrigirHTML(txt, forcar); if (!base) return null;
   if (!S.sample) return {h:base};
@@ -2704,7 +2728,7 @@ Monte um plano para atender o pedido. Ações possíveis:
 - {"tipo":"apagar","ref":"g:... ou l:..."} apaga o lançamento (ou todas as parcelas do grupo g:).
 - {"tipo":"lancar","texto":"..."} cria um lançamento novo; escreva o texto no formato do app: o quê + valor total + Nx (se parcelado) + forma de pagamento (ex.: "no cartão da mãe", "nubank", "no pix", "no vale") + "começa em <mês>" quando o usuário disser em qual mês a primeira parcela cai.
 - {"tipo":"editar","ref":"l:...","campos":{"valor":0,"desc":"","cat":"","data":"AAAA-MM-DD"}} muda um lançamento único já feito (só os campos citados).
-- {"tipo":"editarFixo","ref":"f:...","campos":{"valor":0,"dia":0,"desc":"","cat":""},"quando":"a_partir" ou "so_mes","mes":"AAAA-MM"} muda uma conta fixa/assinatura. "a_partir": vale do mês dito em diante (sem mês dito, use proximo_mes_aberto). "so_mes": só naquele mês. "mes" é o mês em que a conta sai do bolso: no cartão, o mês da fatura.
+- {"tipo":"editarFixo","ref":"f:...","campos":{"valor":0,"dia":0,"desc":"","cat":""},"quando":"todos" ou "a_partir" ou "so_mes","mes":"AAAA-MM"} muda uma conta fixa/assinatura. "todos": todos os meses daqui pra frente, inclusive meses que tinham valor próprio (use quando o usuário disser todos os meses, todo mês, sempre ou não disser mês). "a_partir": vale do mês dito em diante (sem mês dito, use proximo_mes_aberto). "so_mes": só naquele mês. "mes" é o mês em que a conta sai do bolso: no cartão, o mês da fatura.
 Regra: se o pedido for mudar o valor ou o dia de uma conta, assinatura ou mensalidade (algo que se repete todo mês), use editarFixo. Só use "editar" num lançamento l: se o usuário falar de um gasto específico já feito (com data ou "aquele"). Na dúvida entre os dois, use editarFixo.
 Para mudar parcelas (mês, número de parcelas, valor ou cartão), apague o grupo e lance de novo. Não invente: use só os refs da lista.
 Responda só JSON: {"resumo":"uma ou duas frases simples, em português, do que será feito","acoes":[...]}. Se não ficar claro qual lançamento é, responda {"resumo":"pergunta curta para o usuário","acoes":[]}.`, {modelTier:'quick'});
@@ -2725,7 +2749,7 @@ A.corrOk = async el => {
   try {
     for (const a of p.acoes) {
       if (a.tipo === 'apagar') { const [t, id] = [a.ref.slice(0, 1), a.ref.slice(2)]; const ls = t === 'g' ? S.lanc.filter(l => l.grupo === id) : S.lanc.filter(l => l.id === id); for (const l of ls) await del(COLS.lanc, l.id); feitos.push(`Apaguei ${ls.length > 1 ? ls.length + ' parcelas de ' : ''}${esc(ls[0]?.desc || '')}.`); }
-      else if (a.tipo === 'editarFixo') { const f = S.fixos.find(x => x.id === a.ref.slice(2)); if (!f) continue; feitos.push(await aplicarFixo(f, a.campos || {}, a.quando === 'so_mes' ? 'so_mes' : 'a_partir', a.mes)); }
+      else if (a.tipo === 'editarFixo') { const f = S.fixos.find(x => x.id === a.ref.slice(2)); if (!f) continue; feitos.push(await aplicarFixo(f, a.campos || {}, ['so_mes', 'todos'].includes(a.quando) ? a.quando : 'a_partir', a.mes)); }
       else if (a.tipo === 'editar') { const l = S.lanc.find(x => x.id === a.ref.slice(2)); if (!l) continue; const c = a.campos || {}, novo = {...strip(l)}; if (c.valor > 0) novo.valor = r2(+c.valor); if (c.desc) novo.desc = String(c.desc).slice(0, 80); if (c.cat && catsDesp().concat(catsRec()).some(x => x.n === c.cat)) novo.cat = c.cat; if (/^\d{4}-\d{2}-\d{2}$/.test(c.data || '')) { novo.data = c.data; if (!l.cartaoId) novo.mes = c.data.slice(0, 7); } await put(COLS.lanc, l.id, novo); feitos.push(`Mudei o lançamento <b>${esc(l.desc)}</b>${l.data ? ` de ${dLabel(l.data)}` : ''} (só esse gasto)${novo.valor !== l.valor ? `: ${brl(l.valor)} → <b>${brl(novo.valor)}</b>` : ''}.`); }
       else if (a.tipo === 'lancar') { const r = await lancarTexto(a.texto); if (r && r.pergunta) { feitos.push(perguntaHTML(r)); } else if (r && r.itens) { msg.ids = (msg.ids || []).concat(r.ids); feitos.push(resHTML(r)); } }
     }
@@ -2749,9 +2773,9 @@ function corrigirHTML(txt, forcar) {
   achados.sort((a, b) => b.pts - a.pts);
   const fx = S.fixos.map(f => ({f, pts:ws.filter(w => norm(f.desc || '').includes(w)).length})).filter(x => x.pts).sort((a, b) => b.pts - a.pts).slice(0, 3);
   const vals = valoresDoTexto(txt), vNovo = vals.length === 1 ? vals[0] : null;
-  const fxHTML = fx.length ? `<p class="small" style="margin:10px 0 4px"><b>Conta fixa (se repete todo mês):</b></p>${fx.map(({f}) => `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(f.desc)}</b> <span class="muted small">· ${brl(+f.valor)} todo mês · dia ${f.dia}${f.cartaoId && cartao(f.cartaoId) ? ' · ' + esc(cartao(f.cartaoId).nome) : ''}</span><div class="row" style="gap:6px;margin-top:4px">${vNovo && Math.abs(vNovo - (+f.valor || 0)) > .005 ? `<button class="btn sm pri" data-a="fixoValorRapido" data-id="${f.id}" data-v="${vNovo}">Mudar para ${brl(vNovo)} a partir ${quandoFx(f, mesFixoAberto(f))}</button>` : ''}<button class="btn sm" data-a="editFixo" data-id="${f.id}">Editar</button></div></div>`).join('')}` : '';
+  const fxHTML = fx.length ? `<p class="small" style="margin:10px 0 4px"><b>Conta fixa (se repete todo mês):</b></p>${fx.map(({f}) => `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(f.desc)}</b> <span class="muted small">· ${brl(+f.valor)} todo mês · dia ${f.dia}${f.cartaoId && cartao(f.cartaoId) ? ' · ' + esc(cartao(f.cartaoId).nome) : ''}</span><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap">${vNovo ? `<button class="btn sm pri" data-a="fixoTodos" data-id="${f.id}" data-v="${vNovo}">Mudar para ${brl(vNovo)} em todos os meses</button>` : ''}<button class="btn sm" data-a="editFixo" data-id="${f.id}">Editar</button></div></div>`).join('')}` : '';
   const top = achados.slice(0, 5);
-  if (!top.length && fxHTML) return `Não lancei nada novo.${fxHTML}`;
+  if (fxHTML) return `Não lancei nada novo.${fxHTML}${top.length ? `<p class="small muted" style="margin:10px 0 0">Também achei ${top.length} lançamento${top.length > 1 ? 's' : ''} já feito${top.length > 1 ? 's' : ''} com esse nome (gasto de um dia só): veja em Lançamentos se precisar.</p>` : ''}`;
   if (!top.length) return 'Não lancei nada novo. Não achei esse lançamento pelo nome: procure em <b>Lançamentos</b> e toque nele para corrigir ou apagar.';
   return `Não lancei nada novo. Achei ${top.length > 1 ? 'estes lançamentos' : 'este lançamento'}:<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${top.map(({l}) => { const g = l.grupo ? S.lanc.filter(x => x.grupo === l.grupo).sort((a, b) => (a.mes || '').localeCompare(b.mes || '')) : null; return `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(l.desc)}</b> <span class="muted small">· ${g ? `${g.length}x de ${brl(l.valor)} (total ${brl(l.total || sum(g))}) · 1ª parcela em ${ymLabel(g[0].mes)}` : `${brl(l.valor)} · ${ymLabel(l.mes)}`} · ${l.cartaoId ? 'Crédito ' + esc(cartao(l.cartaoId)?.nome || '') : esc(MEIOS[l.meio] || '')}</span><div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="editLanc" data-id="${(g ? g[0] : l).id}">Abrir e editar</button>${g ? `<button class="btn sm dang" data-a="delGrupo" data-g="${l.grupo}">Apagar as ${g.length} parcelas</button>` : `<button class="btn sm dang" data-a="delLanc" data-id="${l.id}">Apagar</button>`}</div></div>`; }).join('')}</div><div class="small muted" style="margin-top:8px">Para trocar o mês das parcelas: apague e lance de novo dizendo quando começa, ex.: <i>caixão 1500 6x cartão da mãe começa em novembro</i>.</div>${fxHTML}`;
 }
@@ -2906,6 +2930,13 @@ async function enviarChat(txt) {
   try {
     const cg = await comandoGuardado(txt);
     if (cg) { msg.h = cg; S.chatBusy = false; chatRender(); return; }
+    const cf = !soVer() && comandoFixo(txt);
+    if (cf) {
+      if (cf.auto && cf.so) msg.h = '✓ ' + await aplicarFixo(cf.f, {valor:cf.v}, 'so_mes', cf.mes);
+      else if (cf.auto) { const antes = valorFixo(cf.f, mesFixoAberto(cf.f)); msg.h = '✓ ' + await aplicarFixo(cf.f, {valor:cf.v}, 'todos') + (Math.abs(antes - cf.v) < .005 ? ' (já estava com esse valor)' : '') + `<div class="small muted" style="margin-top:6px">Cobranças que já foram lançadas não mudam. Para mudar só um mês, abra a conta em Contas e limites.</div>`; }
+      else msg.h = `Qual conta fixa vai para <b>${brl(cf.v)}</b>?<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${cf.lista.map(f => `<div style="border-top:1px solid var(--line);padding-top:6px"><b>${esc(f.desc)}</b> <span class="muted small">· hoje ${brl(valorFixo(f, mesFixoAberto(f)))} · dia ${f.dia}${f.cartaoId && cartao(f.cartaoId) ? ' · ' + esc(cartao(f.cartaoId).nome) : ''}</span><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><button class="btn sm pri" data-a="fixoTodos" data-id="${f.id}" data-v="${cf.v}">Todos os meses</button><button class="btn sm" data-a="fixoTodos" data-id="${f.id}" data-v="${cf.v}" data-q="so_mes">Só ${quandoFx(f, mesFixoAberto(f), 'em')}</button></div></div>`).join('')}</div>`;
+      S.chatBusy = false; chatRender(); return;
+    }
     if ((PERG.test(txt) || PERG_GASTO.test(txt) || soVer()) && (PERG_GASTO.test(txt) || /quanto (posso|podemos) gastar/i.test(txt))) { const vg = vereditoGasto(txt); if (vg) { msg.h = vg; S.chatBusy = false; chatRender(); return; } }
     if (PERG.test(txt) || soVer()) {
       if (!S.sample) { msg.h = 'Para responder perguntas preciso do Claude, que não está disponível nesta tela. Os números estão no Início e na Visão anual.'; }
@@ -3172,6 +3203,7 @@ function formFixo(f = {}) {
     <label class="fld"><span>${rec ? 'Entra em' : 'Paga com'}</span><select id="fx-meio" name="meio">${meioOpts(f.meio || (rec ? (walletRec(f) === 'conta' ? 'pix' : walletRec(f)) : 'boleto'), f.cartaoId, tipo)}</select></label>
     ${edit ? `<p class="small" style="margin:6px 0 4px"><b>Essa mudança vale:</b></p><div class="seg" role="radiogroup" aria-label="Quando vale"><label><input type="radio" name="escopo" value="todos" ${so ? '' : 'checked'}><span>Daqui pra frente</span></label><label><input type="radio" name="escopo" value="mes" ${so ? 'checked' : ''}><span>Só em ${mesNome}</span></label></div>` : ''}
     <p class="hint" id="fx-hint"></p>
+    ${edit && Object.entries(f.ajustes || {}).some(([k, a]) => k > m && a && a.v != null) ? `<label class="chk" id="fx-esp"><input type="checkbox" name="trocaEsp"> Usar o valor novo também nos meses que tinham valor próprio</label>` : ''}
     <details style="margin:8px 0"><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Mais opções</summary><div style="margin-top:8px">
       ${edit ? nome : ''}
       <label class="fld"><span>Categoria</span><select id="fx-cat" name="cat">${catOpts(tipo, f.cat || (rec ? 'Salário' : ''))}</select></label>
@@ -3190,7 +3222,7 @@ function formFixo(f = {}) {
       const cc = fm.meio.value.startsWith('cc:'), nv = parseValor(fm.valor.value);
       $('#fx-hint', sh).innerHTML = !edit ? (cc ? 'No cartão: entra sozinho na fatura todo mês, no dia indicado.' : 'Entra na previsão de todos os meses a partir de agora.')
         : soM ? `Muda só ${mesNome}${nv > 0 ? ` para <b>${brl(nv)}</b>` : ''}. Os outros meses continuam ${brl(+f.valor)}.`
-        : `${nv > 0 && Math.abs(nv - (+f.valor || 0)) > .005 ? `${brl(+f.valor)} → <b>${brl(nv)}</b>. ` : ''}Vale de ${mesNome} em diante. O que já foi pago não muda.${cc ? ' No cartão, entra sozinho na fatura.' : ''}${esp.length ? ` <b>Meses com valor próprio continuam como estão:</b> ${faixasAj(esp)}.` : ''}`; };
+        : `${nv > 0 && Math.abs(nv - (+f.valor || 0)) > .005 ? `${brl(+f.valor)} → <b>${brl(nv)}</b>. ` : ''}Vale de ${mesNome} em diante. O que já foi pago não muda.${cc ? ' No cartão, entra sozinho na fatura.' : ''}${esp.length && !(fm.trocaEsp && fm.trocaEsp.checked) ? ` <b>Meses com valor próprio continuam como estão:</b> ${faixasAj(esp)}.` : ''}`; const tl = $('#fx-esp', sh); if (tl) tl.hidden = !!soM; };
     fm.addEventListener('change', upd); fm.addEventListener('input', upd); upd();
   });
 }
@@ -3210,7 +3242,7 @@ F.fixo = async fm => {
   if (d.meio.startsWith('cc:')) o.cartaoId = d.meio.slice(3);
   if (d.fim) o.fim = d.fim;
   // "de m em diante": valores e dias só-do-mês a partir de m deixam de valer (o "não tem neste mês" continua)
-  if (old && old.ajustes) { const aj = {...old.ajustes}; delete aj[m]; o.ajustes = aj; if (!Object.keys(aj).length) delete o.ajustes; }
+  if (old && old.ajustes) { const aj = {...old.ajustes}; delete aj[m]; if (d.trocaEsp) Object.keys(aj).forEach(k => { if (k > m && aj[k] && aj[k].v != null) { const {v:_, dia:__, ...resto} = aj[k]; if (Object.keys(resto).length) aj[k] = resto; else delete aj[k]; } }); o.ajustes = aj; if (!Object.keys(aj).length) delete o.ajustes; }
   if (old && old.inicio && old.inicio < m && (+old.valor !== o.valor || +old.dia !== o.dia)) {
     // guarda o valor antigo para os meses anteriores ainda não pagos
     const aj = {...(o.ajustes || {})}; for (let x = old.inicio; x < m; x = addM(x, 1)) if (!pagoFixo(old, x) && !aj[x]) aj[x] = {v:+old.valor, dia:+old.dia}; o.ajustes = aj;
