@@ -998,7 +998,7 @@ function vHoje() {
     const frac = pg ? (orcConta ? pg.total / Math.max(orcConta, pg.total) : 1) : 0;
     let centro, dir;
     if (pj.livre1 != null && pj.livre1 < 0) { centro = `<b>${brl0(-pj.livre1)}</b><small>vai faltar</small>`; dir = `<small>Até ${dCurto(pj.P1)} a conta não fecha</small><span class="big">Segure</span><span style="font-size:.86rem;opacity:.85">veja em Contas o que dá para adiar</span>`; }
-    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Livre para gastar</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">até ${dCurto(pg.fim)}, sem mexer no guardado</span>${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(Math.min(pg.falta, pg.dia))} do dia a dia ficam reservados para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
+    else if (pg) { centro = `<b>${brl0(pg.porDia)}</b><small>${pg.porDia < 1 ? 'só o essencial' : 'por dia'}</small>`; dir = `<small>Livre para gastar</small><span class="big num">${brl0(pg.total)}</span><span style="font-size:.84rem;opacity:.85">até ${dCurto(pg.fim)}, sem mexer no guardado</span>${pg.falta > 0 ? `<span class="mint" style="color:#FDBA74">${brl0(pg.reserva)} deste mês ficam para ${ymLabel(pg.pior)} (já descontado)</span>` : ''}<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
     else { centro = `<b>${brl0(sh)}</b><small>na conta</small>`; dir = `<small>Cadastre seu salário em Contas</small><span style="font-size:.86rem;opacity:.85">para eu dizer quanto pode gastar por dia</span>`; }
     h += `<section class="hz s-${st}"><div class="hero-top"><div class="ring">${anelHTML(pj.livre1 != null && pj.livre1 < 0 ? 0 : frac)}<div class="in">${centro}</div></div><div class="hero-r">${dir}</div></div>
       <div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div></section>`;
@@ -1120,11 +1120,12 @@ function podeGastar() {
   const dia = sum(linhas, l => l.v);
   const piorX = fut.reduce((a, b) => b.livre < a.livre ? b : a), minL = piorX.livre;
   const falta = Math.max(0, -minL), extra = Math.max(0, minL - colchao());
-  let total = Math.max(0, dia - falta) + extra;
+  const mesesAte = Math.max(1, monthsBetween(m0, piorX.m)), porMesRes = falta / mesesAte, reserva = Math.min(dia, porMesRes);
+  let total = Math.max(0, dia - reserva) + extra;
   const caixa = Math.max(0, pj.livre1);  // até o salário cair, só dá para usar o que está na conta
   let porDia = total / dias, limCaixa = false;
   if (pj.P1 && pj.P1 <= fim && porDia > caixa / pj.dias1) { porDia = caixa / pj.dias1; limCaixa = true; }
-  return {porDia:Math.max(0, porDia), total, dia, cats, falta, extra, minL, pior:piorX.m, fim, dias, caixa, limCaixa, pj};
+  return {porDia:Math.max(0, porDia), total, dia, cats, falta, extra, minL, pior:piorX.m, fim, dias, caixa, limCaixa, pj, reserva, porMesRes, mesesAte};
 }
 A.porDiaDet = () => {
   const g = podeGastar(); if (!g) return;
@@ -1135,11 +1136,11 @@ A.porDiaDet = () => {
   h += linha('<b>Total planejado para gastar até ' + dCurto(g.fim) + '</b>', brl0(g.dia));
   const f0 = fluxo()[0]; if (f0 && f0.cobre > 1) h += `<p class="small" style="margin:6px 0 0">🍽️ Comida sai do vale enquanto tiver saldo (${brl0(saldoVAHoje() || 0)} hoje). Pelos limites de comida, o vale não chega até o fim do mês: a previsão separa ${brl0(f0.cobre)} da conta para isso, e esse valor não entra no valor do dia. Isso se ajusta sozinho conforme vocês lançam.</p>`;
   h += `<h3 style="margin:16px 0 2px">2. Meses que vêm pela frente</h3>`;
-  if (g.falta > 0) h += `<p class="small" style="margin:4px 0">Mesmo gastando só o planejado, em <b>${ymLabel(g.pior)}</b> a conta fica em <b class="neg">${brl0(g.minL)}</b>. Por isso ${brl0(Math.min(g.falta, g.dia))} ${g.falta >= g.dia ? '(todo o dia a dia que sobrava)' : ''} precisa ficar guardado desde já.</p><button class="btn sm" data-a="projIr2" data-m="${g.pior}">Ver como cobrir ${ymLabel(g.pior)}</button>`;
+  if (g.falta > 0) h += `<p class="small" style="margin:4px 0">Mesmo gastando só o planejado, em <b>${ymLabel(g.pior)}</b> a conta fica em <b class="neg">${brl0(g.minL)}</b>. Para cobrir, segure <b>${brl0(g.porMesRes)} por mês</b> até lá (${brl0(g.falta)} divididos em ${g.mesesAte} ${g.mesesAte > 1 ? 'meses' : 'mês'}). Este mês: ${brl0(g.reserva)}${g.reserva < g.porMesRes ? ' (é tudo o que sobra do dia a dia)' : ''}.</p><button class="btn sm" data-a="projIr2" data-m="${g.pior}">Ver como cobrir ${ymLabel(g.pior)}</button>`;
   else if (g.extra > 0) h += `<p class="small" style="margin:4px 0">Até ${ymLabel(fluxo().slice(-1)[0].m)}, o mês mais apertado é <b>${ymLabel(g.pior)}</b>, fechando com ${brl0(g.minL)}. Guardando ${brl0(colchao())} de folga, sobram <b class="pos">${brl0(g.extra)}</b> livres de verdade, que entram na conta de hoje.</p>`;
   else h += `<p class="small" style="margin:4px 0">O mês mais apertado é <b>${ymLabel(g.pior)}</b>, fechando com ${brl0(g.minL)} (abaixo da folga de ${brl0(colchao())}). Não sobra nada além do planejado.</p>`;
   h += `<h3 style="margin:16px 0 2px">3. Resultado</h3>`;
-  h += linha('Dia a dia planejado', brl0(g.dia)) + (g.falta > 0 ? linha('− Guardar para ' + ymLabel(g.pior), '− ' + brl0(Math.min(g.falta, g.dia))) : '') + (g.extra > 0 ? linha('+ Livre de verdade', '+ ' + brl0(g.extra)) : '');
+  h += linha('Dia a dia planejado', brl0(g.dia)) + (g.falta > 0 ? linha('− Segurar para ' + ymLabel(g.pior), '− ' + brl0(g.reserva)) : '') + (g.extra > 0 ? linha('+ Livre de verdade', '+ ' + brl0(g.extra)) : '');
   h += linha(`<b>Pode gastar até ${dCurto(g.fim)}</b>`, brl0(g.total), g.dias + ' dia' + (g.dias > 1 ? 's' : ''));
   h += linha('<b>Por dia</b>', `<span style="font-size:1.1rem">${brl0(g.porDia)}</span>`);
   if (g.limCaixa) h += `<p class="small warnc" style="margin:8px 0 0">Até o dinheiro cair (${dCurto(pj.P1)}) só tem ${brl0(g.caixa)} livre na conta, então o limite por dia ficou menor.</p>`;
@@ -1235,7 +1236,7 @@ function planoGuardar(o) {
   const pj = projecao(), quando = pj.P1 && pj.P1.slice(0, 7) === m0 ? pj.P1 : `${m0}-${pad(diasNoMes(m0))}`;
   return {falta, porMes, feito, resto:Math.max(0, porMes - feito), quando, meses};
 }
-function separadoInfo() { const g = podeGastar(); return g && g.falta > 0 ? {v:g.falta, ate:g.pior} : null; }
+function separadoInfo() { const g = podeGastar(); return g && g.falta > 0 ? {v:g.falta, ate:g.pior, porMes:g.porMesRes, meses:g.mesesAte} : null; }
 async function movObj(o, v, extra = {}) { const mv = {d:hoje(), v:r2(v), em:new Date().toISOString(), ...extra}; await put(COLS.objs, o.id, {...strip(o), movs:[...(o.movs || []), mv]}); return mv; }
 function anelP(pct, cor, tam = 56) { const r0 = tam / 2 - 5, c = 2 * Math.PI * r0, f = clamp(pct, 0, 1); return `<span style="position:relative;width:${tam}px;height:${tam}px;flex:none;display:inline-block"><svg width="${tam}" height="${tam}" viewBox="0 0 ${tam} ${tam}" aria-hidden="true" style="transform:rotate(-90deg)"><circle cx="${tam / 2}" cy="${tam / 2}" r="${r0}" fill="none" stroke="var(--surface-2)" stroke-width="6"/><circle cx="${tam / 2}" cy="${tam / 2}" r="${r0}" fill="none" stroke="${cor}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}"/></svg><b style="position:absolute;inset:0;display:grid;place-items:center;font-size:.72rem">${Math.round(f * 100)}%</b></span>`; }
 // Para um mês que fecha no vermelho: o que fazer, em ordem, com valores e datas.
@@ -1280,12 +1281,12 @@ function vGuardado() {
   let h = header('Guardado', 'Caixinhas por objetivo', '');
   h += `<section class="hz" style="background:#1E2A78"><div><div style="font-size:.9rem;opacity:.85">Guardado nas caixinhas</div><div class="num" style="font-family:var(--f-display);font-size:2.3rem;font-weight:800;line-height:1.1">${brl0(tot)}</div><div style="font-size:.84rem;opacity:.85">fora da conta · não entra no “pode gastar”</div></div>
     ${tot > 0 ? `<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px">${comG.map(o => `<span style="width:${(objGuardado(o) / tot * 100).toFixed(1)}%;background:${corObj(o)}"></span>`).join('')}</div>` : ''}
-    ${sep ? `<div style="font-size:.86rem;background:rgba(255,255,255,.1);border-radius:12px;padding:8px 10px">Separado na conta para ${ymLabel(sep.ate)}: <b>${brl0(sep.v)}</b> (não mexer)</div>` : ''}
+    ${sep ? `<div style="font-size:.86rem;background:rgba(255,255,255,.1);border-radius:12px;padding:8px 10px">Para ${ymLabel(sep.ate)}: segurar <b>${brl0(sep.porMes)} por mês</b> na conta (${brl0(sep.v)} no total, não mexer)</div>` : ''}
     ${ro ? '' : `<div class="hero-m"><button data-a="guardMov" data-op="guardar" style="background:#fff;color:#1E2A78;font-weight:800;text-align:center">Guardar</button><button data-a="guardMov" data-op="tirar" style="text-align:center;font-weight:700">Tirar</button><button data-a="guardMov" data-op="passar" style="text-align:center;font-weight:700">Passar</button></div>`}</section>`;
   // compromissos
   const ag = [];
   objs.forEach(o => { const pg = planoGuardar(o); if (pg.resto >= 1) ag.push({d:pg.quando, t:`Guardar para ${o.nome}`, s:`meta do mês ${brl0(pg.porMes)}${pg.feito ? ' · já guardou ' + brl0(pg.feito) : ''}`, v:brl0(pg.resto), cor:corObj(o)}); });
-  if (sep) ag.push({d:`${sep.ate}-01`, t:`Não mexer: ${ymLabel(sep.ate)} vai apertar`, s:'fica separado na conta', v:brl0(sep.v), cor:'var(--neg)'});
+  if (sep) ag.push({d:`${sep.ate}-01`, t:`Segurar para ${ymLabel(sep.ate)}`, s:`${brl0(sep.porMes)} por mês na conta, até lá`, v:brl0(sep.v), cor:'var(--neg)'});
   fluxo().filter(x => x.livre < 0).slice(0, 3).forEach(x => { const pc = planoCobertura(x.m); (pc ? pc.passos : []).filter(p => p.tipo === 'guardado').forEach(p => ag.push({d:p.data, t:`Tirar do guardado “${p.nome}”`, s:`para cobrir ${ymLabel(x.m)}`, v:brl0(p.v), cor:'var(--warn)'})); });
   ag.sort((a, b) => a.d.localeCompare(b.d));
   if (ag.length) h += `<section class="sec2"><div class="sec2-h"><h2>Agenda do guardado</h2></div>${ag.map(a => `<div class="ri">${dtBox(a.d)}<span class="vbar" style="background:${a.cor}"></span><span class="tx"><span class="t1">${esc(a.t)}</span><span class="t2">${esc(a.s)}</span></span><span class="v num">${a.v}</span></div>`).join('')}</section>`;
@@ -1334,7 +1335,7 @@ function achaObjs(txt) { const nt = norm(txt), out = [];
   return out.sort((a, b) => a.pos - b.pos).map(x => x.o); }
 async function comandoGuardado(txt) {
   const nt = norm(txt), objs = objsAtivos();
-  if (RX_GQ.test(txt)) { const sep = separadoInfo(); return `<b>${brl0(totalGuardadoObj())}</b> guardados nas caixinhas${objs.length ? ': ' + objs.map(o => `${esc(o.nome)} ${brl0(objGuardado(o))}`).join(' · ') : ''}.${sep ? `<br>Além disso, ${brl0(sep.v)} ficam separados na conta para ${ymLabel(sep.ate)}.` : ''}`; }
+  if (RX_GQ.test(txt)) { const sep = separadoInfo(); return `<b>${brl0(totalGuardadoObj())}</b> guardados nas caixinhas${objs.length ? ': ' + objs.map(o => `${esc(o.nome)} ${brl0(objGuardado(o))}`).join(' · ') : ''}.${sep ? `<br>Além disso, segure ${brl0(sep.porMes)} por mês na conta até ${ymLabel(sep.ate)} (${brl0(sep.v)} no total).` : ''}`; }
   if (soVer()) return null;
   const guardar = /^\s*(eu\s+)?(guardei|guarda|guardar|separei|reservei|coloquei na caixinha)\b/.test(nt);
   const tirar = /\b(tirei|tirar|retirei|resgatei|usei|peguei)\b/.test(nt) && /\b(guardad\w*|caixinha|reserva)\b/.test(nt);
@@ -1367,7 +1368,7 @@ function vPlanos() {
   // meses no vermelho: o plano
   fut.filter(x => x.livre < 0).slice(0, 3).forEach(x => { const pc = planoCobertura(x.m); h += `<button class="sec2" data-a="projIr2" data-m="${x.m}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:2px solid var(--neg);cursor:pointer;font:inherit;color:inherit"><span class="cic" style="background:var(--neg-soft);color:var(--neg)">${svgI('M12 8v5M12 16h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</span><span class="tx" style="flex:1"><b>${ymLong(x.m)}: vai faltar ${brl0(-x.livre)}</b><span class="small muted" style="display:block">Plano: ${esc(resumoCobertura(pc))}${pc && pc.passos.length > 1 ? ' e mais' : ''}</span></span><span class="muted">›</span></button>`; });
   const sep = separadoInfo();
-  if (sep && !fut.some(x => x.livre < 0)) h += `<p class="small" style="margin:-4px 2px 12px">${ymLabel(sep.ate)} é o mês mais apertado: ${brl0(sep.v)} ficam separados desde já.</p>`;
+  if (sep && !fut.some(x => x.livre < 0)) h += `<p class="small" style="margin:-4px 2px 12px">${ymLabel(sep.ate)} é o mês mais apertado: segure ${brl0(sep.porMes)} por mês até lá.</p>`;
   // objetivos
   const objs = objsAtivos().sort((a, b) => String(a.alvo || '').localeCompare(String(b.alvo || '')));
   h += `<div class="sec2-h" style="margin:6px 2px 8px"><h2>Viagens e objetivos</h2>${ro ? '' : '<button class="btn sm pri" data-a="novoObj">+ Novo</button>'}</div>`;
@@ -2698,7 +2699,7 @@ Por categoria: ${cats || 'nada'}.
 Contas pendentes: ${r.pend.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') || 'nenhuma'}.
 Cartões: ${fat || 'nenhum'}.
 Próximos 12 meses (sobra prevista em dinheiro, sem vales): ${(() => { const hv = histVar(); return Array.from({length:12}, (_, i) => { const m = addM(ymNow(), i); return `${ymLabel(m)} ${brl0(projMes(m, hv).sobraSemVA)}`; }).join('; '); })()}.
-Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(), g = podeGastar(); return pj.livre1 != null ? ` Na conta, sem as contas até o próximo salário (${pj.P1}): ${brl(pj.livre1)}. Pode gastar de verdade (dia a dia planejado que falta no mês${g && g.falta ? `, menos ${brl(Math.min(g.falta, g.dia))} que precisa ficar guardado porque em ${ymLabel(g.pior)} a conta fica em ${brl(g.minL)}` : g && g.extra ? `, mais ${brl(g.extra)} livres de verdade` : ''}): ${g ? brl(g.total) + ' até ' + g.fim + ' = ' + brl(g.porDia) + '/dia' : ''}. Use este valor por dia quando perguntarem quanto pode gastar.` : ''; })()}
+Saldo na conta hoje: ${saldoHoje() == null ? 'não informado' : brl(saldoHoje())}.${(() => { const pd = r.pend.filter(p => p.tipo === 'despesa' && !isVA(p.ref)), pr = r.pend.filter(p => p.tipo === 'receita' && walletRec({cat:p.cat, meio:p.ref.meio}) === 'conta'); const falta = sum(pd), entra = sum(pr); return ` Ainda falta pagar até o fim de ${ymLong(m)}: ${brl(falta)}${pd.length ? ' (' + pd.map(p => `${p.desc} ${brl(p.valor)} dia ${p.dia}`).join('; ') + ')' : ''}. Ainda vai entrar até o fim do mês: ${brl(entra)}.${saldoHoje() == null ? '' : ` Saldo da conta depois de pagar tudo o que falta do mês (e receber o que falta): ${brl(saldoHoje() - falta + entra)}; sem contar o que ainda vai entrar: ${brl(saldoHoje() - falta)}.`}`; })()}${(() => { const pj = projecao(), g = podeGastar(); return pj.livre1 != null ? ` Na conta, sem as contas até o próximo salário (${pj.P1}): ${brl(pj.livre1)}. Pode gastar de verdade (dia a dia planejado que falta no mês${g && g.falta ? `, menos ${brl(g.reserva)} que fica segurado este mês porque em ${ymLabel(g.pior)} a conta fica em ${brl(g.minL)} (segurar ${brl(g.porMesRes)} por mês até lá)` : g && g.extra ? `, mais ${brl(g.extra)} livres de verdade` : ''}): ${g ? brl(g.total) + ' até ' + g.fim + ' = ' + brl(g.porDia) + '/dia' : ''}. Use este valor por dia quando perguntarem quanto pode gastar.` : ''; })()}
 Investido: ${brl(sum(S.inv, saldoInv))}. Objetivos: ${S.objs.map(o => `${o.nome} (${o.alvo || 'sem data'}): previsto ${brl(objPrevisto(o))}, guardado ${brl(objGuardado(o))}, gasto até agora ${brl(sum(S.lanc.filter(l => l.objId === o.id)))}; itens: ${(o.itens || []).map(it => `${it.cat} ${brl0(it.prev)}${it.meio ? ' via ' + lugarMeio(it.meio) : ''}`).join(', ')}`).join(' | ') || 'nenhum'}.
 Receitas extras previstas: ${S.fixos.filter(f => f.tipo === 'receita' && f.fim && f.fim >= ymNow()).map(f => `${f.desc} ${brl0(f.valor)} em ${f.inicio}`).join('; ') || 'nenhuma'}.
 Últimos lançamentos:\n${ult || 'nenhum'}`;
