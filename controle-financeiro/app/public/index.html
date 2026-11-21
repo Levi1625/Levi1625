@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '20/11 22:13';</script>
+<script>window.__versao = '21/11 10:37';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -631,7 +631,8 @@ function pendentesMes(m) {
 const fatKey = (c, m) => `${c.id}_${m}`;
 const faturaPaga = (c, m) => !!(S.cfg.faturasPagas || {})[fatKey(c, m)];
 const dataFixo = (f, m) => `${m}-${pad(diaFixo(f, m))}`;
-function fixosNaFatura(c, fm) { let t = 0; [addM(fm, -2), addM(fm, -1), fm].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === fm) t += valorFixo(f, mm); })); return t; }
+function fixosNaFaturaLista(c, fm) { const out = []; [addM(fm, -2), addM(fm, -1), fm].forEach(mm => fixosAtivos(mm).forEach(f => { if (f.cartaoId === c.id && f.tipo !== 'receita' && !pagoFixo(f, mm) && mesFatura(dataFixo(f, mm), c) === fm) out.push({f, mm, v:valorFixo(f, mm)}); })); return out; }
+const fixosNaFatura = (c, fm) => sum(fixosNaFaturaLista(c, fm), x => x.v);
 function faturaPrev(c, m, hv) {
   const lanc = sum(S.lanc.filter(l => l.cartaoId === c.id && l.mes === m && l.tipo !== 'receita')), assin = fixosNaFatura(c, m);
   let dia = 0, plano = 0;
@@ -929,6 +930,8 @@ function detalheSheet(titulo, m, filtro, chave, extra = '') {
 A.catDet = el => { const c = el.dataset.cat, m = el.dataset.m || S.mes, lim = +orcDoMes(m)[c] || 0; let extra = '';
   if (lim && m >= ymNow()) { const aj = ajusteMes(m), g = aj.gasto[c] || 0, nl = aj.lim[c] ?? lim, fe = aj.fech.includes(c);
     extra = `<div class="card" style="margin-top:16px;padding:12px 14px"><div class="row" style="justify-content:space-between"><span>Limite do mês</span><b class="num">${brl(nl)}${Math.abs(nl - lim) > .5 ? ` <span class="small muted">(era ${brl0(lim)})</span>` : ''}</b></div><div class="row" style="justify-content:space-between"><span>Gasto</span><b class="num ${g > nl + .5 ? 'neg' : ''}">${brl(g)}</b></div>${g > lim ? `<p class="small neg" style="margin-top:6px">Passou ${brl(g - lim)}: o excesso saiu igualmente dos outros gastos do mês que ainda têm folga.</p>` : `<p class="small muted" style="margin-top:6px">${fe ? 'Terminado neste mês: a sobra foi dividida entre os outros gastos.' : `Ainda pode gastar ${brl(nl - g)}. Se já terminou esse gasto no mês, a sobra vai para os outros.`}</p><button class="btn sm" style="margin-top:8px" data-a="fecharCat" data-cat="${esc(c)}" data-m="${m}">${fe ? 'Reabrir este gasto' : 'Terminei este gasto no mês'}</button>`}</div>`; }
+  const pv = lim || (histVar()[c] ? histVar()[c].tot : 0), its = itensCat(c, pv);
+  if (its.length) extra += `<div class="card" style="margin-top:12px;padding:12px 14px"><div class="row" style="justify-content:space-between"><b>Previsto por item</b><button class="lnk" data-a="orcItensIr" data-c="${esc(c)}" data-m="${m}">Editar itens</button></div>${its.map(x => `<div class="row small" style="justify-content:space-between;padding:5px 0;border-top:1px solid var(--line)"><span>${esc(x.n)}</span><b class="num">${brl0(x.v)}</b></div>`).join('')}<p class="small muted" style="margin-top:6px">${itensDef(c) ? 'Itens definidos por vocês.' : 'Pela média dos últimos 3 meses. Toque em Editar itens para definir.'}</p></div>`;
   detalheSheet(c, m, l => (l.cat || 'Outros') === c, l => lugarDe(l), extra); };
 A.lugDet = el => detalheSheet(el.dataset.lug, el.dataset.m || S.mes, l => lugarDe(l) === el.dataset.lug, l => l.cat || 'Outros');
 
@@ -1151,7 +1154,7 @@ A.porDiaDet = () => {
   const pj = g.pj, linha = (a, b, c = '') => `<div class="row small" style="gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1">${a}${c ? ` <span class="muted">· ${c}</span>` : ''}</span><b class="num">${b}</b></div>`;
   let h = `<p class="small" style="margin-top:0">Não é o saldo dividido pelos dias: o app já separa o que tem destino (contas, faturas, viagens e os meses que vêm pela frente).</p>`;
   h += `<h3 style="margin:12px 0 2px">1. Dia a dia que ainda falta neste mês</h3>`;
-  h += Object.entries(g.cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => linha(esc(k), brl0(v))).join('') || '<p class="small muted">Nada planejado para o resto do mês.</p>';
+  h += Object.entries(g.cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => linha(esc(k), brl0(v), itensTxt(k, v))).join('') || '<p class="small muted">Nada planejado para o resto do mês.</p>';
   h += linha('<b>Total planejado para gastar até ' + dCurto(g.fim) + '</b>', brl0(g.dia));
   const f0 = fluxo()[0]; if (f0 && f0.cobre > 1) h += `<p class="small" style="margin:6px 0 0">🍽️ Comida sai do vale enquanto tiver saldo (${brl0(saldoVAHoje() || 0)} hoje). Pelos limites de comida, o vale não chega até o fim do mês: a previsão separa ${brl0(f0.cobre)} da conta para isso, e esse valor não entra no valor do dia. Isso se ajusta sozinho conforme vocês lançam.</p>`;
   h += `<h3 style="margin:16px 0 2px">2. Meses que vêm pela frente</h3>`;
@@ -1197,7 +1200,7 @@ function mesDetalheHTML(m) {
   const totG = g => sum(Object.values(G[g].it), v => v);
   const dSai = (x.sai + x.cobre) - ['contas', 'lanc', 'cart', 'dia', 'plan'].reduce((t, g) => t + totG(g), 0); if (dSai > 1) pos('contas', 'Outras saídas', dSai);
   const linha = (a, b, c = '') => `<div class="row small" style="gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0">${a}${c ? ` <span class="muted">· ${c}</span>` : ''}</span><b class="num">${b}</b></div>`;
-  const grupo = g => { const it = Object.entries(G[g].it).sort((a, b) => b[1] - a[1]); if (!it.length) return ''; return `<details style="margin-top:4px"><summary class="row" style="cursor:pointer;padding:8px 0;list-style:none"><span style="flex:1">${G[g].t} <span class="small" style="color:var(--accent)">ver</span></span><b class="num">− ${brl0(totG(g))}</b></summary>${it.map(([k, v]) => linha(esc(k), brl0(v))).join('')}</details>`; };
+  const grupo = g => { const it = Object.entries(G[g].it).sort((a, b) => b[1] - a[1]); if (!it.length) return ''; return `<details style="margin-top:4px"><summary class="row" style="cursor:pointer;padding:8px 0;list-style:none"><span style="flex:1">${G[g].t} <span class="small" style="color:var(--accent)">ver</span></span><b class="num">− ${brl0(totG(g))}</b></summary>${it.map(([k, v]) => linha(esc(k), brl0(v), g === 'dia' ? itensTxt(k, v) : '')).join('')}</details>`; };
   const cor = x.livre < 0 ? 'var(--neg)' : x.saude === 'pend' ? 'var(--warn)' : 'var(--pos)';
   let h = '';
   if (x.semSaldo) h += `<p class="small warnc">Informe o saldo da conta na tela Hoje para estes números ficarem exatos.</p>`;
@@ -1734,6 +1737,23 @@ function vFixos() {
 }
 
 /* ---------- CARTÕES ---------- */
+A.verFatura = el => {
+  const c = cartao(el.dataset.c), m = el.dataset.m; if (!c) return;
+  const fp = faturaPrev(c, m), paga = faturaPaga(c, m);
+  const L = S.lanc.filter(l => l.cartaoId === c.id && l.mes === m && l.tipo !== 'receita').sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+  const F = fixosNaFaturaLista(c, m).sort((a, b) => b.v - a.v);
+  const P = !paga && m > ymNow() ? projMes(m).linhas.filter(l => l.lugar === 'Crédito ' + c.nome && (l.tipo === 'previsto' || l.tipo === 'objetivo')) : [];
+  const linha = (a, b, sub = '', at = '') => `<div class="row small" ${at} style="gap:8px;padding:8px 0;border-top:1px solid var(--line)${at ? ';cursor:pointer' : ''}"><span style="flex:1;min-width:0">${a}${sub ? `<span class="muted" style="display:block">${sub}</span>` : ''}</span><b class="num">${b}</b></div>`;
+  const bloco = (t, tot, rows, nota = '') => rows.length ? `<h3 style="margin:16px 0 2px;display:flex;justify-content:space-between"><span>${t}</span><span class="num">${brl(tot)}</span></h3>${nota ? `<p class="small muted" style="margin:0 0 4px">${nota}</p>` : ''}${rows.join('')}` : '';
+  let h = `<div style="padding:14px;border-radius:14px;background:var(--surface-2)"><div class="row" style="justify-content:space-between"><span>${paga ? 'Fatura paga' : m > ymNow() || m === mesFatura(hoje(), c) ? 'Fatura prevista' : 'Fatura'}</span><b class="num" style="font-size:1.3rem">${brl(fp.total)}</b></div><p class="small muted" style="margin:4px 0 0">Fecha em ${dLabel(addM(m, (+c.vence || 10) > (+c.fecha || 1) ? 0 : -1) + '-' + pad(+c.fecha || 1))} · vence em ${dLabel(vencFatura(c, m))}</p></div>`;
+  h += bloco('Já lançado', fp.lanc, L.map(l => linha(esc(l.desc), brl(l.valor), [l.data ? dLabel(l.data) : '', l.grupo && l.nparc > 1 ? `parcela ${l.parc}/${l.nparc}` : '', l.cat].filter(Boolean).map(esc).join(' · '), `data-a="editLanc" data-id="${l.id}"`)));
+  h += bloco('Assinaturas e contas fixas', fp.assin, F.map(x => linha(esc(x.f.desc), brl(x.v), `cobrança de ${dLabel(dataFixo(x.f, x.mm))} · ${esc(x.f.cat || 'Outros')}`)), 'Ainda não lançadas: entram sozinhas na conta da fatura.');
+  const dia = {}; P.filter(l => l.tipo === 'previsto').forEach(l => { dia[l.cat] = (dia[l.cat] || 0) + l.v; });
+  h += bloco('Dia a dia previsto', fp.dia, Object.entries(dia).sort((a, b) => b[1] - a[1]).map(([k, v]) => linha(esc(k), brl(v), itensTxt(k, v))), 'Pela média dos últimos meses e pelos limites. Some conforme vocês lançam.');
+  h += bloco('Viagens e planos', fp.plano, P.filter(l => l.tipo === 'objetivo').map(l => linha(esc(l.desc), brl(l.v))));
+  if (!L.length && !F.length && !P.length) h += '<div class="empty" style="margin-top:14px">Nada nesta fatura.</div>';
+  openSheet(`${c.nome} · fatura de ${ymLabel(m)}`, h);
+};
 function vCartoes() {
   const m = S.mes;
   let h = header('Cartões de crédito', 'Faturas e parcelamentos') + exBanner();
@@ -1748,9 +1768,10 @@ function vCartoes() {
     const prox = Array.from({length:6}, (_, i) => { const mm = addM(m, i); return [mm, faturaPrev(c, mm, hv).total]; });
     const mx = Math.max(1, ...prox.map(p => p[1]));
     h += `<section class="card"><div class="card-h"><div><h2>${esc(c.nome)}</h2><p>fecha dia ${c.fecha} · vence dia ${c.vence}</p></div><button class="lnk" data-a="editCartao" data-id="${c.id}">Editar</button></div>
-      <p class="eyebrow">Fatura de ${ymLabel(m)} ${faturaPaga(c, m) ? '<span class="pill ok">paga</span>' : ''}</p><div style="font-family:var(--f-display);font-size:1.6rem;font-weight:600" class="num">${brl(fat)}</div>${fat > 0 ? `<p class="small muted">${fatDet(fp)}</p>` : ''}
+      <div data-a="verFatura" data-c="${c.id}" data-m="${m}" style="cursor:pointer"><p class="eyebrow">Fatura de ${ymLabel(m)} ${faturaPaga(c, m) ? '<span class="pill ok">paga</span>' : ''}</p><div style="font-family:var(--f-display);font-size:1.6rem;font-weight:600" class="num">${brl(fat)}</div>${fat > 0 ? `<p class="small muted">${fatDet(fp)}</p><p class="small" style="color:var(--accent);font-weight:600;margin-top:4px">Ver o que tem nesta fatura ›</p>` : ''}</div>
       ${lim ? `<div style="margin:12px 0 4px" class="prog"><span style="width:${clamp(usado / lim * 100, 0, 100)}%;background:${usado / lim > .8 ? 'var(--neg)' : 'var(--accent)'}"></span></div><p class="small ${usado > lim ? 'neg' : 'muted'}">${usado > lim ? `Compras e parcelas somam ${brl(usado)}: ${brl(usado - lim)} acima do limite de ${brl(lim)}. Confira o limite cadastrado.` : `Limite: ${brl(usado)} usados de ${brl(lim)} · disponível ${brl(lim - usado)}`}</p>` : ''}
-      <div style="display:flex;align-items:flex-end;gap:6px;height:70px;margin-top:14px" role="img" aria-label="Próximas faturas">${prox.map(([mm, v]) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end"><span class="num" style="font-size:.62rem;color:var(--muted)">${v ? kfmt(v) : ''}</span><span style="width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:${mm === m ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 35%, var(--surface-2))'};height:${Math.max(2, v / mx * 44)}px"></span><span style="font-size:.66rem;color:var(--muted)">${MES[+mm.slice(5) - 1]}</span></div>`).join('')}</div>
+      <div style="display:flex;align-items:flex-end;gap:6px;height:70px;margin-top:14px" role="img" aria-label="Próximas faturas">${prox.map(([mm, v]) => `<div data-a="verFatura" data-c="${c.id}" data-m="${mm}" role="button" aria-label="Fatura de ${ymLabel(mm)}: ${brl0(v)}" style="cursor:pointer;flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end"><span class="num" style="font-size:.62rem;color:var(--muted)">${v ? kfmt(v) : ''}</span><span style="width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:${mm === m ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 35%, var(--surface-2))'};height:${Math.max(2, v / mx * 44)}px"></span><span style="font-size:.66rem;color:var(--muted)">${MES[+mm.slice(5) - 1]}</span></div>`).join('')}</div>
+      <p class="small muted" style="margin-top:6px;text-align:center">Toque numa barra para ver a fatura daquele mês.</p>
     </section>`;
   });
   h += '</div>';
@@ -1889,6 +1910,21 @@ function histVar() {
   Object.values(cats).forEach(o => { o.tot /= Math.max(1, ms.length); Object.keys(o.lug).forEach(k => o.lug[k] /= Math.max(1, ms.length)); });
   return cats;
 }
+// Itens dentro de cada categoria (ex.: Transporte → Gasolina, Lava-jato): os que vocês definiram ou, se não, o histórico dos últimos meses.
+const itemNome = d => { const t = String(d || '').split(/\s[-–]\s|\*/)[0].replace(/\d+([.,]\d+)?/g, '').replace(/\s+/g, ' ').trim(); return t ? t[0].toUpperCase() + t.slice(1) : 'Outros itens'; };
+let _itH = null;
+function itensHist(c) {
+  if (!_itH || _itH.n !== S.lanc.length || _itH.ref !== S.lanc) { _itH = {n:S.lanc.length, ref:S.lanc, cats:{}}; const ms = mesesComDados(3);
+    S.lanc.forEach(l => { if (l.tipo === 'receita' || isFixo(l) || isRep(l) || l.grupo || l.objId || !ms.includes(mesGasto(l))) return; const k = l.cat || 'Outros', n = itemNome(l.desc), o = _itH.cats[k] = _itH.cats[k] || {}; o[n] = (o[n] || 0) + (+l.valor || 0); }); }
+  const o = _itH.cats[c] || {}, t = sum(Object.values(o), v => v); if (!t) return {};
+  const res = {}; let resto = 0; Object.entries(o).forEach(([n, v]) => { if (v / t >= .08) res[n] = v; else resto += v; }); if (resto > 0) res['Outros itens'] = (res['Outros itens'] || 0) + resto; return res;
+}
+const itensDef = c => { const d = (S.cfg.orcItens || {})[c]; return d && Object.values(d).some(v => +v > 0) ? d : null; };
+function itensCat(c, total) {
+  const base = itensDef(c) || itensHist(c), t = sum(Object.values(base), v => +v || 0); if (!(total > 0) || !t) return [];
+  return Object.entries(base).filter(([, v]) => +v > 0).map(([n, v]) => ({n, v:total * v / t})).sort((a, b) => b.v - a.v);
+}
+const itensTxt = (c, total) => { const it = itensCat(c, total); return it.length > 1 || (it.length === 1 && norm(it[0].n) !== norm(c)) ? it.map(x => `${esc(x.n)} ${brl0(x.v)}`).join(' · ') : ''; };
 function projMes(m, hv = histVar(), semObj = false, soCred = false) {
   const atual = m === ymNow(), passado = m < ymNow();
   const cats = {}, lug = {}, linhas = [], credPlan = [];
@@ -2013,7 +2049,7 @@ function vProjecao() {
     const m3 = mL[3].m[k] || 0;
     return `<div class="bar-row"><span class="n">${esc(k)}</span><span class="v">${brl(v)}</span><div class="track"><span class="fill" style="width:${(v / lmx * 100).toFixed(1)}%;background:var(--accent)"></span></div><div class="meta"><span>${fx ? `${brl0(fx)} já certo` : ''}${fx && v - fx > 1 ? ' + ' : ''}${v - fx > 1 ? `${brl0(v - fx)} previsto` : ''}</span><span>${m3 ? `média 3m ${brl0(m3)}` : ''}</span></div></div>`;
   }).join('') || '<div class="empty">Nada previsto.</div>'}</div>
-  <details style="margin-top:12px"><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Ver item por item</summary><div style="margin-top:6px">${[...p.linhas].sort((a, b) => a.lugar.localeCompare(b.lugar) || b.v - a.v).map(x => `<div class="row small" style="gap:8px;padding:5px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0">${esc(x.desc)} <span class="muted">· ${esc(x.lugar)}</span></span><span class="pill ${x.tipo === 'previsto' ? '' : 'acc'}">${x.tipo}</span><span class="num" style="width:86px;text-align:right">${brl(x.v)}</span></div>`).join('')}</div></details></section>`);
+  <details style="margin-top:12px"><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Ver item por item</summary><div style="margin-top:6px">${[...p.linhas].sort((a, b) => a.lugar.localeCompare(b.lugar) || b.v - a.v).map(x => `<div class="row small" style="gap:8px;padding:5px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0">${esc(x.desc)} <span class="muted">· ${esc(x.lugar)}</span>${x.tipo === 'previsto' && itensTxt(x.cat, x.v) ? `<span class="muted" style="display:block">${itensTxt(x.cat, x.v)}</span>` : ''}</span><span class="pill ${x.tipo === 'previsto' ? '' : 'acc'}">${x.tipo}</span><span class="num" style="width:86px;text-align:right">${brl(x.v)}</span></div>`).join('')}</div></details></section>`);
   // categorias x médias
   const mC = {1:mediaPor(1, 'cat'), 3:mediaPor(3, 'cat'), 6:mediaPor(6, 'cat'), 12:mediaPor(12, 'cat')};
   const cats = [...new Set([...Object.keys(p.cats), ...Object.keys(mC[3].m)])].sort((a, b) => (p.cats[b] || 0) - (p.cats[a] || 0));
@@ -2827,7 +2863,7 @@ document.addEventListener('submit', e => { const f = e.target; const h = F[f.dat
 // Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
 const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
 const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
-const OK_VER = new Set(["pinToggle", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
+const OK_VER = new Set(["pinToggle", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
 const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
@@ -3273,7 +3309,7 @@ function orcEdBody(m) {
       <div class="orc-bar"><span style="width:${clamp(pc, 0, 100).toFixed(0)}%;background:${cor}"></span></div>
       <div class="orc-sub"><span>${m === ymNow() ? `gasto ${brl0(g)} de ${brl0(lim)}` : ymLabel(m)}</span>${md && Math.abs(md - lim) > 20 ? `<button type="button" class="lnk" data-a="orcMedia" data-c="${esc(c)}">média ${brl0(md)} · usar</button>` : md ? `<span>média ${brl0(md)}</span>` : ''}
 </div><div class="orc-sub2"><select class="orc-m" data-c="${esc(c)}" aria-label="De onde sai ${esc(c)}">${ORC_MEIO_CURTO().map(([v, l]) => `<option value="${v}" ${meioDe(c) === v ? 'selected' : ''}>Sai de: ${esc(v ? l : 'automático')}</option>`).join('')}</select>
-        <button type="button" class="lnk" data-a="orcTirar" data-c="${esc(c)}" style="color:var(--muted)">tirar</button></div></div>`; };
+        <button type="button" class="lnk" data-a="orcItensAbrir" data-c="${esc(c)}">${S.orcItAb === c ? 'fechar' : 'itens'}</button><button type="button" class="lnk" data-a="orcTirar" data-c="${esc(c)}" style="color:var(--muted)">tirar</button></div>${S.orcItAb === c ? orcItensHTML(c, lim) : (itensTxt(c, lim) ? `<div class="small muted" style="margin-top:4px">${itensTxt(c, lim)}</div>` : '')}</div>`; };
   return `<div class="seg orc-seg"><button type="button" data-a="orcEsc" data-v="todos" aria-pressed="${esc_ === 'todos'}">Todos os meses</button><button type="button" data-a="orcEsc" data-v="mes" aria-pressed="${esc_ === 'mes'}">Só em ${mesNome}</button></div>
     ${esc_ === 'mes' ? `<p class="hint" style="margin:6px 0 0">Mudanças valem só para ${mesNome} (bom para férias e viagem).${temMes ? ` <button type="button" class="lnk" data-a="orcMesLimpar" data-m="${m}">Voltar ao padrão</button>` : ''}</p>` : ''}
     <div class="orc-tot"><span>Total por mês</span><b class="num">${brl0(tot)}</b>${totMed ? `<span class="small muted">média ${brl0(totMed)}</span>` : ''}</div>
@@ -3282,6 +3318,19 @@ function orcEdBody(m) {
     ${Object.keys(med).length ? '<div class="row" style="margin-top:14px"><button type="button" class="btn sm" data-a="orcSugerir">Preencher tudo com a média −10%</button></div>' : ''}
     <p class="small muted" style="margin-top:10px">Salva sozinho. Comida (mercado, restaurante, delivery) sai do vale primeiro.</p>`;
 }
+function orcItensHTML(c, lim) {
+  const def = itensDef(c), its = def ? Object.entries(def).filter(([, v]) => +v > 0).map(([n, v]) => ({n, v:+v})) : itensCat(c, lim).map(x => ({n:x.n, v:Math.round(x.v)}));
+  return `<div class="orc-its" data-c="${esc(c)}" style="margin-top:8px;padding:10px;border-radius:12px;background:var(--surface-2)">
+    <p class="small muted" style="margin:0 0 6px">${def ? 'O que entra em' : 'Sugestão pela média. Mude um valor para salvar os itens de'} ${esc(c)}. O limite passa a ser a soma.</p>
+    ${its.map(x => `<div class="row" style="gap:6px;margin-top:6px"><input class="orc-itn" value="${esc(x.n)}" aria-label="Nome do item" style="flex:1;min-width:0"><input class="orc-itv num" inputmode="decimal" value="${Math.round(x.v)}" aria-label="Valor de ${esc(x.n)}" style="width:84px"><button type="button" class="ib" data-a="orcItTirar" data-c="${esc(c)}" data-n="${esc(x.n)}" aria-label="Tirar ${esc(x.n)}">×</button></div>`).join('')}
+    <div class="row" style="gap:6px;margin-top:8px"><input class="orc-itn-novo" placeholder="Novo item (ex.: gasolina)" style="flex:1;min-width:0"><input class="orc-itv-novo num" inputmode="decimal" placeholder="R$" style="width:84px"><button type="button" class="btn sm" data-a="orcItAdd" data-c="${esc(c)}">Pôr</button></div></div>`;
+}
+function orcItLer(c) { const box = [...$$('.orc-its')].find(b => b.dataset.c === c), o = {}; if (!box) return o; $$('.orc-itn', box).forEach(i => { const n = i.value.trim(), v = parseValor(i.nextElementSibling.value); if (n && v > 0) o[n[0].toUpperCase() + n.slice(1)] = (o[n[0].toUpperCase() + n.slice(1)] || 0) + r2(v); }); return o; }
+async function orcItSalvar(c, o) { const oi = {...(S.cfg.orcItens || {})}; if (Object.keys(o).length) oi[c] = o; else delete oi[c]; try { await saveCfg({orcItens:oi}); } catch (_) { return; } const t = sum(Object.values(o), v => v); if (t > 0) await orcSalvar(orcM(), {[c]:r2(t)}); else { _flx = null; orcRender(); } }
+A.orcItensAbrir = el => { S.orcItAb = S.orcItAb === el.dataset.c ? null : el.dataset.c; orcRender(); };
+A.orcItTirar = el => { const o = orcItLer(el.dataset.c); delete o[el.dataset.n]; orcItSalvar(el.dataset.c, o); };
+A.orcItAdd = el => { const c = el.dataset.c, box = [...$$('.orc-its')].find(b => b.dataset.c === c), n = $('.orc-itn-novo', box).value.trim(), v = parseValor($('.orc-itv-novo', box).value); if (!n || !(v > 0)) return toast('Escreva o nome e o valor do item.'); const o = orcItLer(c), k = n[0].toUpperCase() + n.slice(1); o[k] = (o[k] || 0) + r2(v); orcItSalvar(c, o); };
+A.orcItensIr = el => { S.orcItAb = el.dataset.c; closeSheet(); setTimeout(() => A.editLimites(el), 50); };
 function orcRender() { const el = $('#orc-ed'); if (el) el.innerHTML = orcEdBody(el.dataset.m); }
 async function orcSalvar(m, mudancas, meio) {
   const esc_ = S.orcEsc || 'todos', patch = {};
@@ -3304,8 +3353,9 @@ function ligarOrc(sh) {
     const t = e.target;
     if (t.classList.contains('orc-v')) { const v = parseValor(t.value); orcSalvar(orcM(), {[t.dataset.c]:v > 0 ? r2(v) : 0}); }
     if (t.classList.contains('orc-m')) orcSalvar(orcM(), null, {[t.dataset.c]:t.value});
+    if (t.classList.contains('orc-itn') || t.classList.contains('orc-itv')) { const c = t.closest('.orc-its').dataset.c; orcItSalvar(c, orcItLer(c)); }
   });
-  sh.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('orc-v')) { e.preventDefault(); e.target.blur(); } });
+  sh.addEventListener('keydown', e => { if (e.key === 'Enter' && /orc-v|orc-itn|orc-itv/.test(e.target.className)) { e.preventDefault(); if (/novo/.test(e.target.className)) { const b = e.target.closest('.orc-its'); A.orcItAdd({dataset:{c:b.dataset.c}}); } else e.target.blur(); } });
 }
 A.editLimites = el => { const m = el?.dataset?.m || S.mes; S.orcEsc = Object.keys((S.cfg.orcMes || {})[m] || {}).length ? 'mes' : 'todos'; openSheet('Limites do dia a dia', `<p class="muted small" style="margin:0 0 12px">Quanto querem gastar por mês em cada gasto que varia (mercado, gasolina, lazer…). Contas fixas ficam fora daqui.</p>${orcFormHTML(m)}`, ligarOrc); };
 A.orcSugerir = () => { const med = mediaCat(addM(ymNow(), 1), 3, true).media, mud = {}; Object.entries(med).forEach(([c, v]) => { if (v > 0 && catsDesp().some(x => x.n === c)) mud[c] = Math.round(v * .9 / 10) * 10; }); orcSalvar(orcM(), mud); };
