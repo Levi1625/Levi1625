@@ -19,6 +19,7 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 
 ## Regras de dinheiro combinadas com o dono (não mudar sem ele pedir)
 - **Pode gastar** = o que falta do dia a dia **fora comida** no mês, na conta ou no cartão. Todo gasto dessas categorias desconta na hora. Dívidas, impostos e assinaturas não entram: saem da sobra do mês.
+- O **pode gastar só muda com gastos e limites do mês atual**. Mês à frente que fica negativo vira aviso (Hoje, Contas, Planos); nunca desconta sozinho do pode gastar.
 - **Comida** (mercado, restaurante, delivery) tem limite próprio e sai do vale. Vale (VA/VR) só paga comida, nunca contas. Comida paga na conta diminui a sobra do mês, não o pode gastar.
 - **Data no futuro = agendado**: não sai da conta até a data. A data escrita na frase manda (a IA não pode trocar por "hoje").
 - **A conta nunca fica negativa**: se for faltar, tira da caixinha Sobras; se não der, crédito (fatura seguinte); por último, cheque especial.

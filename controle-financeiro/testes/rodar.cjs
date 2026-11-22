@@ -81,7 +81,7 @@ async function agendado(b) {
   await p.evaluate(async () => { const T = window.__T; await T.criarLanc({tipo:'despesa', valor:2500, desc:'Reforma do banheiro', cat:'Moradia', data:'2027-01-30', meio:'pix', nparc:1}); await T.criarLanc({tipo:'despesa', valor:300, desc:'Conserto do portão', cat:'Moradia', data:'2026-11-28', meio:'pix', nparc:1}); });
   await p.waitForTimeout(300); const d = await foto();
   ok(Math.abs(d.conta - a.conta) < 0.6, `"Na conta" não muda no dia em que lança (${a.conta} → ${d.conta})`);
-  ok(Math.abs(d.dia - a.dia) < 0.6 && Math.abs(d.pode - Math.max(0, d.dia - d.reserva)) < 1, 'o dia a dia de hoje não muda (só segura se um mês à frente ficar negativo)');
+  ok(Math.abs(d.pode - a.pode) < 0.6, `o "pode gastar" de hoje não muda (${Math.round(a.pode)} → ${Math.round(d.pode)})`);
   ok(Math.abs(d.nov - a.nov + 300) < 0.6 && Math.abs(d.jan - a.jan + 2800) < 0.6, `cada um entra no mês da data (nov ${Math.round(d.nov - a.nov)}, jan acumulado ${Math.round(d.jan - a.jan)})`);
   ok(Math.abs(d.fimJan - d.contaFimJan) < 2, 'Contas de janeiro fecha igual à projeção');
   await ir(p, '#contas'); ok(/28 NOV[\s\S]{0,200}Conserto do portão[\s\S]{0,40}agendado/i.test(await texto(p)), 'Contas de novembro: conserto no dia 28, "agendado"');
@@ -89,6 +89,19 @@ async function agendado(b) {
   await p.clock.setFixedTime(new Date('2027-01-31T10:00:00')); const z = await p.evaluate(() => { window.__T.render(); return window.__T.saldoHoje(); });
   ok(Math.abs(d.conta - z - 2800) < 0.6, `quando a data chega, sai da conta (${Math.round(d.conta - z)})`);
   ok(!erros.length, `agendado: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 3b) Mexer num mês à frente nunca muda o "pode gastar" de hoje (vira aviso)
+async function futuroNaoMexe(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const g = () => p.evaluate(() => { const T = window.__T; T.render(); const x = T.podeGastar(); return {pode:x.total, falta:x.falta, pior:x.pior}; });
+  const a = await g();
+  await p.evaluate(async () => { await window.__T.criarLanc({tipo:'despesa', valor:15000, desc:'Reforma grande', cat:'Moradia', data:'2027-03-15', meio:'pix', nparc:1}); }); await p.waitForTimeout(300);
+  const d = await g();
+  ok(d.falta > 0, `o gasto de março deixa um mês negativo (${d.pior})`);
+  ok(Math.abs(d.pode - a.pode) < 0.6, `mesmo assim o "pode gastar" de hoje não muda (${Math.round(a.pode)} → ${Math.round(d.pode)})`);
+  await ir(p, '#inicio'); ok(/fecha negativo/.test(await texto(p)), 'Hoje mostra o aviso do mês negativo');
+  ok(!erros.length, `mês futuro: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
 // 4) Datas escritas no chat
@@ -135,6 +148,7 @@ async function telas(b) {
     secao('As contas batem'); for (const d of ['2026-11-22', '2026-11-26', '2026-12-31', '2027-02-28']) await contasBatem(b, d);
     secao('Cada gasto mexe no número certo'); await gastos(b);
     secao('Gasto com data futura é agendado'); await agendado(b);
+    secao('Mês à frente não mexe no pode gastar'); await futuroNaoMexe(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Telas'); await telas(b);
