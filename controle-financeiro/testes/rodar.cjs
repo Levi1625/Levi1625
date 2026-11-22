@@ -95,13 +95,14 @@ async function agendado(b) {
 // 3b) Mexer num mês à frente nunca muda o "pode gastar" de hoje (vira aviso)
 async function futuroNaoMexe(b) {
   const {p, erros} = await abrir(b, '2026-11-22');
-  const g = () => p.evaluate(() => { const T = window.__T; T.render(); const x = T.podeGastar(); return {pode:x.total, falta:x.falta, pior:x.pior}; });
+  const g = () => p.evaluate(() => { const T = window.__T; T.render(); const x = T.podeGastar(); return {pode:x.total, falta:x.falta, pior:x.pior, livre:x.livre}; });
   const a = await g();
   await p.evaluate(async () => { await window.__T.criarLanc({tipo:'despesa', valor:15000, desc:'Reforma grande', cat:'Moradia', data:'2027-03-15', meio:'pix', nparc:1}); }); await p.waitForTimeout(300);
   const d = await g();
   ok(d.falta > 0, `o gasto de março deixa um mês negativo (${d.pior})`);
   ok(Math.abs(d.pode - a.pode) < 0.6, `mesmo assim o "pode gastar" de hoje não muda (${Math.round(a.pode)} → ${Math.round(d.pode)})`);
-  await ir(p, '#inicio'); ok(/fecha negativo/.test(await texto(p)), 'Hoje mostra o aviso do mês negativo');
+  ok(d.livre < 0 && Math.abs(d.livre + d.falta) < 1, `"tirando tudo" fica negativo e mostra quanto falta (${Math.round(d.livre)})`);
+  await ir(p, '#inicio'); ok(/Falta tirando tudo: .* em mar\/27/.test(await texto(p)), 'Hoje mostra "Falta tirando tudo … em mar/27"');
   ok(!erros.length, `mês futuro: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
@@ -139,18 +140,26 @@ async function confirmacao(b) {
 // 3e) Regras do "pode gastar": média (não o projetado), Saúde só farmácia, nunca mais que o dinheiro livre
 async function regrasPode(b) {
   const {p, erros} = await abrir(b, '2026-11-22');
-  const g = () => p.evaluate(() => { const T = window.__T; T.render(); const x = T.podeGastar(), d = T.diaDiaBase(); return {total:x.total, dia:x.dia, porCaixa:x.porCaixa, livre:x.cx.livre, somaFalta:d.lista.reduce((t, c) => t + c.falta, 0), resto:d.resto}; });
+  const g = () => p.evaluate(() => { const T = window.__T; T.render(); const x = T.podeGastar(), d = T.diaDiaBase(), f = T.fluxo();
+    return {total:x.total, livre:x.livre, somaFalta:d.lista.reduce((t, c) => t + c.falta, 0), resto:d.resto, projMedia:d.lista.every(c => c.mudou || Math.abs(c.proj - c.media) < 0.6), lazer:(d.lista.find(c => c.c === 'Lazer') || {}).media, dez:f[1].livre, orc:Object.keys(T.S.cfg.orc || {})}; });
   const a = await g();
-  ok(Math.abs(a.somaFalta - a.resto) < 1, `a soma do que falta em cada categoria é o total (${Math.round(a.somaFalta)} × ${Math.round(a.resto)})`);
-  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, orc:{...S.cfg.orc, 'Bares e saídas':900, 'Lazer':900}}); }); await p.waitForTimeout(300);
+  ok(!a.orc.some(c => ['Lazer', 'Compras', 'Bares e saídas', 'Transporte', 'Saúde', 'Outros'].includes(c)) && a.orc.includes('Mercado'), `valores antigos do dia a dia voltaram para a média; comida continua (${a.orc.join(', ')})`);
+  ok(a.projMedia, 'sem valor mudado, o projetado de cada categoria é a média');
+  ok(Math.abs(a.somaFalta - a.resto) < 1 && Math.abs(a.total - a.resto) < 0.6, `a soma do que falta em cada categoria é o pode gastar (${Math.round(a.somaFalta)} × ${Math.round(a.total)})`);
+  await p.evaluate(v => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, orcMes:{...(S.cfg.orcMes || {}), '2026-11':{Lazer:v + 500}}}); }, a.lazer); await p.waitForTimeout(300);
   const d = await g();
-  ok(Math.abs(d.total - a.total) < 0.6, `mudar limite (projetado) não muda o pode gastar (${Math.round(a.total)} → ${Math.round(d.total)})`);
-  await p.evaluate(async () => { await window.__T.criarLanc({tipo:'despesa', valor:30, desc:'Drogaria', cat:'Saúde', data:window.__T.hoje(), meio:'pix', nparc:1}); }); await p.waitForTimeout(300);
+  ok(Math.abs(d.total - a.total - 500) < 0.6, `projetar R$ 500 a mais em Lazer aumenta o pode gastar em R$ 500 (${Math.round(a.total)} → ${Math.round(d.total)})`);
+  ok(Math.abs(a.dez - d.dez - 500) < 0.6, `e o dinheiro no fim de dezembro diminui R$ 500 (${Math.round(a.dez)} → ${Math.round(d.dez)})`);
+  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, orcMes:{...(S.cfg.orcMes || {}), '2027-03':{Lazer:2000}}}); }); await p.waitForTimeout(300);
   const e = await g();
-  ok(Math.abs(e.total - d.total + 30) < 0.6, `farmácia desconta (${Math.round(d.total)} → ${Math.round(e.total)})`);
-  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:-2500}}); }); await p.waitForTimeout(300);
+  ok(Math.abs(e.total - d.total) < 0.6, `mudar o projetado de março não muda o pode gastar de hoje (${Math.round(d.total)} → ${Math.round(e.total)})`);
+  await p.evaluate(async () => { await window.__T.criarLanc({tipo:'despesa', valor:30, desc:'Drogaria', cat:'Saúde', data:window.__T.hoje(), meio:'pix', nparc:1}); }); await p.waitForTimeout(300);
   const f = await g();
-  ok(f.porCaixa && Math.abs(f.total - Math.max(0, f.livre)) < 0.6 && f.total < f.dia, `com pouco dinheiro na conta, o pode gastar fica no que tem (${Math.round(f.total)}; média daria ${Math.round(f.dia)})`);
+  ok(Math.abs(f.total - e.total + 30) < 0.6, `farmácia desconta (${Math.round(e.total)} → ${Math.round(f.total)})`);
+  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:-9000}}); }); await p.waitForTimeout(300);
+  const h = await g();
+  ok(Math.abs(h.total - f.total) < 0.6 && h.livre < 0, `com pouco dinheiro, o pode gastar não some: o "tirando tudo" fica negativo para ajustar (${Math.round(h.total)} · ${Math.round(h.livre)})`);
+  await ir(p, '#inicio'); ok(/Falta tirando tudo/.test(await texto(p)), 'Hoje mostra "Falta tirando tudo"');
   ok(!erros.length, `regras: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
@@ -206,7 +215,23 @@ async function mudarMes(b) {
   ok(!erros.length, `mudar: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
-// 7) Todas as telas abrem sem erro
+// 7) A folga do fim do mês é calculada (o que o mês seguinte precisa até o dinheiro entrar), não R$ 1.000 fixo;
+//    e os meses à frente usam a mesma média do dia a dia do mês atual
+async function folgaMedia(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const r = await p.evaluate(() => { const T = window.__T, f = T.fluxo(), fi = T.folgaInfo('2026-11'), lm = T.linhaMes('2026-12');
+    const poolMar = T.projMes('2027-03').linhas.filter(l => l.tipo === 'previsto' && T.ehPool(l.cat) && !/^Crédito /.test(l.lugar)).reduce((t, l) => t + l.v, 0) + T.projMes('2027-03', undefined, false, true).filter(l => l.tipo === 'previsto' && T.ehPool(l.cat)).reduce((t, l) => t + l.v, 0);
+    const media = Object.values(T.mediaPool('2027-03')).reduce((t, v) => t + v, 0);
+    return {conta:f[0].contaFim, folga:fi.v, ate:fi.ate, ponteDez:lm.usoP.cx + lm.usoP.cred + lm.usoP.cheque, itens:fi.itens.map(x => x.desc), poolMar, media}; });
+  ok(Math.abs(r.conta - r.folga) < 0.6 && Math.abs(r.conta - 1000) > 1, `fim de novembro: fica na conta o que dezembro precisa (${Math.round(r.conta)}), não R$ 1.000 fixo`);
+  ok(r.ponteDez < 0.5, 'dezembro não precisa tirar da caixinha antes do dinheiro entrar');
+  ok(r.itens.includes('Financiamento do carro') && r.itens.includes('Academia'), `a folga conta as contas de dezembro até o dinheiro entrar no dia ${r.ate} (${r.itens.slice(0, 4).join(', ')}…)`);
+  ok(Math.abs(r.poolMar - r.media) < 1, `março: dia a dia fora comida pela mesma média (${Math.round(r.poolMar)} × média ${Math.round(r.media)})`);
+  await ir(p, '#contas'); ok(/o que dez\/26 precisa até o dinheiro entrar/.test(await texto(p)), 'Contas explica o que fica na conta no fim do mês');
+  ok(!erros.length, `folga: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 8) Todas as telas abrem sem erro
 async function telas(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 2500);
   for (const v of ['inicio', 'contas', 'planos', 'ajuda', 'extrato', 'guardado', 'mes', 'fixos', 'cartoes', 'emprestimos', 'ajustes']) await ir(p, '#' + v);
@@ -228,6 +253,7 @@ async function telas(b) {
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);
+    secao('Folga calculada e média em todos os meses'); await folgaMedia(b);
     secao('Telas'); await telas(b);
   } catch (e) { ok(false, 'o teste quebrou: ' + e.message); }
   await b.close();
