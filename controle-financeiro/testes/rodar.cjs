@@ -231,7 +231,26 @@ async function folgaMedia(b) {
   ok(!erros.length, `folga: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
-// 8) Todas as telas abrem sem erro
+// 8) Gasto previsto no crédito vai para o cartão principal, nunca para o de outra pessoa (mesmo se ele vier primeiro na lista)
+async function cartaoPrincipal(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  await p.evaluate(async () => { const T = window.__T, S = T.S;
+    await S.db.collection('cartoes').doc('aaa-mae').set({nome:'Mãe', fecha:25, vence:1, limite:1000});
+    for (const m of ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10']) await T.criarLanc({tipo:'despesa', valor:300, desc:'Fatura antiga', cat:'Cartão (sem detalhe)', data:m + '-10', meio:'credito', cartaoId:'azul', nparc:1});
+    await T.criarLanc({tipo:'despesa', valor:200, desc:'Loja', cat:'Compras', data:'2026-09-12', meio:'credito', cartaoId:'aaa-mae', nparc:1}); });
+  await p.waitForTimeout(400);
+  const r = await p.evaluate(() => { const T = window.__T, S = T.S, mae = S.cartoes.find(c => c.id === 'aaa-mae'); S.cartoes = [mae, ...S.cartoes.filter(c => c !== mae)]; T.render();
+    const ls = []; ['2026-11', '2026-12', '2027-01', '2027-02'].forEach(m => { [...T.projMes(m).linhas, ...T.projMes(m, undefined, false, true)].filter(l => l.tipo === 'previsto' && /^Crédito /.test(l.lugar)).forEach(l => ls.push(l.lugar)); });
+    return {primeiro:S.cartoes[0].nome, principal:T.cartaoPrincipal().nome, lugares:[...new Set(ls)], rapido:T.parseRapido('gastei 50 no cartão')}; });
+  ok(r.primeiro === 'Mãe' && r.principal === 'Cartão Azul', `com o cartão da Mãe primeiro na lista, o principal continua o Cartão Azul (${r.principal})`);
+  ok(r.lugares.length > 0 && r.lugares.every(x => x === 'Crédito Cartão Azul'), `gasto previsto no crédito só no cartão principal (${r.lugares.join(', ')})`);
+  ok(r.rapido.cartaoId === 'azul', `"gastei 50 no cartão" vai para o cartão principal (${r.rapido.cartaoId})`);
+  await ir(p, '#contas'); await p.click('[data-a="contasAba"][data-v="cartoes"]'); await p.waitForTimeout(300);
+  ok(/Cartão Azul principal/.test(await texto(p)), 'Contas › Cartões mostra qual é o principal');
+  ok(!erros.length, `cartão principal: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 9) Todas as telas abrem sem erro
 async function telas(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 2500);
   for (const v of ['inicio', 'contas', 'planos', 'ajuda', 'extrato', 'guardado', 'mes', 'fixos', 'cartoes', 'emprestimos', 'ajustes']) await ir(p, '#' + v);
@@ -254,6 +273,7 @@ async function telas(b) {
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);
     secao('Folga calculada e média em todos os meses'); await folgaMedia(b);
+    secao('Crédito previsto só no cartão principal'); await cartaoPrincipal(b);
     secao('Telas'); await telas(b);
   } catch (e) { ok(false, 'o teste quebrou: ' + e.message); }
   await b.close();

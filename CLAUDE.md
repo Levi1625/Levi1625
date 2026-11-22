@@ -24,6 +24,7 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 - Mudar o projetado de um mês muda o pode gastar daquele mês e o "tirando tudo"; mudar o de outro mês não mexe no pode gastar de hoje.
 - **Saúde = só farmácia**. O resto de saúde vem descontado no contracheque: sai da sobra do mês, não do pode gastar.
 - Cartão sem categoria entra pela média dele (também nos meses à frente), tirando as assinaturas fixas do cartão. Itens do histórico que hoje são contas fixas não entram na média.
+- **Cartão principal = o Nubank do dono.** Todo gasto previsto no crédito vai para ele, e "no cartão" sem dizer qual também. **Nunca projetar no cartão de outra pessoa** (mãe, sogra…), a não ser que o dono escolha o "Sai de" daquela categoria. Trocar o principal: Contas › Cartões › Tornar principal.
 - A tela Hoje mostra **o que falta gastar** em cada categoria e item (não o que já gastou).
 - Dívidas, impostos e assinaturas não entram no pode gastar: saem da sobra do mês.
 - Toda confirmação de lançamento mostra o efeito: "Pode gastar: antes → depois" ou o motivo de não mudar (comida, conta fixa, plano, parcelado, agendado, saúde fora da farmácia, fora do dia a dia).

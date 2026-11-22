@@ -743,7 +743,7 @@ function parseRapido(txt) {
   let card = null;
   const temCartao = /\b(credito|cartao|cc)\b/.test(n);
   S.cartoes.forEach(c => { const cn = norm(c.nome); if (cn && (` ${n} `).includes(` ${cn}`) && (temCartao || BANCO.test(cn))) card = c; });
-  if (!card && /\b(credito|cartao|cc)\b/.test(n) && S.cartoes.length === 1) card = S.cartoes[0];
+  if (!card && /\b(credito|cartao|cc)\b/.test(n)) card = cartaoPrincipal();
   let explicit = true;
   const isDeb = /\bdebito\b/.test(n);
   if (card && !isDeb) { r.meio = 'credito'; r.cartaoId = card.id; t = t.replace(new RegExp(card.nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), ' '); }
@@ -1221,13 +1221,15 @@ A.prevCat = el => { const c = el.dataset.c, m = el.dataset.m || S.mes, orc = orc
 // Cartões dentro de Contas: cada cartão e cada fatura tocáveis
 function cartoesContasHTML(m) {
   if (!S.cartoes.length) return `<p class="muted">Nenhum cartão cadastrado.</p>${soVer() ? '' : '<button class="btn" data-a="novoCartao">+ Novo cartão</button>'}`;
-  let h = S.cartoes.map(c => { const prox = Array.from({length:6}, (_, i) => addM(m, i)).map(mm => [mm, faturaPrev(c, mm)]);
-    return `<section class="sec2"><div class="ri" style="border:0">${catIco('Cartão (sem detalhe)', 'despesa')}<span class="tx"><span class="t1">${esc(c.nome)}</span><span class="t2">fecha dia ${c.fecha || '?'} · vence dia ${c.vence || '?'}${+c.limite ? ' · limite ' + brl0(+c.limite) : ''}</span></span>${soVer() ? '' : `<button class="btn sm" data-a="editCartao" data-id="${c.id}">Editar</button>`}</div>
+  const cp = cartaoPrincipal();
+  let h = cartoesOrd().map(c => { const prox = Array.from({length:6}, (_, i) => addM(m, i)).map(mm => [mm, faturaPrev(c, mm)]), pri = c === cp;
+    return `<section class="sec2"><div class="ri" style="border:0">${catIco('Cartão (sem detalhe)', 'despesa')}<span class="tx"><span class="t1">${esc(c.nome)}${pri ? ' <span class="pill acc">principal</span>' : ''}</span><span class="t2">fecha dia ${c.fecha || '?'} · vence dia ${c.vence || '?'}${+c.limite ? ' · limite ' + brl0(+c.limite) : ''}${pri ? ' · os gastos previstos no crédito vão para ele' : ''}</span>${pri || soVer() ? '' : `<button class="lnk small" data-a="tornarPrincipal" data-id="${c.id}" style="text-align:left;padding:0">Tornar principal</button>`}</span>${soVer() ? '' : `<button class="btn sm" data-a="editCartao" data-id="${c.id}">Editar</button>`}</div>
       ${prox.map(([mm, f]) => `<div class="li" data-a="verFatura" data-c="${c.id}" data-m="${mm}" role="button" tabindex="0"><span class="tx"><span class="t1">Fatura de ${ymLabel(mm)}${faturaPaga(c, mm) ? ' <span class="pill ok">paga</span>' : mm > ymNow() ? ' <span class="muted small">prevista</span>' : ''}</span><span class="t2">${fatDet(f) || 'nada lançado'}</span></span><span class="am">${brl(f.total)}</span><span class="chev">›</span></div>`).join('')}</section>`; }).join('');
   h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#cartoes">Parcelamentos</a>${soVer() ? '' : '<button class="btn" data-a="novoCartao">+ Novo cartão</button>'}</div><p class="hint" style="margin-top:10px">Toque numa fatura para ver e mudar cada item daquele mês.</p>`;
   return h;
 }
 A.contasAba = el => { S.contasAba = el.dataset.v; render(); };
+A.tornarPrincipal = async el => { const c = cartao(el.dataset.id); if (!c) return; try { await saveCfg({cartaoPrincipal:c.id}); _flx = null; toast(`${c.nome} agora é o cartão principal: os gastos previstos no crédito vão para ele.`); } catch (_) {} };
 A.calMes = el => { S.calMes = addM(S.calMes || ymNow(), +el.dataset.d); S.calDia = null; render(); };
 A.calDia = el => { const d = el.dataset.d; S.calDia = !d || S.calDia === d ? null : d; render(); };
 A.projIr2 = el => openSheet('Mês de ' + ymLong(el.dataset.m), mesDetalheHTML(el.dataset.m));
@@ -1307,6 +1309,26 @@ function mediaPool0() {
 // A média do cartão sem detalhe já tinha as assinaturas e contas que hoje são fixas no cartão: tira as do mês
 function mediaPool(m) { const out = {...mediaPool0().media}, CSD = 'Cartão (sem detalhe)'; if (out[CSD]) out[CSD] = Math.max(0, out[CSD] - sum(fixosAtivos(m).filter(f => f.tipo !== 'receita' && f.cartaoId), f => valorFixo(f, m))); return out; }
 const ehPool = c => noPool(c) || c === 'Cartão (sem detalhe)';
+// Cartão principal (o seu): o app projeta nele os gastos previstos no crédito e usa ele quando você diz "no cartão" sem dizer qual.
+// É o que você escolheu em Contas › Cartões; se não escolheu, o cartão com mais compras suas. Nunca o de outra pessoa só por vir primeiro na lista.
+function cartaoPrincipal() {
+  if (!S.cartoes.length) return null;
+  const C = cacheDados(); if (C.cp && S.cartoes.includes(C.cp)) return C.cp;
+  const esc0 = S.cfg.cartaoPrincipal && S.cartoes.find(c => c.id === S.cfg.cartaoPrincipal);
+  const n = {}; if (!esc0) S.lanc.forEach(l => { if (l.cartaoId && l.tipo !== 'receita' && !isRep(l)) n[l.cartaoId] = (n[l.cartaoId] || 0) + 1; });
+  C.cp = esc0 || S.cartoes.reduce((a, c) => (n[c.id] || 0) > (n[a.id] || 0) ? c : a, S.cartoes[0]); return C.cp;
+}
+const cartoesOrd = () => { const p = cartaoPrincipal(); return p ? [p, ...S.cartoes.filter(c => c !== p)] : S.cartoes; };
+// Onde o app projeta o gasto previsto de uma categoria: o "Sai de" que vocês escolheram; senão, como costuma ser pago. No crédito, sempre o cartão principal.
+function lugsProj(c, hv) {
+  const om = (S.cfg.orcMeio || {})[c], cp = cartaoPrincipal(), cred = cp ? 'Crédito ' + cp.nome : null;
+  if (vaCats().includes(c)) return {[MEIOS.va]:1};
+  if (om) return {[lugarMeio(om)]:1};
+  if (c === 'Cartão (sem detalhe)' && cred) return {[cred]:1};
+  const base = hv[c] && Object.keys(hv[c].lug).length ? hv[c].lug : {[MEIOS[S.cfg.meioPadrao] || 'Pix']:1}, out = {};
+  Object.entries(base).forEach(([lg, w]) => { const k = cred && /^Crédito /.test(lg) ? cred : lg; out[k] = (out[k] || 0) + w; });
+  return out;
+}
 // Mês em que vocês zeraram todo o dia a dia (ex.: férias pagas pelo plano da viagem): o cartão sem detalhe também fica zero
 const zerouDiaDia = (m, orc = orcDoMes(m), media = mediaPool(m)) => { const cs = Object.keys(media).filter(c => c !== 'Cartão (sem detalhe)' && media[c] > 0.5); return cs.length > 0 && !('Cartão (sem detalhe)' in orc) && cs.every(c => c in orc && !(+orc[c] > 0)); };
 // Dia a dia do mês atual (fora comida): projetado de cada categoria = o valor que vocês mudaram ou, se não mudaram, a média.
@@ -1538,6 +1560,13 @@ function ajusteMedia2611() {
   clearTimeout(_ajMedT); _ajMedT = setTimeout(async () => { if (S.cfg.ajMedia2611) return; const o = {...(S.cfg.orc || {})}, tirou = Object.keys(o).filter(ehPool);
     tirou.forEach(c => { delete o[c]; });
     try { await saveCfg({orc:o, ajMedia2611:true}); _flx = null; if (tirou.length) toast(`O dia a dia agora segue a média (${tirou.join(', ')}). Para mudar um valor: Contas › Previsto no dia a dia.`, 7000); } catch (_) {} }, 3000);
+}
+// Dono pediu (nov/26): gasto previsto no crédito vai para o cartão dele (Nubank), nunca para o de outra pessoa
+let _ajCartT = null;
+function ajusteCartao2611() {
+  if (soVer() || !S.cfg || S.cfg.cartaoPrincipal || S.cfg.ajCart2611 || !S.cartoes.length) return;
+  const nu = S.cartoes.find(c => /nubank/i.test(c.nome || '')); if (!nu) return;
+  clearTimeout(_ajCartT); _ajCartT = setTimeout(async () => { if (S.cfg.cartaoPrincipal || S.cfg.ajCart2611) return; try { await saveCfg({cartaoPrincipal:nu.id, ajCart2611:true}); _flx = null; } catch (_) {} }, 3500);
 }
 // Deixa pronto para o lembrete do WhatsApp (o servidor não calcula a projeção): mês atual e o próximo.
 let _pmT = null;
@@ -2395,13 +2424,12 @@ function projMes0(m, hv = histVar(), semObj = false, soCred = false) {
       const plan = c in AJ.lim ? AJ.lim[c] : c in orc ? +orc[c] : MP && ehPool(c) ? (c === 'Cartão (sem detalhe)' && zerou ? 0 : MP[c] || 0) : (hv[c] ? hv[c].tot : 0);
       const feito = c === 'Cartão (sem detalhe)' ? cartaoAtual + (ja[c] || 0) : (ja[c] || 0);
       const falta = Math.max(0, plan - feito); if (!falta) return;
-      const om = (S.cfg.orcMeio || {})[c];
-      const lugs = vaCats().includes(c) ? {[MEIOS.va]:1} : om ? {[lugarMeio(om)]:1} : c === 'Cartão (sem detalhe)' && S.cartoes.length ? {['Crédito ' + S.cartoes[0].nome]:1} : hv[c] && Object.keys(hv[c].lug).length ? hv[c].lug : {[vaCats().includes(c) ? MEIOS.va : (MEIOS[S.cfg.meioPadrao] || 'Pix')]:1};
+      const lugs = lugsProj(c, hv);
       const tl = sum(Object.values(lugs), x => x);
       Object.entries(lugs).forEach(([lg, w]) => add(c, lg, falta * w / tl, c, 'previsto'));
     });
     if (DD) Object.entries(DD.falta).forEach(([c, falta]) => { if (!(falta > 0.005)) return;
-      const om = (S.cfg.orcMeio || {})[c], lugs = c === 'Cartão (sem detalhe)' && S.cartoes.length ? {['Crédito ' + S.cartoes[0].nome]:1} : om ? {[lugarMeio(om)]:1} : hv[c] && Object.keys(hv[c].lug).length ? hv[c].lug : {[MEIOS[S.cfg.meioPadrao] || 'Pix']:1}, tl = sum(Object.values(lugs), x => x);
+      const lugs = lugsProj(c, hv), tl = sum(Object.values(lugs), x => x);
       Object.entries(lugs).forEach(([lg, w]) => add(c, lg, falta * w / tl, c, 'previsto')); });
   }
   const usos = [];
@@ -2614,7 +2642,7 @@ let _raf = 0;
 function render() { _flx = null; _base = null; _pmC = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
   document.body.classList.toggle('sover', soVer());
-  try { sincPlanoMes(); guardarFoto(); ajusteLimites2611(); ajusteDias2611(); ajustePago2611(); ajusteMedia2611(); } catch (_) {}
+  try { sincPlanoMes(); guardarFoto(); ajusteLimites2611(); ajusteDias2611(); ajustePago2611(); ajusteMedia2611(); ajusteCartao2611(); } catch (_) {}
   renderNav();
   const main = $('#main');
   if (S.blocked) { main.innerHTML = `<div class="loading"><h2>Este controle financeiro é privado</h2><p style="margin-top:8px">Só o dono consegue ver e editar os dados.</p></div>`; return; }
@@ -2790,7 +2818,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet
 const opt = (v, n, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(n)}</option>`;
 const meioOpts = (meio, cartaoId, tipo = 'despesa') => tipo === 'receita'
   ? `${opt('pix', 'Conta (dinheiro)', meio !== 'va' && meio !== 'vr')}${opt('va', 'Vale alimentação', meio === 'va')}${opt('vr', 'Vale refeição', meio === 'vr')}`
-  : `<optgroup label="Sai da conta">${['pix', 'debito', 'boleto', 'transferencia', 'dinheiro'].map(k => opt(k, MEIOS[k], !cartaoId && meio === k)).join('')}</optgroup><optgroup label="Vales">${opt('va', MEIOS.va, meio === 'va')}${opt('vr', MEIOS.vr, meio === 'vr')}</optgroup>${S.cartoes.length ? `<optgroup label="Crédito">${S.cartoes.map(c => opt('cc:' + c.id, 'Crédito · ' + c.nome, cartaoId === c.id)).join('')}</optgroup>` : ''}`;
+  : `<optgroup label="Sai da conta">${['pix', 'debito', 'boleto', 'transferencia', 'dinheiro'].map(k => opt(k, MEIOS[k], !cartaoId && meio === k)).join('')}</optgroup><optgroup label="Vales">${opt('va', MEIOS.va, meio === 'va')}${opt('vr', MEIOS.vr, meio === 'vr')}</optgroup>${S.cartoes.length ? `<optgroup label="Crédito">${cartoesOrd().map(c => opt('cc:' + c.id, 'Crédito · ' + c.nome, cartaoId === c.id)).join('')}</optgroup>` : ''}`;
 const catOpts = (tipo, sel) => (tipo === 'receita' ? catsRec() : catsDesp()).map(c => opt(c.n, c.n, c.n === sel)).join('');
 const fv = v => (v == null || v === '' || isNaN(v)) ? '' : String(r2(+v)).replace('.', ',');
 
@@ -2921,7 +2949,7 @@ async function aiParse(txt) {
 Mensagem: """${txt.slice(0, 2000)}"""
 Categorias de despesa: ${JSON.stringify(cats)}
 Categorias de receita: ${JSON.stringify(rcats)}
-Cartões de crédito cadastrados (dia que fecha e dia que vence a fatura): ${JSON.stringify(S.cartoes.map(c => ({nome:c.nome, fecha:c.fecha, vence:c.vence})))}
+Cartões de crédito cadastrados (dia que fecha e dia que vence a fatura): ${JSON.stringify(S.cartoes.map(c => ({nome:c.nome, fecha:c.fecha, vence:c.vence})))}${cartaoPrincipal() ? `. Cartão principal (do dono): ${cartaoPrincipal().nome}: se a frase disser crédito ou cartão sem dizer qual, use ele; cartão de outra pessoa só se a frase disser o nome dele` : ''}
 Formas de pagamento: pix, debito, va (vale alimentação), vr (vale refeição), dinheiro, boleto, credito.
 Regras: um item por gasto ou receita citado. "valor" em reais como número (se for parcelado, o valor TOTAL). "data" em AAAA-MM-DD; interprete ontem, sexta etc. a partir de hoje; padrão hoje. Se a frase disser que vai ser pago/recebido numa data à frente ("vai ser pago dia 30/01", "pagar dia 10", "vence 05/12", "agendei para sexta", "cai dia 5"), "data" é essa data FUTURA: data sem ano é a próxima vez que ela acontece (em novembro, "30/01" é janeiro do ano que vem). Nunca troque uma data futura por hoje. "nparc" = número de parcelas (padrão 1). Se citar um cartão de crédito ou "crédito", use meio "credito" e "cartao" com o nome exato da lista; um cartão com nome de pessoa (ex.: Sabrina, Mãe, Sogra) só vale se a mensagem disser "cartão" ou "crédito" junto, como "no cartão da Sabrina"; em "roupas sabrina" ou "conta da minha mãe" o nome é só descrição; se citar débito, meio "debito" mesmo que cite o banco. Se não disser a forma de pagamento, meio null. "desc" curta, com inicial maiúscula. Salário, vale, PLR, 13º, férias, reembolso e dinheiro recebido são receitas.
 Se a mensagem disser que é recorrente (todo mês, mensal, assinatura, recorrente, fixo), "recorrente": true; senão false.
@@ -2943,7 +2971,7 @@ Responda só com JSON: {"acao":"lancar","itens":[{"tipo":"despesa","valor":0,"de
     const data = /^\d{4}-\d{2}-\d{2}$/.test(it.data || '') ? it.data : hoje();
     let meio = MEIOS[it.meio] || it.meio === 'credito' ? it.meio : null, cartaoId = null;
     if (meio === 'credito' || it.cartao) {
-      const c = S.cartoes.find(c => norm(c.nome) === norm(it.cartao)) || (S.cartoes.length === 1 ? S.cartoes[0] : null);
+      const c = S.cartoes.find(c => norm(c.nome) === norm(it.cartao)) || cartaoPrincipal();
       if (c && meio !== 'debito') { meio = 'credito'; cartaoId = c.id; } else if (meio === 'credito') meio = 'pix';
     }
     const meioDito = !!meio;
@@ -2987,7 +3015,7 @@ function acharFixo(it) {
 async function pagarFaturaTexto(it, txt) {
   const nt = norm(txt); let c = it.cartaoId ? cartao(it.cartaoId) : null;
   if (!c) S.cartoes.forEach(x => { if (nt.includes(norm(x.nome))) c = x; });
-  if (!c && S.cartoes.length === 1) c = S.cartoes[0]; if (!c) return null;
+  if (!c) c = cartaoPrincipal(); if (!c) return null;
   const T = hoje(); const ms = [addM(ymNow(), -1), ymNow(), addM(ymNow(), 1)].filter(m => !faturaPaga(c, m) && valorFatura(c, m) > 0);
   const m = ms.sort((a, b) => Math.abs(ddiff(T, vencFatura(c, a))) - Math.abs(ddiff(T, vencFatura(c, b))))[0]; if (!m) return null;
   await saveCfg({faturasPagas:{...(S.cfg.faturasPagas || {}), [fatKey(c, m)]:{v:r2(it.valor), em:new Date().toISOString()}}});
@@ -3304,7 +3332,7 @@ function vereditoGasto(txt) {
     h = sv >= V ? `<b class="pos">SIM, no vale.</b> ${somaTxt}. O vale tem ${brl0(sv)} e fica com ${brl0(sv - V)}.`
       : `<b class="warnc">SÓ SE completar na conta.</b> ${somaTxt}, mas o vale só tem ${brl0(sv)}. Os outros ${brl0(V - sv)} saem da conta e diminuem a sobra do mês${V > (g.comida || 0) + 0.5 ? ` (e passa do limite de comida: falta só ${brl0(g.comida || 0)})` : ''}.`;
   } else if (cred) {
-    const c = p.cartaoId ? cartao(p.cartaoId) : S.cartoes[0], n = clamp(p.nparc || 1, 1, 48); if (!c) return null;
+    const c = p.cartaoId ? cartao(p.cartaoId) : cartaoPrincipal(), n = clamp(p.nparc || 1, 1, 48); if (!c) return null;
     const ini = mesFatura(hoje(), c), pago = mm => { let t = 0; for (let i = 0; i < n; i++) if (addM(ini, i) <= mm) t += V / n; return t; };
     const w = depois(pago, ini), parc = n > 1 ? `${n}x de ${brl0(V / n)}` : 'à vista';
     h = w.l >= colchao(w.m) ? `<b class="pos">SIM.</b> ${somaTxt} no ${esc(c.nome)} ${parc}: a 1ª cobrança vem na fatura de ${ymLabel(ini)} (vence ${dLabel(vencFatura(c, ini))}) e todos os meses continuam com folga. O mês mais justo fica com ${brl0(w.l)} (${ymLabel(w.m)}).`
@@ -3328,7 +3356,7 @@ function simulacaoCompra(txt) {
   const nt = norm(txt), hv = histVar(), n = clamp(p.nparc || 1, 1, 48);
   const pj = projecao();
   const cenario = (credito, parc) => {
-    const c = credito ? (p.cartaoId ? cartao(p.cartaoId) : S.cartoes[0]) : null; if (credito && !c) return '';
+    const c = credito ? (p.cartaoId ? cartao(p.cartaoId) : cartaoPrincipal()) : null; if (credito && !c) return '';
     const ini = c ? mesFatura(hoje(), c) : ymNow(), vp = p.valor / parc; let neg = 0, acc = 0; const L = [];
     fluxo().forEach((x, i) => { if (x.m < ini) return; const k = monthsBetween(ini, x.m); if (k < parc) acc += vp; if (k > Math.max(parc, 3) || k >= 14) return; const s0 = x.livre; if (s0 - acc < 0) neg++; L.push(`${ymLabel(x.m)}: ${brl0(s0)} → ${brl0(s0 - acc)}`); });
     const hojeTxt = !c && pj.livre1 != null ? ` Livre até o próximo salário: ${brl(pj.livre1)} → ${brl(pj.livre1 - p.valor)}.` : '';
@@ -3558,7 +3586,7 @@ function lkHTML() {
   lkMeioAuto();
   const top = lkCatsTop(L.tipo); if (L.cat && !top.includes(L.cat)) top[6] = L.cat;
   const todas = (rec ? catsRec() : catsDesp()).map(c => c.n);
-  const meios = rec ? [['conta', 'Conta'], ['va', 'Vale']] : [['va', `Vale${sva != null ? ' · ' + brl0(sva) : ''}`], ['pix', 'Pix'], ['debito', 'Débito'], ['dinheiro', 'Dinheiro'], ...S.cartoes.map(c => ['cc:' + c.id, c.nome])];
+  const meios = rec ? [['conta', 'Conta'], ['va', 'Vale']] : [['va', `Vale${sva != null ? ' · ' + brl0(sva) : ''}`], ['pix', 'Pix'], ['debito', 'Débito'], ['dinheiro', 'Dinheiro'], ...cartoesOrd().map(c => ['cc:' + c.id, c.nome])];
   const meioAtual = L.cartaoId ? 'cc:' + L.cartaoId : L.meio;
   const credito = !!L.cartaoId;
   return `${lkTopo('teclado')}
@@ -3987,7 +4015,7 @@ F.orc = async fm => {
 A.orcMesLimpar = async el => { const om = {...(S.cfg.orcMes || {})}; Reflect.deleteProperty(om, el.dataset.m); try { await saveCfg({orcMes:om}); S.orcEsc = 'todos'; orcRender(); toast('Mês voltou aos limites padrão'); } catch (_) {} };
 // Editor de limites: lista simples, − e + para ajustar, salva sozinho.
 function orcFormHTML(m) { return `<div id="orc-ed" data-m="${m}">${orcEdBody(m)}</div>`; }
-const ORC_MEIO_CURTO = () => [['', 'Automático'], ['pix', 'Conta'], ['va', 'Vale alim.'], ['vr', 'Vale ref.'], ...S.cartoes.map(k => ['cc:' + k.id, 'Crédito ' + k.nome])];
+const ORC_MEIO_CURTO = () => [['', 'Automático'], ['pix', 'Conta'], ['va', 'Vale alim.'], ['vr', 'Vale ref.'], ...cartoesOrd().map(k => ['cc:' + k.id, 'Crédito ' + k.nome])];
 // Média de uma categoria para o editor: dia a dia fora comida pela mesma média do projetado; o resto pela média dos meses normais
 function mediasEd(m) { const med0 = mediaCat(addM(ymNow(), 1), 3, true).media, out = {}; Object.entries(med0).forEach(([c, v]) => { if (!ehPool(c)) out[c] = v; }); Object.entries(mediaPool(m)).forEach(([c, v]) => { if (v > 0.5) out[c] = v; }); return out; }
 function orcEdBody(m) {
