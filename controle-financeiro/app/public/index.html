@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 20:50';</script>
+<script>window.__versao = '21/11 21:04';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -738,8 +738,14 @@ function parseRapido(txt) {
   if (/\b(recebi|ganhei|entrou|salario|sal[aá]rio)\b/i.test(t)) r.tipo = 'receita';
   t = t.replace(/\b(\d{1,2})\s*x\b/i, (_, n) => { r.nparc = clamp(+n, 1, 48); return ' '; });
   t = t.replace(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/, (_, d, m, y) => {
-    const now = new Date(); let yy = y ? +y : now.getFullYear(); if (yy < 100) yy += 2000;
-    const dt = new Date(yy, +m - 1, +d); if (!isNaN(dt)) r.data = isoDate(dt); return ' ';
+    const now = new Date(hoje() + 'T12:00'); let yy = y ? +y : now.getFullYear(); if (yy < 100) yy += 2000;
+    let dt = new Date(yy, +m - 1, +d); const passado = /\b(comprei|gastei|paguei|fiz|foi|tive|teve|recebi|ganhei|entrou)\b/i.test(txt) && !/\b(vai|vou|vamos|pagar|vence|vencimento|agend\w*|cai|cair)\b/i.test(txt);
+    if (!y && !passado && (now - dt) / 864e5 > 60) dt = new Date(yy + 1, +m - 1, +d);   // sem ano e já passou há mais de 2 meses: é do ano que vem
+    if (!isNaN(dt)) r.data = isoDate(dt); return ' ';
+  });
+  t = t.replace(/\b(?:vai ser pag[oa]|vou pagar|vamos pagar|pagar|vence|vencimento|agendad[oa]|agendei|cai|vai cair)\s+(?:no |em |para o |pro |para |pra )?dia\s+(\d{1,2})\b(?!\s*\/)/i, (w, d) => {
+    const now = new Date(hoje() + 'T12:00'); let dt = new Date(now.getFullYear(), now.getMonth(), +d); if (dt < new Date(hoje() + 'T00:00')) dt = new Date(now.getFullYear(), now.getMonth() + 1, +d);
+    if (!isNaN(dt) && +d >= 1 && +d <= 31) r.data = isoDate(dt); return ' ';
   });
   t = t.replace(/\b(anteontem|ontem|hoje)\b/i, w => { const dt = new Date(); const k = w.toLowerCase(); if (k === 'ontem') dt.setDate(dt.getDate() - 1); if (k === 'anteontem') dt.setDate(dt.getDate() - 2); r.data = isoDate(dt); return ' '; });
   const mv = t.match(/(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\w\/])/i);
@@ -860,7 +866,7 @@ function lancRow(l) {
   const meio = l.cartaoId ? (cartao(l.cartaoId)?.nome || 'Cartão') : (MEIOS[l.meio] || '');
   const quem = l.por && Object.keys(S.nomes).length > 1 ? (S.nomes[l.por] || '').split(' ')[0] : '';
   const extra = [l.cat, meio, l.nparc > 1 ? `${l.parc}/${l.nparc}` : '', isFixo(l) ? 'fixo' : '', l.objId ? (S.objs.find(o => o.id === l.objId)?.nome || '') : '', quem].filter(Boolean).join(' · ');
-  return `<button class="li" data-a="editLanc" data-id="${l.id}">${catIco(l.cat, l.tipo)}<span class="tx"><span class="t1">${esc(l.desc)}${l.revisar ? ' <span class="pill warn" style="font-size:.7rem">revisar</span>' : ''}</span><span class="t2">${esc(extra)}</span></span><span class="am ${l.tipo === 'receita' ? 'pos' : ''}">${l.tipo === 'receita' ? '+' : '−'} ${brl(l.valor)}</span></button>`;
+  return `<button class="li" data-a="editLanc" data-id="${l.id}">${catIco(l.cat, l.tipo)}<span class="tx"><span class="t1">${esc(l.desc)}${l.revisar ? ' <span class="pill warn" style="font-size:.7rem">revisar</span>' : ''}${l.data && l.data > hoje() && !l.cartaoId ? ` <span class="pill" style="font-size:.7rem">agendado ${dCurto(l.data)}</span>` : ''}</span><span class="t2">${esc(extra)}</span></span><span class="am ${l.tipo === 'receita' ? 'pos' : ''}">${l.tipo === 'receita' ? '+' : '−'} ${brl(l.valor)}</span></button>`;
 }
 function niceMax(v) {
   if (v <= 0) return 1;
@@ -1052,9 +1058,9 @@ function vHoje() {
   if (rev.length) h += `<section class="sec2"><div class="sec2-h"><h2>Para revisar<span class="cnt">${rev.length}</span></h2><a class="lnk" href="#extrato">Ver</a></div>${rev.slice(0, 3).map(l => `<div class="ri">${catIco(l.cat, l.tipo)}<span class="tx"><span class="t1">${esc(l.desc)}</span><span class="t2">${esc(l.cat)} · ${esc(lugarDe(l))}</span></span><span class="v num">${brl0(l.valor)}</span><button class="okb" data-a="revOk" data-id="${l.id}" aria-label="Confirmar ${esc(l.desc)}">${svgI('M5 12l5 5 9-10', 16)}</button></div>`).join('')}</section>`;
   // próximos dias
   const lim = (() => { const x = new Date(T + 'T12:00'); x.setDate(x.getDate() + 7); return isoDate(x); })();
-  const prox = eventosFuturos(2).filter(e => e.d > T && e.d <= lim).map(e => ({d:e.d, t:e.desc, s:e.tipo === 'receita' ? 'entra na conta' : /^Fatura /.test(e.desc) ? 'pagar a fatura' : 'pagar', v:e.v, rec:e.tipo === 'receita'})).sort((a, b) => a.d.localeCompare(b.d)).slice(0, 6);
+  const prox = eventosFuturos(2).filter(e => e.d > T && e.d <= lim).map(e => ({d:e.d, t:e.desc, s:e.tipo === 'receita' ? 'entra na conta' : /^Fatura /.test(e.desc) ? 'pagar a fatura' : 'pagar', v:e.v, rec:e.tipo === 'receita'})).sort((a, b) => a.d.localeCompare(b.d)), proxMais = Math.max(0, prox.length - 8); prox.length = Math.min(prox.length, 8);
   const agP = agendaProxima(7).filter(a => a.d > T), agO = agP.length ? agP[0].o : null;
-  if (prox.length || agP.length) h += `<section class="sec2"><div class="sec2-h"><h2>Próximos 7 dias</h2><a class="lnk" href="#contas">Contas</a></div>${prox.map(p => `<div class="ri">${dtBox(p.d)}<span class="vbar" style="background:${p.rec ? '#10B981' : '#E8590C'}"></span><span class="tx"><span class="t1">${esc(p.t)}</span><span class="t2">${esc(p.s)}</span></span><span class="v num ${p.rec ? 'pos' : ''}">${p.rec ? '+ ' : ''}${brl0(p.v)}</span></div>`).join('') || '<p class="small muted" style="padding:6px 0">Nenhuma conta para pagar nos próximos 7 dias.</p>'}${agP.length ? `<div class="li" data-a="objGuia" data-id="${agO.id}" role="button" tabindex="0"><span class="tx"><span class="t1">📋 ${agP.length} lembrete${agP.length > 1 ? 's' : ''} de ${esc(agO.nome.replace(/\s*\(.*\)\s*$/, ''))}${new Set(agP.map(a => a.o.id)).size > 1 ? ' e outros planos' : ''}</span><span class="t2">próximo: ${esc(agP[0].t.length > 50 ? agP[0].t.slice(0, 47) + '…' : agP[0].t)}</span></span><span class="chev">›</span></div>` : ''}</section>`;
+  if (prox.length || agP.length) h += `<section class="sec2"><div class="sec2-h"><h2>Próximos 7 dias</h2><a class="lnk" href="#contas">Contas</a></div>${prox.map(p => `<div class="ri">${dtBox(p.d)}<span class="vbar" style="background:${p.rec ? '#10B981' : '#E8590C'}"></span><span class="tx"><span class="t1">${esc(p.t)}</span><span class="t2">${esc(p.s)}</span></span><span class="v num ${p.rec ? 'pos' : ''}">${p.rec ? '+ ' : ''}${brl0(p.v)}</span></div>`).join('') || '<p class="small muted" style="padding:6px 0">Nenhuma conta para pagar nos próximos 7 dias.</p>'}${proxMais ? `<a class="lnk small" href="#contas" style="display:block;padding:6px 0">+ ${proxMais} em Contas</a>` : ''}${agP.length ? `<div class="li" data-a="objGuia" data-id="${agO.id}" role="button" tabindex="0"><span class="tx"><span class="t1">📋 ${agP.length} lembrete${agP.length > 1 ? 's' : ''} de ${esc(agO.nome.replace(/\s*\(.*\)\s*$/, ''))}${new Set(agP.map(a => a.o.id)).size > 1 ? ' e outros planos' : ''}</span><span class="t2">próximo: ${esc(agP[0].t.length > 50 ? agP[0].t.slice(0, 47) + '…' : agP[0].t)}</span></span><span class="chev">›</span></div>` : ''}</section>`;
   const esq = esquecidos();
   if (esq.length) h += `<section class="sec2"><div class="sec2-h"><h2>Esqueceu algo?</h2></div>${esq.map(x => `<div class="ri"><span class="tx"><span class="t1">${x.t}</span><span class="t2">${x.sub}</span></span>${x.btn}</div>`).join('')}</section>`;
   if (mostrarInstalar()) h += instalarHTML(false);
@@ -1105,7 +1111,7 @@ function linhaMes0(m) {
     Object.entries(lin).forEach(([k, ls]) => { const o = S.objs.find(x => x.nome === k), v = sum(ls, l => l.v), t = o ? tipoCx(o) : 'plano', rep = ls.some(l => /^Repor no guardado/.test(l.desc)), nota = (ls.find(l => /\(guarda /.test(l.desc)) || {}).desc;
       G.push({kind:t === 'reserva' || t === 'emergencia' || rep ? 'reservaObj' : 'objDia', o, tipo:t === 'reserva' || t === 'emergencia' || rep ? 'guardar' : 'despesa', valor:v, desc:rep ? `Repor na caixinha ${k}` : t === 'reserva' || t === 'emergencia' ? `Guardar na caixinha ${k}` : `${k} (gastos do plano)`, sub:nota ? nota.replace(/^.*\((guarda [^)]*)\)$/, '$1') : '', dia:diaDe(v), cat:t === 'viagem' ? 'Viagens' : 'Guardado'}); }); }
   // o que já foi lançado para um mês à frente (ex.: compra marcada para março) entra no dia dela
-  if (m > hojeM) S.lanc.filter(l => l.mes === m && !l.cartaoId && !isVA(l) && !isRep(l) && (l.tipo === 'despesa' || l.tipo === 'receita')).forEach(l => G.push({kind:'lanc', ref:l, tipo:l.tipo, valor:+l.valor || 0, desc:l.desc, dia:l.data && l.data.slice(0, 7) === m ? +l.data.slice(8) : 1, cat:l.cat}));
+  if (m >= hojeM) S.lanc.filter(l => l.mes === m && (m > hojeM || (l.data && l.data > hoje() && (l.tipo === 'receita' ? walletRec(l) === 'conta' : CASH.includes(l.meio)))) && !l.cartaoId && !isVA(l) && !isRep(l) && (l.tipo === 'despesa' || l.tipo === 'receita')).forEach(l => G.push({kind:'lanc', ref:l, tipo:l.tipo, valor:+l.valor || 0, desc:l.desc, dia:l.data && l.data.slice(0, 7) === m ? +l.data.slice(8) : 1, cat:l.cat}));
   (projMes(m).usos || []).forEach(u => G.push({kind:'uso', o:u.o, tipo:'receita', valor:u.v, desc:`Tirar da caixinha ${u.o.nome}${u.para ? ' (' + u.para + ')' : ''}`, dia:1, cat:'Guardado'}));
   { const fxm = fluxo().find(x => x.m === m); if (fxm && fxm.cxMov > 1) { const recs = fixosAtivos(m).filter(f => f.tipo === 'receita' && walletRec(f) === 'conta').sort((a, b) => valorFixo(b, m) - valorFixo(a, m)); let dia = diasNoMes(m); G.push({kind:'sobra', tipo:'guardar', valor:fxm.cxMov, desc:`No fim do mês: guardar a sobra na caixinha ${NOME_SOBRAS}`, dia, cat:'Guardado'}); }
     else if (fxm && fxm.cxMov < -1) G.push({kind:'tirarSobra', tipo:'receita', valor:-fxm.cxMov, desc:`Tirar ${brl0(-fxm.cxMov)} da caixinha ${NOME_SOBRAS}`, sub:(() => { const ps = G.filter(p => p.kind === 'objDia').map(p => p.desc.replace(/\s*\(gastos do plano\)$/, '').replace(/\s*\(.*\)\s*$/, '')); return ps.length ? `para ${ps.join(' e ')}; o mês sozinho não cobre` : 'o que entra no mês não cobre o que sai; tira só o que falta'; })(), dia:m === hojeM ? d0 : 1, cat:'Guardado'}); }
@@ -1162,7 +1168,7 @@ function vContasHoje() {
   const row = p => { const falta = m === hojeM ? p.dia - d0 : m < hojeM ? -1 : 99, gu = p.kind === 'guardar' || p.kind === 'repor' || p.kind === 'uso';
     const ga = p.kind === 'sobra' && m === hojeM ? Math.min(p.valor, guardavelAgora()) : 0;
     const gu2 = gu || ['sobra', 'tirarSobra', 'reservaObj', 'ponteCx', 'ponteVolta', 'ponteFat', 'fxCx'].includes(p.kind);
-    const sub = p.pago ? 'já feito' : p.sub && ['ponteCx', 'ponteCred', 'cheque', 'ponteVolta', 'ponteFat', 'fxCx', 'fxConta', 'tirarSobra', 'dividaAnt'].includes(p.kind) ? p.sub : p.kind === 'lanc' ? 'já lançado' : p.noSaldo ? `já está no saldo conferido em ${dCurto(S.cfg.saldo.d)}: toque em ${p.tipo === 'receita' ? 'Recebi' : 'Paguei'} para tirar daqui` : p.kind === 'reservaObj' ? (p.sub || 'da conta para a caixinha') : p.kind === 'objDia' ? 'gastos da viagem/compra ao longo do mês (veja o guia)' : p.kind === 'sobra' ? (m === hojeM && ga < p.valor - 1 ? (ga >= 1 ? `dá para guardar ${brl0(ga)} agora; o resto quando o dinheiro entrar` : 'guarde quando o dinheiro entrar (salário, férias…)') : 'o que passar da folga: da conta para a caixinha') : p.kind === 'tirarSobra' ? 'volta para a conta para o mês fechar com a folga' : gu ? (p.kind === 'uso' ? 'volta da caixinha para a conta' : 'da conta para a caixinha') : p.tipo === 'receita' ? (walletRec(p.ref) === 'conta' ? 'entra na conta' : 'entra no vale') : (falta <= 1 && m === hojeM ? quandoTxt(falta) + ' · ' : '') + comoPagar(p);
+    const sub = p.pago ? 'já feito' : p.sub && ['ponteCx', 'ponteCred', 'cheque', 'ponteVolta', 'ponteFat', 'fxCx', 'fxConta', 'tirarSobra', 'dividaAnt'].includes(p.kind) ? p.sub : p.kind === 'lanc' ? (p.ref && p.ref.data > hoje() ? `agendado para ${dCurto(p.ref.data)} · já lançado` : 'já lançado') : p.noSaldo ? `já está no saldo conferido em ${dCurto(S.cfg.saldo.d)}: toque em ${p.tipo === 'receita' ? 'Recebi' : 'Paguei'} para tirar daqui` : p.kind === 'reservaObj' ? (p.sub || 'da conta para a caixinha') : p.kind === 'objDia' ? 'gastos da viagem/compra ao longo do mês (veja o guia)' : p.kind === 'sobra' ? (m === hojeM && ga < p.valor - 1 ? (ga >= 1 ? `dá para guardar ${brl0(ga)} agora; o resto quando o dinheiro entrar` : 'guarde quando o dinheiro entrar (salário, férias…)') : 'o que passar da folga: da conta para a caixinha') : p.kind === 'tirarSobra' ? 'volta para a conta para o mês fechar com a folga' : gu ? (p.kind === 'uso' ? 'volta da caixinha para a conta' : 'da conta para a caixinha') : p.tipo === 'receita' ? (walletRec(p.ref) === 'conta' ? 'entra na conta' : 'entra no vale') : (falta <= 1 && m === hojeM ? quandoTxt(falta) + ' · ' : '') + comoPagar(p);
     const btn = p.pago || ro ? '' : p.kind === 'fxCx' ? (m <= hojeM ? `<button class="btn sm" data-a="pagarDaCx" data-o="${p.o.id}" data-f="${p.ref.id}" data-m="${m}">Paguei</button>` : '') : p.kind === 'fxConta' ? (m <= hojeM ? `<button class="btn sm" data-a="pagar" data-kind="fixo" data-id="${p.ref.id}" data-m="${m}">Paguei</button>` : '') : ['ponteCred', 'cheque', 'ponteVolta', 'ponteFat', 'dividaAnt'].includes(p.kind) ? '' : p.kind === 'ponteCx' ? (m === hojeM ? `<button class="btn sm" data-a="tirarSobra" data-v="${r2(p.valor)}">Tirei</button>` : '') : p.kind === 'lanc' ? `<button class="btn sm" data-a="editLanc" data-id="${p.ref.id}">Ver</button>` : p.kind === 'reservaObj' || p.kind === 'objDia' ? (p.o ? `<button class="btn sm" data-a="objGuia" data-id="${p.o.id}">Guia</button>` : '') : p.kind === 'sobra' ? (ga >= 1 ? `<button class="btn sm" data-a="guardarSobra" data-v="${r2(ga)}">Guardar ${brl0(ga)}</button>` : '') : p.kind === 'tirarSobra' ? (m === hojeM ? `<button class="btn sm" data-a="tirarSobra" data-v="${r2(p.valor)}">Tirei</button>` : '') : gu ? (p.kind !== 'uso' && m === hojeM ? `<button class="btn sm" data-a="abrirGuardado">Guardar</button>` : '') : p.kind === 'fatura' ? `<button class="btn sm" data-a="verFatura" data-c="${p.ref.id}" data-m="${m}">Ver</button>` : botaoPagar({...p, falta}, m);
     const cor = p.pago ? 'color:var(--muted)' : '';
     return `<div class="ri">${gu2 ? `<span class="cic" style="background:#ECFDF5;color:#047857">${svgI('M12 3v12M7 10l5 5 5-5M5 21h14', 18)}</span>` : catIco(p.cat, p.tipo)}<span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${sub}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b class="num ${p.tipo === 'receita' ? 'pos' : ''}" style="${cor}">${p.tipo === 'receita' ? '+ ' : p.tipo === 'guardar' ? '→ ' : ''}${brl(p.valor)}</b>${btn}</span></div>`; };
@@ -1780,10 +1786,14 @@ A.toggleMore = el => { S.moreOpen = !el.parentElement.open; el.parentElement.ope
 A.irMesProj = el => { S.mes = el.dataset.m; render(); window.scrollTo(0, 0); };
 const ddiff = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
 const CASH = ['pix', 'debito', 'dinheiro', 'boleto', 'transferencia'];
+// Um lançamento já está dentro do saldo conferido se aconteceu antes do dia do saldo (ou no mesmo dia, lançado antes de conferir).
+// Lançado antes de conferir mas com data depois (agendado): entra quando a data chegar.
+const jaNoSaldo = (l, sd) => { const em = String(l.criado || '') <= sd.em; if (!l.data || !sd.d) return em; return l.data < sd.d || (l.data === sd.d && em); };
 function saldoHoje() {
   const sd = S.cfg.saldo; if (!sd || sd.v == null) return null;
   let v = +sd.v;
-  S.lanc.forEach(l => { if (String(l.criado || '') <= sd.em || (sd.d && l.data && l.data < sd.d)) return;
+  const T = hoje();
+  S.lanc.forEach(l => { if (jaNoSaldo(l, sd) || (l.data && l.data > T)) return;   // data futura = agendado
     if (l.tipo === 'receita') { if (!isVARec(l)) v += +l.valor || 0; }
     else if (CASH.includes(l.meio)) v -= +l.valor || 0; });
   Object.values(S.cfg.faturasPagas || {}).forEach(fp => { if (fp && fp.em > sd.em) v -= +fp.v || 0; });
@@ -1793,7 +1803,8 @@ function saldoHoje() {
 function saldoVAHoje() {
   const sd = S.cfg.saldoVA; if (!sd || sd.v == null) return null;
   let v = +sd.v;
-  S.lanc.forEach(l => { if (String(l.criado || '') <= sd.em || (sd.d && l.data && l.data < sd.d)) return; if (l.tipo === 'receita') { if (isVARec(l)) v += +l.valor || 0; } else if (isVA(l)) v -= +l.valor || 0; });
+  const T = hoje();
+  S.lanc.forEach(l => { if (jaNoSaldo(l, sd) || (l.data && l.data > T)) return; if (l.tipo === 'receita') { if (isVARec(l)) v += +l.valor || 0; } else if (isVA(l)) v -= +l.valor || 0; });
   return r2(v);
 }
 function eventosFuturos(meses = 3) {
@@ -1816,6 +1827,9 @@ function eventosFuturos(meses = 3) {
     });
     S.cartoes.forEach(c => { const d = vencFatura(c, m), v = valorFatura(c, m); if (v > 0 && !faturaPaga(c, m) && (d >= T || m === m0) && !(sdD && d < sdD)) ev.push({d:d < T ? T : d, tipo:'despesa', v, desc:'Fatura ' + c.nome}); });
   }
+  const ate = addM(m0, meses - 1);
+  S.lanc.forEach(l => { if (!l.data || l.data <= T || l.data.slice(0, 7) > ate || l.cartaoId || isRep(l)) return;
+    if (l.tipo === 'receita' ? walletRec(l) === 'conta' : CASH.includes(l.meio)) ev.push({d:l.data, tipo:l.tipo === 'receita' ? 'receita' : 'despesa', v:+l.valor || 0, desc:`${l.desc} (agendado)`, agendado:true}); });
   return ev.sort((a, b) => a.d.localeCompare(b.d) || (a.tipo === 'receita' ? -1 : 1));
 }
 function projecao() {
@@ -2776,7 +2790,7 @@ Categorias de despesa: ${JSON.stringify(cats)}
 Categorias de receita: ${JSON.stringify(rcats)}
 Cartões de crédito cadastrados (dia que fecha e dia que vence a fatura): ${JSON.stringify(S.cartoes.map(c => ({nome:c.nome, fecha:c.fecha, vence:c.vence})))}
 Formas de pagamento: pix, debito, va (vale alimentação), vr (vale refeição), dinheiro, boleto, credito.
-Regras: um item por gasto ou receita citado. "valor" em reais como número (se for parcelado, o valor TOTAL). "data" em AAAA-MM-DD; interprete ontem, sexta etc. a partir de hoje; padrão hoje. "nparc" = número de parcelas (padrão 1). Se citar um cartão de crédito ou "crédito", use meio "credito" e "cartao" com o nome exato da lista; um cartão com nome de pessoa (ex.: Sabrina, Mãe, Sogra) só vale se a mensagem disser "cartão" ou "crédito" junto, como "no cartão da Sabrina"; em "roupas sabrina" ou "conta da minha mãe" o nome é só descrição; se citar débito, meio "debito" mesmo que cite o banco. Se não disser a forma de pagamento, meio null. "desc" curta, com inicial maiúscula. Salário, vale, PLR, 13º, férias, reembolso e dinheiro recebido são receitas.
+Regras: um item por gasto ou receita citado. "valor" em reais como número (se for parcelado, o valor TOTAL). "data" em AAAA-MM-DD; interprete ontem, sexta etc. a partir de hoje; padrão hoje. Se a frase disser que vai ser pago/recebido numa data à frente ("vai ser pago dia 30/01", "pagar dia 10", "vence 05/12", "agendei para sexta", "cai dia 5"), "data" é essa data FUTURA: data sem ano é a próxima vez que ela acontece (em novembro, "30/01" é janeiro do ano que vem). Nunca troque uma data futura por hoje. "nparc" = número de parcelas (padrão 1). Se citar um cartão de crédito ou "crédito", use meio "credito" e "cartao" com o nome exato da lista; um cartão com nome de pessoa (ex.: Sabrina, Mãe, Sogra) só vale se a mensagem disser "cartão" ou "crédito" junto, como "no cartão da Sabrina"; em "roupas sabrina" ou "conta da minha mãe" o nome é só descrição; se citar débito, meio "debito" mesmo que cite o banco. Se não disser a forma de pagamento, meio null. "desc" curta, com inicial maiúscula. Salário, vale, PLR, 13º, férias, reembolso e dinheiro recebido são receitas.
 Se a mensagem disser que é recorrente (todo mês, mensal, assinatura, recorrente, fixo), "recorrente": true; senão false.
 Dinheiro recebido de outra pessoa só para pagar uma conta dela, e o pagamento dessa conta de outra pessoa, usam a categoria "Repasse" (receita e despesa).
 "inicio": se a pessoa disser em que mês cai a primeira parcela ou a fatura (ex.: "começa em novembro", "o início é em novembro de 2026", "primeira parcela em dezembro", "entra na fatura de janeiro"), coloque esse mês em AAAA-MM; senão null. Nunca invente.
@@ -3096,7 +3110,7 @@ A.respMeio = async el => {
   try { const r = await salvarItens(p.out, p.txt); msg.ids = r.ids; msg.fixos = r.fixos; msg.revs = r.revs; msg.h = resHTML(r); } catch (_) { msg.h = 'Não consegui registrar agora. Tente de novo.'; }
   chatRender();
 };
-const descItem = it => `${it.tipo === 'receita' ? '+ ' : ''}<b class="num">${brl(it.valor)}</b> ${esc(it.desc)} <span class="muted">· ${esc(it.cat)} · ${it.cartaoId ? 'Crédito ' + esc(cartao(it.cartaoId)?.nome || '') : MEIOS[it.meio] || ''}${it.nparc > 1 ? ` · ${it.nparc}×` : ''}${it.cartaoId || it.nparc > 1 ? ` · 1ª na fatura de ${ymLabel(it.mes || (it.cartaoId ? mesFatura(it.data, cartao(it.cartaoId)) : it.data.slice(0, 7)))}` : ''}${it._baixa === 'fatura' ? ' · fatura marcada como paga' : it._baixa ? ` · ${it.tipo === 'receita' ? 'recebido' : 'pago'}: ${esc(it._baixa)}${it.refMes && it.refMes !== ymNow() ? ' (' + ymLabel(it.refMes) + ')' : ''}` : it.fixoId ? ' · todo mês' : ''}${it.data !== hoje() ? ' · ' + dLabel(it.data) : ''}</span>`;
+const descItem = it => `${it.tipo === 'receita' ? '+ ' : ''}<b class="num">${brl(it.valor)}</b> ${esc(it.desc)} <span class="muted">· ${esc(it.cat)} · ${it.cartaoId ? 'Crédito ' + esc(cartao(it.cartaoId)?.nome || '') : MEIOS[it.meio] || ''}${it.nparc > 1 ? ` · ${it.nparc}×` : ''}${it.cartaoId || it.nparc > 1 ? ` · 1ª na fatura de ${ymLabel(it.mes || (it.cartaoId ? mesFatura(it.data, cartao(it.cartaoId)) : it.data.slice(0, 7)))}` : ''}${it._baixa === 'fatura' ? ' · fatura marcada como paga' : it._baixa ? ` · ${it.tipo === 'receita' ? 'recebido' : 'pago'}: ${esc(it._baixa)}${it.refMes && it.refMes !== ymNow() ? ' (' + ymLabel(it.refMes) + ')' : ''}` : it.fixoId ? ' · todo mês' : ''}${it.data > hoje() && !it.cartaoId && it._baixa !== 'fatura' ? ` · <b>agendado para ${dLabel(it.data)}</b>: não sai da conta hoje` : it.data !== hoje() ? ' · ' + dLabel(it.data) : ''}</span>`;
 // "Posso gastar?": o app decide (SIM / SÓ SE / NÃO) com os próprios números, sem depender da IA.
 function valoresDoTexto(txt) {
   const out = [], re = /(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?:\s*(mil|k)\b)?/gi; let mt;
@@ -3437,8 +3451,8 @@ A.delGrupo = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.
 
 // pagar contas fixas / empréstimos
 function lancDePendente(kind, ref, m, valor, data) {
-  if (kind === 'fixo') return {tipo:ref.tipo || 'despesa', valor:valor ?? valorFixo(ref, m), desc:ref.desc, cat:ref.repasse ? 'Repasse' : (ref.cat || 'Outros'), data:data || `${m}-${pad(diaFixo(ref, m))}`, meio:ref.meio || 'pix', cartaoId:ref.cartaoId || null, fixoId:ref.id, refMes:m, mes:ref.cartaoId && cartao(ref.cartaoId) ? mesFatura(data || dataFixo(ref, m), cartao(ref.cartaoId)) : m};
-  return {tipo:ref.direcao === 'receber' ? 'receita' : 'despesa', valor:valor ?? +ref.parcela, desc:`${ref.desc} (${parcNum(ref, m)}/${ref.n})`, cat:ref.direcao === 'receber' ? 'Outras receitas' : (ref.cat || 'Dívidas & juros'), data:data || `${m}-${pad(Math.min(+ref.dia || 1, diasNoMes(m)))}`, meio:'boleto', empId:ref.id, mes:m};
+  if (kind === 'fixo') return {tipo:ref.tipo || 'despesa', valor:valor ?? valorFixo(ref, m), desc:ref.desc, cat:ref.repasse ? 'Repasse' : (ref.cat || 'Outros'), data:data || [`${m}-${pad(diaFixo(ref, m))}`, hoje()].sort()[0], meio:ref.meio || 'pix', cartaoId:ref.cartaoId || null, fixoId:ref.id, refMes:m, mes:ref.cartaoId && cartao(ref.cartaoId) ? mesFatura(data || dataFixo(ref, m), cartao(ref.cartaoId)) : m};
+  return {tipo:ref.direcao === 'receber' ? 'receita' : 'despesa', valor:valor ?? +ref.parcela, desc:`${ref.desc} (${parcNum(ref, m)}/${ref.n})`, cat:ref.direcao === 'receber' ? 'Outras receitas' : (ref.cat || 'Dívidas & juros'), data:data || [`${m}-${pad(Math.min(+ref.dia || 1, diasNoMes(m)))}`, hoje()].sort()[0], meio:'boleto', empId:ref.id, mes:m};
 }
 A.pagar = el => {
   const kind = el.dataset.kind, m = el.dataset.m || S.mes;
