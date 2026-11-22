@@ -198,6 +198,11 @@ async function mudarMes(b) {
   await p.click('#sheet button[type="submit"]'); await p.waitForTimeout(400);
   const v = await val();
   ok(v.dez === 3500 && v.nov === 3000 && v.jan === 3000, `"só em dezembro" muda só dezembro (nov ${v.nov} · dez ${v.dez} · jan ${v.jan})`);
+  await p.click('button[data-a="editFixoMes"][data-id="fx-internet"][data-m="2026-12"]'); await p.waitForTimeout(300);
+  ok(await p.locator('#sheet [data-a="pagar"][data-id="fx-internet"][data-m="2026-12"]').count() === 1, 'no editor de um mês à frente ainda dá para marcar "Já paguei" adiantado');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+  for (let i = 0; i < 2; i++) { await p.click('[data-a="calMes"][data-d="1"]'); await p.waitForTimeout(300); }
+  ok(/sai da caixinha Reserva do carro/.test(await texto(p)) && await p.locator('[data-a="editFixoMes"][data-id="fx-carro"]').count() === 0, 'fevereiro: o financiamento pago pela caixinha não tem Mudar (mudar ali apagaria o "sai da caixinha")');
   ok(!erros.length, `mudar: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
