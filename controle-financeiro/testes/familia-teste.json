@@ -1,0 +1,756 @@
+{
+ "lanc": {
+  "l001": {
+   "criado": "2026-06-08T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 1400,
+   "desc": "Supermercado",
+   "cat": "Mercado",
+   "data": "2026-06-08",
+   "mes": "2026-06",
+   "meio": "va"
+  },
+  "l002": {
+   "criado": "2026-06-12T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 250,
+   "desc": "Lanche",
+   "cat": "Restaurantes e lanches",
+   "data": "2026-06-12",
+   "mes": "2026-06",
+   "meio": "va"
+  },
+  "l003": {
+   "criado": "2026-06-14T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 60,
+   "desc": "Pizza",
+   "cat": "Delivery",
+   "data": "2026-06-14",
+   "mes": "2026-06",
+   "meio": "va"
+  },
+  "l004": {
+   "criado": "2026-06-16T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 180,
+   "desc": "Barzinho",
+   "cat": "Bares e saídas",
+   "data": "2026-06-16",
+   "mes": "2026-06",
+   "meio": "pix"
+  },
+  "l005": {
+   "criado": "2026-06-18T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 140,
+   "desc": "Cinema",
+   "cat": "Lazer",
+   "data": "2026-06-18",
+   "mes": "2026-06",
+   "meio": "pix"
+  },
+  "l006": {
+   "criado": "2026-06-05T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 280,
+   "desc": "Gasolina",
+   "cat": "Transporte",
+   "data": "2026-06-05",
+   "mes": "2026-06",
+   "meio": "pix"
+  },
+  "l007": {
+   "criado": "2026-06-20T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 90,
+   "desc": "Loja de roupas",
+   "cat": "Compras",
+   "data": "2026-06-20",
+   "mes": "2026-06",
+   "meio": "pix"
+  },
+  "l008": {
+   "criado": "2026-06-22T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 70,
+   "desc": "Farmácia",
+   "cat": "Saúde",
+   "data": "2026-06-22",
+   "mes": "2026-06",
+   "meio": "pix"
+  },
+  "l009": {
+   "criado": "2026-07-08T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 1400,
+   "desc": "Supermercado",
+   "cat": "Mercado",
+   "data": "2026-07-08",
+   "mes": "2026-07",
+   "meio": "va"
+  },
+  "l010": {
+   "criado": "2026-07-12T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 250,
+   "desc": "Lanche",
+   "cat": "Restaurantes e lanches",
+   "data": "2026-07-12",
+   "mes": "2026-07",
+   "meio": "va"
+  },
+  "l011": {
+   "criado": "2026-07-14T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 60,
+   "desc": "Pizza",
+   "cat": "Delivery",
+   "data": "2026-07-14",
+   "mes": "2026-07",
+   "meio": "va"
+  },
+  "l012": {
+   "criado": "2026-07-16T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 180,
+   "desc": "Barzinho",
+   "cat": "Bares e saídas",
+   "data": "2026-07-16",
+   "mes": "2026-07",
+   "meio": "pix"
+  },
+  "l013": {
+   "criado": "2026-07-18T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 140,
+   "desc": "Cinema",
+   "cat": "Lazer",
+   "data": "2026-07-18",
+   "mes": "2026-07",
+   "meio": "pix"
+  },
+  "l014": {
+   "criado": "2026-07-05T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 280,
+   "desc": "Gasolina",
+   "cat": "Transporte",
+   "data": "2026-07-05",
+   "mes": "2026-07",
+   "meio": "pix"
+  },
+  "l015": {
+   "criado": "2026-07-20T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 90,
+   "desc": "Loja de roupas",
+   "cat": "Compras",
+   "data": "2026-07-20",
+   "mes": "2026-07",
+   "meio": "pix"
+  },
+  "l016": {
+   "criado": "2026-07-22T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 70,
+   "desc": "Farmácia",
+   "cat": "Saúde",
+   "data": "2026-07-22",
+   "mes": "2026-07",
+   "meio": "pix"
+  },
+  "l017": {
+   "criado": "2026-08-08T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 1400,
+   "desc": "Supermercado",
+   "cat": "Mercado",
+   "data": "2026-08-08",
+   "mes": "2026-08",
+   "meio": "va"
+  },
+  "l018": {
+   "criado": "2026-08-12T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 250,
+   "desc": "Lanche",
+   "cat": "Restaurantes e lanches",
+   "data": "2026-08-12",
+   "mes": "2026-08",
+   "meio": "va"
+  },
+  "l019": {
+   "criado": "2026-08-14T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 60,
+   "desc": "Pizza",
+   "cat": "Delivery",
+   "data": "2026-08-14",
+   "mes": "2026-08",
+   "meio": "va"
+  },
+  "l020": {
+   "criado": "2026-08-16T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 180,
+   "desc": "Barzinho",
+   "cat": "Bares e saídas",
+   "data": "2026-08-16",
+   "mes": "2026-08",
+   "meio": "pix"
+  },
+  "l021": {
+   "criado": "2026-08-18T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 140,
+   "desc": "Cinema",
+   "cat": "Lazer",
+   "data": "2026-08-18",
+   "mes": "2026-08",
+   "meio": "pix"
+  },
+  "l022": {
+   "criado": "2026-08-05T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 280,
+   "desc": "Gasolina",
+   "cat": "Transporte",
+   "data": "2026-08-05",
+   "mes": "2026-08",
+   "meio": "pix"
+  },
+  "l023": {
+   "criado": "2026-08-20T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 90,
+   "desc": "Loja de roupas",
+   "cat": "Compras",
+   "data": "2026-08-20",
+   "mes": "2026-08",
+   "meio": "pix"
+  },
+  "l024": {
+   "criado": "2026-08-22T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 70,
+   "desc": "Farmácia",
+   "cat": "Saúde",
+   "data": "2026-08-22",
+   "mes": "2026-08",
+   "meio": "pix"
+  },
+  "l025": {
+   "criado": "2026-09-08T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 1400,
+   "desc": "Supermercado",
+   "cat": "Mercado",
+   "data": "2026-09-08",
+   "mes": "2026-09",
+   "meio": "va"
+  },
+  "l026": {
+   "criado": "2026-09-12T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 250,
+   "desc": "Lanche",
+   "cat": "Restaurantes e lanches",
+   "data": "2026-09-12",
+   "mes": "2026-09",
+   "meio": "va"
+  },
+  "l027": {
+   "criado": "2026-09-14T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 60,
+   "desc": "Pizza",
+   "cat": "Delivery",
+   "data": "2026-09-14",
+   "mes": "2026-09",
+   "meio": "va"
+  },
+  "l028": {
+   "criado": "2026-09-16T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 180,
+   "desc": "Barzinho",
+   "cat": "Bares e saídas",
+   "data": "2026-09-16",
+   "mes": "2026-09",
+   "meio": "pix"
+  },
+  "l029": {
+   "criado": "2026-09-18T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 140,
+   "desc": "Cinema",
+   "cat": "Lazer",
+   "data": "2026-09-18",
+   "mes": "2026-09",
+   "meio": "pix"
+  },
+  "l030": {
+   "criado": "2026-09-05T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 280,
+   "desc": "Gasolina",
+   "cat": "Transporte",
+   "data": "2026-09-05",
+   "mes": "2026-09",
+   "meio": "pix"
+  },
+  "l031": {
+   "criado": "2026-09-20T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 90,
+   "desc": "Loja de roupas",
+   "cat": "Compras",
+   "data": "2026-09-20",
+   "mes": "2026-09",
+   "meio": "pix"
+  },
+  "l032": {
+   "criado": "2026-09-22T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 70,
+   "desc": "Farmácia",
+   "cat": "Saúde",
+   "data": "2026-09-22",
+   "mes": "2026-09",
+   "meio": "pix"
+  },
+  "l033": {
+   "criado": "2026-10-08T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 1400,
+   "desc": "Supermercado",
+   "cat": "Mercado",
+   "data": "2026-10-08",
+   "mes": "2026-10",
+   "meio": "va"
+  },
+  "l034": {
+   "criado": "2026-10-12T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 250,
+   "desc": "Lanche",
+   "cat": "Restaurantes e lanches",
+   "data": "2026-10-12",
+   "mes": "2026-10",
+   "meio": "va"
+  },
+  "l035": {
+   "criado": "2026-10-14T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 60,
+   "desc": "Pizza",
+   "cat": "Delivery",
+   "data": "2026-10-14",
+   "mes": "2026-10",
+   "meio": "va"
+  },
+  "l036": {
+   "criado": "2026-10-16T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 180,
+   "desc": "Barzinho",
+   "cat": "Bares e saídas",
+   "data": "2026-10-16",
+   "mes": "2026-10",
+   "meio": "pix"
+  },
+  "l037": {
+   "criado": "2026-10-18T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 140,
+   "desc": "Cinema",
+   "cat": "Lazer",
+   "data": "2026-10-18",
+   "mes": "2026-10",
+   "meio": "pix"
+  },
+  "l038": {
+   "criado": "2026-10-05T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 280,
+   "desc": "Gasolina",
+   "cat": "Transporte",
+   "data": "2026-10-05",
+   "mes": "2026-10",
+   "meio": "pix"
+  },
+  "l039": {
+   "criado": "2026-10-20T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 90,
+   "desc": "Loja de roupas",
+   "cat": "Compras",
+   "data": "2026-10-20",
+   "mes": "2026-10",
+   "meio": "pix"
+  },
+  "l040": {
+   "criado": "2026-10-22T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 70,
+   "desc": "Farmácia",
+   "cat": "Saúde",
+   "data": "2026-10-22",
+   "mes": "2026-10",
+   "meio": "pix"
+  },
+  "l041": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 1000,
+   "desc": "Supermercado",
+   "cat": "Mercado",
+   "data": "2026-11-08",
+   "mes": "2026-11",
+   "meio": "va"
+  },
+  "l042": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 120,
+   "desc": "Mercado da esquina",
+   "cat": "Mercado",
+   "data": "2026-11-12",
+   "mes": "2026-12",
+   "meio": "credito",
+   "cartaoId": "azul"
+  },
+  "l043": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 90,
+   "desc": "Lanche",
+   "cat": "Restaurantes e lanches",
+   "data": "2026-11-09",
+   "mes": "2026-11",
+   "meio": "va"
+  },
+  "l044": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 70,
+   "desc": "Barzinho",
+   "cat": "Bares e saídas",
+   "data": "2026-11-14",
+   "mes": "2026-11",
+   "meio": "pix"
+  },
+  "l045": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 260,
+   "desc": "Show",
+   "cat": "Lazer",
+   "data": "2026-11-15",
+   "mes": "2026-11",
+   "meio": "pix"
+  },
+  "l046": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 160,
+   "desc": "Gasolina",
+   "cat": "Transporte",
+   "data": "2026-11-06",
+   "mes": "2026-12",
+   "meio": "credito",
+   "cartaoId": "azul"
+  },
+  "l047": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 40,
+   "desc": "Presente",
+   "cat": "Compras",
+   "data": "2026-11-11",
+   "mes": "2026-11",
+   "meio": "pix"
+  },
+  "l048": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 400,
+   "desc": "Acordo de dívida",
+   "cat": "Dívidas & juros",
+   "data": "2026-11-03",
+   "mes": "2026-11",
+   "meio": "pix"
+  },
+  "l049": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 1500,
+   "desc": "Aluguel",
+   "cat": "Moradia",
+   "data": "2026-11-10",
+   "mes": "2026-11",
+   "meio": "pix",
+   "fixoId": "fx-aluguel",
+   "refMes": "2026-11"
+  },
+  "l050": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 100,
+   "desc": "Internet",
+   "cat": "Contas da casa",
+   "data": "2026-11-15",
+   "mes": "2026-11",
+   "meio": "pix",
+   "fixoId": "fx-internet",
+   "refMes": "2026-11"
+  },
+  "l051": {
+   "criado": "2026-11-20T09:00:00.000Z",
+   "tipo": "receita",
+   "valor": 2000,
+   "desc": "Adiantamento (dia 10)",
+   "cat": "Salário",
+   "data": "2026-11-10",
+   "mes": "2026-11",
+   "meio": "pix",
+   "fixoId": "rec-sal10",
+   "refMes": "2026-11"
+  }
+ },
+ "fixos": {
+  "rec-sal25": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "receita",
+   "desc": "Salário (dia 25)",
+   "valor": 3000,
+   "cat": "Salário",
+   "dia": 25,
+   "meio": "pix"
+  },
+  "rec-sal10": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "receita",
+   "desc": "Adiantamento (dia 10)",
+   "valor": 2000,
+   "cat": "Salário",
+   "dia": 10,
+   "meio": "pix"
+  },
+  "rec-va": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "receita",
+   "desc": "Vale alimentação",
+   "valor": 1800,
+   "cat": "Vale alimentação",
+   "dia": 26,
+   "meio": "va"
+  },
+  "rec-bonus": {
+   "ativo": true,
+   "inicio": "2027-01",
+   "tipo": "receita",
+   "desc": "Bônus anual",
+   "valor": 9000,
+   "cat": "PLR / PRD / Abono",
+   "dia": 13,
+   "meio": "pix",
+   "fim": "2027-01"
+  },
+  "fx-aluguel": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "despesa",
+   "desc": "Aluguel",
+   "valor": 1500,
+   "cat": "Moradia",
+   "dia": 10,
+   "meio": "pix"
+  },
+  "fx-energia": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "despesa",
+   "desc": "Energia",
+   "valor": 180,
+   "cat": "Contas da casa",
+   "dia": 20,
+   "meio": "pix"
+  },
+  "fx-internet": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "despesa",
+   "desc": "Internet",
+   "valor": 100,
+   "cat": "Contas da casa",
+   "dia": 15,
+   "meio": "pix"
+  },
+  "fx-stream": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "despesa",
+   "desc": "Streaming",
+   "valor": 40,
+   "cat": "Assinaturas",
+   "dia": 5,
+   "meio": "credito",
+   "cartaoId": "azul"
+  },
+  "fx-academia": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "despesa",
+   "desc": "Academia",
+   "valor": 100,
+   "cat": "Cuidados pessoais",
+   "dia": 1,
+   "meio": "pix"
+  },
+  "fx-carro": {
+   "ativo": true,
+   "inicio": "2026-01",
+   "tipo": "despesa",
+   "desc": "Financiamento do carro",
+   "valor": 700,
+   "cat": "Transporte",
+   "dia": 1,
+   "meio": "pix",
+   "ajustes": {
+    "2027-01": {
+     "pular": true
+    },
+    "2027-02": {
+     "pular": true
+    },
+    "2027-03": {
+     "pular": true
+    },
+    "2027-04": {
+     "pular": true
+    },
+    "2027-05": {
+     "pular": true
+    },
+    "2027-06": {
+     "pular": true
+    },
+    "2027-07": {
+     "pular": true
+    },
+    "2027-08": {
+     "pular": true
+    },
+    "2027-09": {
+     "pular": true
+    },
+    "2027-10": {
+     "pular": true
+    },
+    "2027-11": {
+     "pular": true
+    },
+    "2027-12": {
+     "pular": true
+    }
+   }
+  }
+ },
+ "cartoes": {
+  "azul": {
+   "nome": "Cartão Azul",
+   "fecha": 25,
+   "vence": 1,
+   "limite": 4000
+  },
+  "verde": {
+   "nome": "Cartão Verde",
+   "fecha": 3,
+   "vence": 10,
+   "limite": 2000
+  }
+ },
+ "objetivos": {
+  "obj-carro": {
+   "nome": "Reserva do carro 2027",
+   "tipo": "reserva",
+   "alvo": "2027-01",
+   "itens": [
+    {
+     "id": "c1",
+     "cat": "Financiamento do carro 2027",
+     "prev": 8400
+    }
+   ],
+   "movs": [],
+   "passos": [],
+   "status": "ativo",
+   "guardar": true
+  },
+  "obj-viagem": {
+   "nome": "Viagem de verão",
+   "tipo": "viagem",
+   "alvo": "2027-02",
+   "itens": [
+    {
+     "id": "v1",
+     "cat": "Hospedagem",
+     "prev": 1800
+    },
+    {
+     "id": "v2",
+     "cat": "Passeios",
+     "prev": 900
+    }
+   ],
+   "movs": [],
+   "passos": [
+    {
+     "d": "2026-11-24",
+     "t": "Pesquisar pousada"
+    }
+   ],
+   "status": "ativo",
+   "guardar": true
+  }
+ },
+ "config": {
+  "geral": {
+   "colchao": 1000,
+   "meioPadrao": "pix",
+   "vaCats": [],
+   "orcMeio": {},
+   "sobraCaixinha": true,
+   "ajLim2611": true,
+   "ajDias2611": true,
+   "orc": {
+    "Mercado": 1600,
+    "Restaurantes e lanches": 350,
+    "Delivery": 80,
+    "Bares e saídas": 200,
+    "Lazer": 150,
+    "Compras": 150,
+    "Transporte": 350,
+    "Saúde": 120,
+    "Outros": 100
+   },
+   "saldo": {
+    "v": 2200,
+    "d": "2026-11-20",
+    "em": "2026-11-20T12:00:00.000Z"
+   },
+   "saldoVA": {
+    "v": 250,
+    "d": "2026-11-20",
+    "em": "2026-11-20T12:00:00.000Z"
+   }
+  }
+ },
+ "emprestimos": {},
+ "investimentos": {}
+}
