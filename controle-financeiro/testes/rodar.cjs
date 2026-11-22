@@ -282,7 +282,43 @@ async function projManual(b) {
   ok(!erros.length, `projetado manual: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
-// 10) Todas as telas abrem sem erro
+// 10) Mudar pelo texto (chat): projetado, contas fixas e o último lançamento, com Desfazer; gasto comum continua gasto
+async function mudarTexto(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const run = f => p.evaluate(async f => { const T = window.__T, S = T.S; S.chat = S.chat || []; await T.enviarChat(f); await new Promise(r => setTimeout(r, 600)); const d = document.createElement('div'); d.innerHTML = S.chat[S.chat.length - 1].h; return d.innerText.replace(/\s+/g, ' '); }, f);
+  const est = () => p.evaluate(() => { const T = window.__T, S = T.S, f = id => S.fixos.find(x => x.id === id);
+    return {orc:S.cfg.orc || {}, orcMes:S.cfg.orcMes || {}, sal:[T.valorFixo(f('rec-sal25'), '2026-12'), T.valorFixo(f('rec-sal25'), '2027-01')], net:[T.valorFixo(f('fx-internet'), '2026-12'), T.valorFixo(f('fx-internet'), '2027-01')], acadJan:(f('fx-academia').ajustes || {})['2027-01'], n:S.lanc.length}; });
+  const a = await est();
+  let r = await run('lazer 300 por mês'), e = await est();
+  ok(e.orc.Lazer === 300 && e.n === a.n && /Pode gastar/.test(r), `"lazer 300 por mês" muda o projetado (não vira gasto) e mostra o efeito`);
+  r = await run('compras 400 só em dezembro'); e = await est();
+  ok((e.orcMes['2026-12'] || {}).Compras === 400 && !('Compras' in e.orc), '"compras 400 só em dezembro" muda só dezembro');
+  r = await run('volta lazer para a média'); e = await est();
+  ok(!('Lazer' in e.orc), '"volta lazer para a média" tira o valor');
+  r = await run('salário de dezembro 3500'); e = await est();
+  ok(e.sal[0] === 3500 && e.sal[1] === 3000 && e.n === a.n, `"salário de dezembro 3500" muda só a previsão de dezembro, sem lançar nada (dez ${e.sal[0]} · jan ${e.sal[1]})`);
+  r = await run('internet 110 a partir de janeiro'); e = await est();
+  ok(e.net[0] === 100 && e.net[1] === 110 && e.n === a.n, `"internet 110 a partir de janeiro" muda de janeiro em diante (dez ${e.net[0]} · jan ${e.net[1]})`);
+  r = await run('não tem academia em janeiro'); e = await est();
+  ok(e.acadJan && e.acadJan.pular, '"não tem academia em janeiro" tira só janeiro');
+  r = await run('lazer 50'); e = await est();
+  ok(/De onde saiu/.test(r) && !('Lazer' in e.orc), '"lazer 50" continua sendo gasto');
+  await p.evaluate(async () => { await window.__T.criarLanc({tipo:'despesa', valor:23.5, desc:'Uber', cat:'Transporte', data:window.__T.hoje(), meio:'pix', nparc:1}); }); await p.waitForTimeout(300);
+  await ir(p, '#ajuda'); r = await run('corrige o último para 50');
+  ok(/Uber/.test(r) && await p.evaluate(() => window.__T.S.lanc.some(l => l.desc === 'Uber' && l.valor === 50)), '"corrige o último para 50" corrige o que acabou de lançar');
+  await p.locator('#chatlog [data-a="desfazerMud"]').last().click(); await p.waitForTimeout(500);
+  ok(await p.evaluate(() => window.__T.S.lanc.some(l => l.desc === 'Uber' && l.valor === 23.5)), 'Desfazer volta o valor de antes');
+  r = await run('apaga o último');
+  ok(/Apaguei/.test(r) && await p.evaluate(() => !window.__T.S.lanc.some(l => l.desc === 'Uber')), '"apaga o último" apaga');
+  // pedido que a regra não entende: a IA só traduz para uma das ações (aqui, resposta simulada)
+  await p.evaluate(() => { window.__T.S.sample = {json:async () => ({acao:'projetado', cat:'Lazer', valor:250, zerar:false, media:false, mes:null, aPartir:false})}; });
+  r = await run('deixa o lazer mais em conta, uns duzentos e cinquenta'); e = await est();
+  await p.evaluate(() => { window.__T.S.sample = null; });
+  ok(e.orc.Lazer === 250, `pela IA: "deixa o lazer mais em conta…" vira projetado de Lazer R$ 250`);
+  ok(!erros.length, `mudar pelo texto: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 11) Todas as telas abrem sem erro
 async function telas(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 2500);
   for (const v of ['inicio', 'contas', 'planos', 'ajuda', 'extrato', 'guardado', 'mes', 'fixos', 'cartoes', 'emprestimos', 'ajustes']) await ir(p, '#' + v);
@@ -307,6 +343,7 @@ async function telas(b) {
     secao('Folga calculada e média em todos os meses'); await folgaMedia(b);
     secao('Crédito previsto só no cartão principal'); await cartaoPrincipal(b);
     secao('Mudar o projetado na hora'); await projManual(b);
+    secao('Mudar pelo texto (chat)'); await mudarTexto(b);
     secao('Telas'); await telas(b);
   } catch (e) { ok(false, 'o teste quebrou: ' + e.message); }
   await b.close();

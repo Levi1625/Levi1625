@@ -1074,7 +1074,7 @@ function vHoje() {
   const comF = {}; projMes(m).linhas.filter(l => l.tipo === 'previsto' && isVLg(l.lugar)).forEach(l => { comF[l.cat] = (comF[l.cat] || 0) + l.v; });
   const [y0, m0] = m.split('-').map(Number), rest = new Date(y0, m0, 0).getDate() - d;
   const linhaF = (c, nome, v, extra) => `<button class="li" data-a="prevCat" data-c="${esc(c)}" data-m="${m}" style="align-items:flex-start">${catIco(c, 'despesa', 'sm')}<span class="tx"><span class="t1">${esc(nome)}</span><span class="t2" style="white-space:normal">${extra}</span></span><span class="am">${v}</span></button>`;
-  if (itensF.length || Object.keys(comF).length) h += `<section class="sec2"><div class="sec2-h"><h2>Falta gastar em ${MESL[m0 - 1].toLowerCase()}</h2><button class="lnk" data-a="porDiaDet">Como calculei</button></div><p class="small muted" style="margin:-4px 0 4px">${rest} dia${rest === 1 ? '' : 's'} · dia a dia pelo projetado${DDh.mudou ? '' : ' (média dos últimos meses)'}</p>
+  if (itensF.length || Object.keys(comF).length) h += `<section class="sec2"><div class="sec2-h"><h2>Falta gastar em ${MESL[m0 - 1].toLowerCase()}</h2><button class="lnk" data-a="porDiaDet">Como calculei</button></div><p class="small muted" style="margin:-4px 0 4px">${rest} dia${rest === 1 ? '' : 's'} · dia a dia pelo projetado${DDh.mudou ? '' : ' (média dos últimos meses)'} · toque num item para mudar</p>
     ${itensF.map(x => linhaF(x.c, x.nome, x.falta > 0.5 ? brl0(x.falta) : 'R$ 0', x.falta > 0.5 ? (itensTxt(x.c, x.falta) || 'previsto até o fim do mês') : x.passou > 0.5 ? `<span class="neg">passou ${brl0(x.passou)} do projetado</span>` : 'já gastou o projetado do mês')).join('')}
     <div class="row small" style="justify-content:space-between;padding:8px 2px;border-top:1px solid var(--line)"><b>Dia a dia (pode gastar)</b><b class="num">${brl0(pg0 ? pg0.total : sum(itensF, x => x.falta))}</b></div>
     ${Object.keys(comF).length ? `<p class="small muted" style="margin:8px 0 0">Comida (vale), pelo limite:</p>${Object.entries(comF).sort((a, b) => b[1] - a[1]).map(([c, v]) => linhaF(c, c, brl0(v), itensTxt(c, v) || 'sai do vale')).join('')}<div class="row small" style="justify-content:space-between;padding:8px 2px;border-top:1px solid var(--line)"><b>Comida</b><b class="num">${brl0(sum(Object.values(comF), v => v))}</b></div>` : ''}</section>`;
@@ -1817,7 +1817,8 @@ function vAjuda() {
     <li><b>Contas</b>: cada mês, dia a dia, o que paga, recebe e guarda. A conta nunca fica negativa: o app mostra de onde tirar.</li>
     <li><b>Planos</b>: os próximos meses, viagens e reservas. Mês que fica negativo aparece com aviso; nada é descontado sozinho do "pode gastar".</li>
     <li><b>Guardado</b>: cada caixinha mês a mês. No fim do mês fica na conta só o que o mês seguinte precisa até o dinheiro entrar; o resto vai para a caixinha Sobras.</li>
-    <li><b>Lançar</b>: escreva, fale ou toque no +. Data no futuro fica agendada e só sai da conta no dia.</li></ul></details>`;
+    <li><b>Lançar</b>: escreva, fale ou toque no +. Data no futuro fica agendada e só sai da conta no dia.</li>
+    <li><b>Mudar</b>: toque no item (projetado, conta, lançamento) ou escreva: “lazer 300 por mês”, “compras 400 só em dezembro”, “volta lazer para a média”, “salário de dezembro 3500”, “internet 110 a partir de janeiro”, “não tem academia em janeiro”, “cancelei a netflix”, “corrige o último para 50”, “apaga o último”. Sempre mostra o efeito e tem Desfazer.</li></ul></details>`;
   if (!S.sample) h += `<p class="muted" style="margin:-6px 0 12px">A IA está desligada ou indisponível agora: os lançamentos funcionam, mas as perguntas não.</p>`;
   h += `<div class="perg">${PERGUNTAS.map(q => `<button data-a="perguntaPronta" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
     <div class="chatlog ajuda-log" id="chatlog"></div>
@@ -3171,9 +3172,134 @@ async function aplicarFixo(f, campos = {}, quando = 'a_partir', mes = null) {
   return `Mudei a conta fixa <b>${esc(f.desc)}</b>${v != null ? `: ${brl(velho)} → <b>${brl(v)}</b>` : ''}${dia ? `${v != null ? ',' : ':'} dia ${dia}` : ''} ${quando === 'todos' ? 'em <b>todos os meses</b>, a partir' : 'a partir'} <b>${quandoFx(f, m)}</b>${quando === 'todos' ? '' : ' (todos os meses seguintes)'}.${onde}${esp.length ? ` Meses com valor próprio continuam como estão: ${faixasAj(esp)}.` : ''}`;
 }
 A.fixoValorRapido = async el => { const f = S.fixos.find(x => x.id === el.dataset.id); if (!f) return; el.disabled = true; try { const h = await aplicarFixo(f, {valor:+el.dataset.v}); S.chat.push({de:'app', h:'✓ ' + h}); chatRender(); toast('Conta fixa atualizada'); } catch (_) { el.disabled = false; } };
-const FX_GEN = ['conta', 'contas', 'fixa', 'fixo', 'para', 'assinatura', 'pix', 'sogra', 'sabrina', 'mensal', 'mensalidade', 'estimado', 'liquido', 'credito', 'debito', 'nubank', 'cartao'];
+const FX_GEN = ['conta', 'contas', 'fixa', 'fixo', 'para', 'assinatura', 'pix', 'sogra', 'sabrina', 'mensal', 'mensalidade', 'estimado', 'liquido', 'credito', 'debito', 'nubank', 'cartao',
+  'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro', 'dia', 'dias', 'mes', 'meses', 'das', 'dos', 'com', 'sem', 'extra', 'ultimas', 'ultimos', 'parcela', 'parcelas', 'agora', 'novo', 'nova'];
 const RX_MUDA_FX = /\b(mud|alter|corrig|troc|ajust|reajust|aument|baix|diminu|subiu|caiu|passou|passa a|agora (e|eh|é|custa|vem|fica)|ficou|vai ser|vai custar|todo mes|todos os meses|por mes|mensal|\bso (em|no|na)\b|apenas (em|no|na))/;
 function achaFixos(txt) { const nt = norm(txt); return S.fixos.filter(f => !f.repasse && f.ativo !== false && (!f.fim || f.fim >= ymNow())).map(f => ({f, n:norm(f.desc).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !FX_GEN.includes(w) && new RegExp('\\b' + w + '\\b').test(nt)).length})).filter(x => x.n).sort((a, b) => b.n - a.n).map(x => x.f); }
+/* ---------- MUDANÇAS PELO TEXTO: projetado, contas fixas e o último lançamento (sem IA; a IA só ajuda a entender) ---------- */
+// Apelidos das categorias do dia a dia e da comida, do jeito que se escreve
+const CAT_APELIDOS = {'Cartão (sem detalhe)':['cartao sem categoria', 'cartao sem detalhe', 'sem categoria'], 'Saúde':['farmacia', 'saude'], 'Bares e saídas':['bares e saidas', 'bares', 'bar', 'saidas', 'saida', 'role'], 'Restaurantes e lanches':['restaurantes e lanches', 'restaurantes', 'restaurante', 'lanches', 'lanche'], 'Delivery':['delivery', 'ifood'], 'Mercado':['supermercado', 'mercado'], 'Transporte':['transporte'], 'Lazer':['lazer'], 'Compras':['compras'], 'Cuidados pessoais':['cuidados pessoais'], 'Pets':['pets', 'pet'], 'Presentes & doações':['presentes', 'presente', 'doacoes', 'doacao'], 'Outros':['outros gastos', 'outros']};
+function achaCat(nt) {
+  let best = null; const ve = (c, w) => { if (new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\&]/g, '\\$&') + '\\b').test(nt) && (!best || w.length > best.w.length)) best = {c, w}; };
+  Object.entries(CAT_APELIDOS).forEach(([c, ws]) => ws.forEach(w => ve(c, w))); catsDesp().forEach(x => { const w = norm(x.n); if (w.length > 3) ve(x.n, w); });
+  return best;
+}
+const MES_RX = /\b(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/;
+function mesDoTexto(nt) {
+  if (/\b(neste|nesse|este|esse) mes\b/.test(nt)) return ymNow(); if (/\b(mes que vem|proximo mes)\b/.test(nt)) return addM(ymNow(), 1);
+  const mn = nt.match(MES_RX); if (!mn) return null; const k = MESL.findIndex(x => norm(x) === mn[1]);
+  for (let i = 0; i <= 12; i++) { const mm = addM(ymNow(), i); if (+mm.slice(5) === k + 1) return mm; } return null;
+}
+const RX_PAGO = /\b(paguei|gastei|comprei|recebi|caiu|entrou|lancei|lanca|lancar|lance)\b/;
+const RX_PROJ = /\b(projet\w*|orcament\w*|limite\w*|previst\w*|previsao|teto|por mes|todo mes|todos os meses|mensal)\b/;
+const RX_MUD = /\b(muda|mudar|mude|mudou|mudei|altera|alterar|altere|troca|trocar|troque|coloca|colocar|coloque|poe|por|bota|botar|ajusta|ajustar|aumenta|aumentar|aumente|diminui|diminuir|diminua|reduz|reduzir|reduza|baixa|baixar|baixe|sobe|subir|subiu|zera|zerar|zere|tira|tirar|tire|remove|remover|volta|voltar|volte|deixa|deixar|deixe|cancela|cancelar|cancelei|encerra|encerrar|apaga|apagar|apague|exclui|excluir|exclua|corrige|corrigir|corrija|pula|pular|pule)\b/;
+const RX_ZERA = /\b(zera|zerar|zere|zerado|tira|tirar|tire|remove|remover|exclui|excluir|apaga|apagar|sem)\b/;
+const RX_APARTIR = /\b(a partir|desde|em diante|pra frente|para frente)\b/;
+const zeroDito = txt => /(^|\s)(r\$\s*)?0([.,]0+)?(\s|$)/i.test(txt);
+// Projetado de uma categoria: "lazer 300 por mês", "compras 400 só em dezembro", "zera o cartão sem categoria", "volta lazer para a média"
+function cmdProj(txt) {
+  const nt = norm(txt); if (RX_PAGO.test(nt)) return null;
+  const cat = achaCat(nt); if (!cat || achaFixos(txt).length) return null;
+  const vals = valoresDoTexto(txt), mes = mesDoTexto(nt), aPartir = !!mes && RX_APARTIR.test(nt), soMes = !!mes && !aPartir;
+  const ntS = nt.replace(cat.w, ' '), media = /\bmedia\b/.test(ntS), zerar = zeroDito(txt) || (RX_ZERA.test(ntS) && !vals.length);
+  if (!(RX_PROJ.test(ntS) || RX_MUD.test(ntS) || /\b(so|somente|apenas)\b/.test(ntS) || media || zerar)) return null;   // "lazer 300" sozinho é gasto
+  if (vals.length === 1) return {t:'proj', c:cat.c, v:vals[0], escopo:soMes ? 'mes' : 'todos', mes, aPartir};
+  if (media && !vals.length) return {t:'proj', c:cat.c, v:null, mes};
+  if (zerar && !vals.length) return {t:'proj', c:cat.c, v:0, zerar:true, escopo:soMes ? 'mes' : 'todos', mes, aPartir};
+  return null;
+}
+// Conta ou entrada fixa num mês: "salário de dezembro 3500", "internet 110 a partir de janeiro", "não tem academia em janeiro", "cancelei a netflix"
+function cmdFixo(txt) {
+  const nt = norm(txt); if (RX_PAGO.test(nt)) return null;
+  const fx = achaFixos(txt), vals0 = valoresDoTexto(txt), mes0 = mesDoTexto(nt);
+  if (fx.length > 1 && vals0.length === 1 && mes0) return {t:'escolha', fx:fx.slice(0, 4), v:vals0[0], quando:RX_APARTIR.test(nt) ? 'a_partir' : 'so_mes', mes:mes0};   // mais de uma conta parecida: pergunta qual (nunca lança)
+  if (fx.length !== 1) return null; const f = fx[0], vals = vals0, mes = mes0;
+  if (!vals.length && mes && /\b(nao tem|nao vai ter|nao vem|nao vai vir|sem|pul\w*|fora)\b/.test(nt)) return {t:'pular', f, mes};
+  if (!vals.length && /\b(cancel\w*|encerr\w*|nao tenho mais|nao pago mais|nao recebo mais|acabou|parei de|parar de)\b/.test(nt)) return {t:'encerrar', f, mes};
+  if (vals.length !== 1) return null;
+  if (!mes) return RX_MUDA_FX.test(nt) ? {t:'fixo', f, v:vals[0], quando:'todos', mes:null} : null;   // "academia agora é 120", "aluguel subiu para 1600"
+  return {t:'fixo', f, v:vals[0], quando:RX_APARTIR.test(nt) ? 'a_partir' : 'so_mes', mes};
+}
+// O último lançamento: "corrige o último para 50", "o último foi 50", "apaga o último"
+const ultimoLanc = () => S.lanc.filter(l => !l.auto).sort((a, b) => String(b.criado || '').localeCompare(String(a.criado || '')))[0] || null;   // o que a pessoa lançou (não as assinaturas que o app lança sozinho)
+function cmdUltimo(txt) {
+  const nt = norm(txt); if (!/\b(ultimo|ultima)\b/.test(nt)) return null; const l = ultimoLanc(); if (!l) return null;
+  if (/\b(apag\w*|exclu\w*|remov\w*|delet\w*|desfaz\w*|cancel\w*|tir\w*)\b/.test(nt)) return {t:'apagar', l};
+  const vals = valoresDoTexto(txt); if (vals.length === 1) return {t:'valor', l, v:vals[0]};
+  return null;
+}
+const cmdMudanca = txt => cmdUltimo(txt) || cmdFixo(txt) || cmdProj(txt);
+// Parece pedido de mudança (para a caixa rápida mandar para o chat): uma regra entendeu, ou fala em mudar algo que existe
+const pareceMudanca = txt => { const nt = norm(txt); return !!cmdMudanca(txt) || (!RX_PAGO.test(nt) && (RX_MUD.test(nt) || RX_PROJ.test(nt)) && !!(achaCat(nt) || achaFixos(txt).length || /\b(ultimo|ultima)\b/.test(nt))); };
+// Desfazer a última mudança feita pelo chat
+let _desf = null;
+A.desfazerMud = async el => { const d = _desf; if (!d) return toast('Nada para desfazer.'); el.disabled = true;
+  try { if (d.cfg) await saveCfg(d.cfg); for (const x of d.docs || []) { if (x.doc) await put(x.col, x.id, x.doc); else await del(x.col, x.id); } _desf = null; _flx = null; el.textContent = 'Desfeito'; toast('Desfeito: voltou como estava'); } catch (_) { el.disabled = false; } };
+// espera os dados novos chegarem (depois de salvar uma conta ou lançamento), para mostrar o efeito certo
+async function esperaDados(k, antes, ms = 2000) { for (let t = 0; t < ms && S[k] === antes; t += 100) await new Promise(r => setTimeout(r, 100)); }
+const efeitoMud = (a, d) => { const sn = x => (x < -0.5 ? '− ' : '+ ') + brl0(Math.abs(x)), p = [];
+  if (a && d && Math.abs(a.total - d.total) > 0.5) p.push(`Pode gastar: ${brl0(a.total)} → <b>${brl0(d.total)}</b>`); else if (d) p.push(`Pode gastar continua ${brl0(d.total)}`);
+  if (a && d && Math.abs(a.livre - d.livre) > 0.5) p.push(`Tirando tudo: ${sn(a.livre)} → <b>${sn(d.livre)}</b>`);
+  return p.length ? `<div class="small" style="margin-top:6px">${p.join(' · ')}</div>` : ''; };
+// Faz a mudança e devolve o texto da resposta (com o efeito e o Desfazer)
+async function fazMudanca(cmd) {
+  const a = podeGastar(), m0 = ymNow();
+  if (cmd.t === 'proj') {
+    const c = cmd.c, cfg0 = {orc:{...(S.cfg.orc || {})}, orcMes:{...(S.cfg.orcMes || {})}}, o = {...cfg0.orc}, om = {...cfg0.orcMes}, efet = mm => { const or = orcDoMes(mm); return c in or ? +or[c] || 0 : ehPool(c) ? (mediaPool(mm)[c] || 0) : ((histVar()[c] || {}).tot || 0); };
+    const antesV = efet(cmd.mes || m0), mesAlvo = cmd.mes || m0, dm = {...(om[mesAlvo] || {})};
+    if (cmd.v == null) { delete o[c]; Object.keys(om).forEach(k => { if (k >= m0 && om[k] && c in om[k]) { const x = {...om[k]}; delete x[c]; if (Object.keys(x).length) om[k] = x; else delete om[k]; } }); }
+    else if (cmd.escopo === 'mes') { dm[c] = cmd.v; om[mesAlvo] = dm; }
+    else { const guarda = {}; if (cmd.aPartir && cmd.mes > m0) for (let mm = m0; mm < cmd.mes; mm = addM(mm, 1)) if (!(c in ((om[mm]) || {}))) guarda[mm] = efet(mm);
+      o[c] = cmd.v; if (om[mesAlvo] && c in om[mesAlvo]) { const x = {...om[mesAlvo]}; delete x[c]; if (Object.keys(x).length) om[mesAlvo] = x; else delete om[mesAlvo]; }
+      Object.entries(guarda).forEach(([mm, v]) => { om[mm] = {...(om[mm] || {}), [c]:r2(v)}; }); }
+    let jaG = 0; if (cmd.zerar && (cmd.escopo !== 'mes' || mesAlvo === m0)) { jaG = ehPool(c) ? ((diaDiaBase().lista.find(x => x.c === c) || {}).gasto || 0) : (ajusteMes(m0).gasto[c] || 0); if (jaG > 0.5) om[m0] = {...(om[m0] || {}), [c]:r2(jaG)}; }
+    if (cmd.v === 0 && antesV < 0.5 && !(jaG > 0.5)) return `<b>${esc(nomeDia(c))}</b> já estava em R$ 0${cmd.escopo === 'mes' ? ' em ' + ymLabel(mesAlvo) : ''}: nada para mudar.`;
+    await saveCfg({orc:o, orcMes:om}); _flx = null; _desf = {cfg:cfg0};
+    const d = podeGastar(), quando = cmd.v == null ? '' : cmd.escopo === 'mes' ? ` só em ${ymLabel(mesAlvo)}` : cmd.aPartir ? ` a partir de ${ymLabel(cmd.mes)}` : ' em todos os meses';
+    return `✓ <b>${esc(nomeDia(c))}</b>: projetado ${brl0(antesV)} → <b>${cmd.v == null ? 'pela média (' + brl0(efet(mesAlvo)) + ')' : brl0(cmd.v)}</b>${cmd.v != null ? ' por mês' : ''}${quando}.${jaG > 0.5 ? ` Em ${ymLabel(m0)} fica no que já foi gasto (${brl0(jaG)}), sem estourar.` : ''}${efeitoMud(a, d)}<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-a="desfazerMud">Desfazer</button><button class="btn sm" data-a="prevCat" data-c="${esc(c)}" data-m="${mesAlvo}">Ver ${esc(nomeDia(c))}</button></div>`;
+  }
+  if (cmd.t === 'escolha') return `Qual conta muda para <b>${brl(cmd.v)}</b> ${cmd.quando === 'a_partir' ? 'a partir de' : 'só em'} ${ymLabel(cmd.mes)}?<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${cmd.fx.map(f => `<button class="btn sm" style="text-align:left" data-a="mudFixoEsc" data-id="${f.id}" data-v="${cmd.v}" data-q="${cmd.quando}" data-m="${cmd.mes}">${esc(f.desc)} <span class="muted">· hoje ${brl(valorFixo(f, cmd.mes))}</span></button>`).join('')}</div>`;
+  if (cmd.t === 'fixo' || cmd.t === 'pular' || cmd.t === 'encerrar') {
+    const f = cmd.f, doc0 = strip(f), antesFx = S.fixos; let h;
+    if (cmd.t === 'fixo') h = await aplicarFixo(f, {valor:cmd.v}, cmd.quando, cmd.mes);
+    else if (cmd.t === 'pular') { await put(COLS.fixos, f.id, {...strip(f), ajustes:{...(f.ajustes || {}), [cmd.mes]:{pular:true}}}); h = `<b>${esc(f.desc)}</b> fica fora só de ${ymLong(cmd.mes)}.`; }
+    else { const m = cmd.mes || mesFixoAberto(f), fim = pagoFixo(f, m) ? m : addM(m, -1); await put(COLS.fixos, f.id, {...strip(f), fim, ...(fim < (f.inicio || fim) ? {ativo:false} : {})}); h = `<b>${esc(f.desc)}</b> encerrada: some de ${ymLabel(addM(fim, 1))} em diante. O histórico continua no extrato.`; }
+    _desf = {docs:[{col:COLS.fixos, id:f.id, doc:doc0}]}; await esperaDados('fixos', antesFx); _flx = null;
+    return `✓ ${h}${efeitoMud(a, podeGastar())}<div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-a="desfazerMud">Desfazer</button></div>`;
+  }
+  if (cmd.t === 'valor' || cmd.t === 'apagar') {
+    const l = cmd.l, antesL = S.lanc, grupo = l.grupo ? S.lanc.filter(x => x.grupo === l.grupo) : [l], quem = `<b>${esc(l.desc)}</b> ${brl(+l.valor)}${l.data ? ` (${dCurto(l.data)})` : ''}`;
+    if (cmd.t === 'valor' && grupo.length > 1) return `O último lançamento (${quem}) é uma compra parcelada: abra para mudar o valor.<div class="row" style="margin-top:8px"><button class="btn sm" data-a="editLanc" data-id="${l.id}">Abrir</button></div>`;
+    _desf = {docs:grupo.map(x => ({col:COLS.lanc, id:x.id, doc:strip(x)}))};
+    if (cmd.t === 'apagar') for (const x of grupo) await del(COLS.lanc, x.id); else await put(COLS.lanc, l.id, {...strip(l), valor:r2(cmd.v)});
+    await esperaDados('lanc', antesL); _flx = null;
+    return `✓ ${cmd.t === 'apagar' ? `Apaguei ${quem}${grupo.length > 1 ? ` (as ${grupo.length} parcelas)` : ''}.` : `Corrigi ${quem} → <b>${brl(cmd.v)}</b>.`}${efeitoMud(a, podeGastar())}<div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-a="desfazerMud">Desfazer</button></div>`;
+  }
+  return null;
+}
+// Pedido de mudança que a regra não entendeu: a IA só traduz para uma das ações acima (nunca inventa valor nem mexe em outra coisa)
+async function mudancaIA(txt) {
+  if (!S.sample) return null; const nt = norm(txt); if (RX_PAGO.test(nt) || !(RX_MUD.test(nt) || RX_PROJ.test(nt))) return null;
+  const cats = [...new Set([...Object.keys(mediaPool(ymNow())), ...catsDesp().map(c => c.n)])], ul = ultimoLanc();
+  let r; try { r = await S.sample.json(`Você traduz um pedido de MUDANÇA num controle financeiro pessoal brasileiro em UMA ação. Hoje é ${hoje()}. Responda só com JSON.
+Categorias (o projetado do dia a dia por mês): ${JSON.stringify(cats)}. "Cartão (sem detalhe)" = cartão sem categoria.
+Contas e entradas fixas: ${JSON.stringify(S.fixos.filter(f => f.ativo !== false).map(f => f.desc))}.
+Último lançamento: ${ul ? `${ul.desc} R$ ${ul.valor} em ${ul.data}` : 'nenhum'}.
+Ações (use os nomes exatos das listas; mes = "AAAA-MM" ou null; valor = número ou null; não invente valores que a frase não diz):
+{"acao":"projetado","cat":"...","valor":0,"zerar":false,"media":false,"mes":null,"aPartir":false}
+{"acao":"fixo","nome":"...","valor":0,"mes":null,"aPartir":false,"pular":false,"encerrar":false}
+{"acao":"ultimo","valor":0,"apagar":false}
+{"acao":"nenhuma"}  (se não for mudança: é gasto novo, pergunta ou outra coisa)
+Pedido: "${txt}"`); } catch (e) { if (AI_OFF.includes(e?.code)) S.sample = null; return null; }
+  if (!r || !r.acao || r.acao === 'nenhuma') return null;
+  const mes = /^\d{4}-\d{2}$/.test(r.mes || '') ? r.mes : null, v = +r.valor > 0 ? r2(+r.valor) : null;
+  if (r.acao === 'projetado' && cats.includes(r.cat)) { if (r.media) return {t:'proj', c:r.cat, v:null, mes}; if (r.zerar || v === 0) return {t:'proj', c:r.cat, v:0, zerar:true, escopo:mes && !r.aPartir ? 'mes' : 'todos', mes, aPartir:!!r.aPartir}; if (v) return {t:'proj', c:r.cat, v, escopo:mes && !r.aPartir ? 'mes' : 'todos', mes, aPartir:!!r.aPartir}; }
+  if (r.acao === 'fixo') { const f = S.fixos.find(x => norm(x.desc) === norm(r.nome || '')); if (f) { if (r.pular && mes) return {t:'pular', f, mes}; if (r.encerrar) return {t:'encerrar', f, mes}; if (v && mes) return {t:'fixo', f, v, quando:r.aPartir ? 'a_partir' : 'so_mes', mes}; if (v) return {t:'fixo', f, v, quando:'todos', mes:null}; } }
+  if (r.acao === 'ultimo' && ul) { if (r.apagar) return {t:'apagar', l:ul}; if (v) return {t:'valor', l:ul, v}; }
+  return null;
+}
+A.mudFixoEsc = async el => { const f = S.fixos.find(x => x.id === el.dataset.id); if (!f) return; el.disabled = true; try { const h = await fazMudanca({t:'fixo', f, v:+el.dataset.v, quando:el.dataset.q, mes:el.dataset.m}); S.chat.push({de:'app', h}); chatRender(); } catch (_) { el.disabled = false; } };
+async function comandoMudanca(txt) { if (soVer()) return null; const cmd = cmdMudanca(txt) || await mudancaIA(txt); return cmd ? await fazMudanca(cmd) : null; }
 function comandoFixo(txt) {
   const nt = norm(txt); if (!RX_MUDA_FX.test(nt) || /\b(paguei|gastei|comprei|recebi|lanc)/.test(nt)) return null;
   const vals = valoresDoTexto(txt); if (vals.length !== 1) return null;
@@ -3425,8 +3551,8 @@ function chatHTML() {
 }
 A.verHistorico = () => { S.chatDesde = 0; chatRender(); };
 function chatHTMLDe(desde) {
-  if (S.chat.length <= desde && S.view === 'ajuda') return `<div class="bub ai"><p style="margin:0">Toque numa pergunta acima ou escreva a sua.${soVer() ? '' : ' Também dá para lançar e corrigir por aqui.'}</p></div>`;
-  if (S.chat.length <= desde) return `<div class="bub ai"><p style="margin:0">Diga <b>o que</b> gastou, <b>quanto</b> e <b>de onde saiu</b>. Ex.: <i>“mercado 120 no vale”</i>, <i>“tv 2000 10x nubank”</i>, <i>“recebi salário 2300”</i>.</p></div>`;
+  if (S.chat.length <= desde && S.view === 'ajuda') return `<div class="bub ai"><p style="margin:0">Toque numa pergunta acima ou escreva a sua.${soVer() ? '' : ' Também dá para lançar e <b>mudar</b> por aqui: <i>“lazer 300 por mês”</i>, <i>“compras 400 só em dezembro”</i>, <i>“zera o cartão sem categoria”</i>, <i>“salário de dezembro 3500”</i>, <i>“não tem academia em janeiro”</i>, <i>“corrige o último para 50”</i>. Toda mudança mostra o efeito e tem Desfazer.'}</p></div>`;
+  if (S.chat.length <= desde) return `<div class="bub ai"><p style="margin:0">Diga <b>o que</b> gastou, <b>quanto</b> e <b>de onde saiu</b>. Ex.: <i>“mercado 120 no vale”</i>, <i>“tv 2000 10x nubank”</i>, <i>“recebi salário 2300”</i>.<br>Para <b>mudar</b>: <i>“lazer 300 por mês”</i>, <i>“salário de dezembro 3500”</i>, <i>“corrige o último para 50”</i>.</p></div>`;
   if (!S.chat.length) return `<div class="bub ai">Me conta o que gastou ou recebeu, do jeito que falaria. Pode ser mais de um:<br><i>“almoço 32 e uber 18”</i>, <i>“mercado 230 no vale”</i>, <i>“geladeira 3200 nubank 10x”</i>, <i>“recebi 2518 de salário”</i>.<br>Também pode perguntar: <i>“quanto gastei com mercado esse mês?”</i>, <i>“posso comprar uma TV de 2000 em 10x no nubank?”</i>, <i>“se eu gastar 300 no débito hoje, chego até o salário?”</i></div>`;
   return S.chat.map((c, i) => i < desde ? '' : c.de === 'eu' ? `<div class="bub eu">${esc(c.t)}</div>` : `<div class="bub ai">${c.h}${c.ids && c.ids.length ? (c.undone ? '<div class="small muted" style="margin-top:6px">Desfeito.</div>' : `<div style="margin-top:8px"><button class="lnk small" data-a="desfazerChat" data-i="${i}">Desfazer</button></div>`) : ''}</div>`).join('');
 }
@@ -3437,6 +3563,8 @@ async function enviarChat(txt) {
   try {
     const cg = await comandoGuardado(txt);
     if (cg) { msg.h = cg; S.chatBusy = false; chatRender(); return; }
+    const mud = !PERG.test(txt) && await comandoMudanca(txt);
+    if (mud) { msg.h = mud; S.chatBusy = false; chatRender(); return; }
     const cf = !soVer() && comandoFixo(txt);
     if (cf) {
       if (cf.auto && cf.so) msg.h = '✓ ' + await aplicarFixo(cf.f, {valor:cf.v}, 'so_mes', cf.mes);
@@ -3482,7 +3610,7 @@ F.chat = async f => { const v = f.q.value; f.q.value = ''; previewSheetRapido();
 A.desfazerChat = async el => { const c = S.chat[+el.dataset.i]; if (!c || !c.ids) return; try { for (const id of c.ids) await del(COLS.lanc, id); for (const id of c.fixos || []) await del(COLS.fixos, id); for (const rv of c.revs || []) await put(COLS.fixos, rv.id, rv.data); c.undone = true; chatRender(); toast('Desfeito'); } catch (_) {} };
 F.rapido = async f => {
   const inp = f.q, txt = inp.value.trim(); if (!txt) return;
-  if (PERG.test(txt)) { inp.value = ''; previewRapido(); A.novo(); enviarChat(txt); return; }
+  if (PERG.test(txt) || (!soVer() && pareceMudanca(txt))) { inp.value = ''; previewRapido(); A.novo(); enviarChat(txt); return; }
   const btn = f.querySelector('[type=submit]'); btn.disabled = true; $('#qprev').innerHTML = '<span class="chip">Anotando…</span>';
   try {
     if (cartaoTexto(txt)) { inp.value = ''; previewRapido(); A.novo(); S.chat.push({de:'eu', t:txt}); S.chat.push({de:'app', h:await mudarCartaoTexto(txt)}); chatRender(); btn.disabled = false; return; }
