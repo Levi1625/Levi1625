@@ -18,10 +18,16 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 - Nunca commitar `.dev.vars` nem chaves. Segredos ficam só no Cloudflare. O telefone serve só para os lembretes de WhatsApp.
 
 ## Regras de dinheiro combinadas com o dono (não mudar sem ele pedir)
-- **Pode gastar** = o que falta do dia a dia **fora comida** no mês, na conta ou no cartão. Todo gasto dessas categorias desconta na hora. Dívidas, impostos e assinaturas não entram: saem da sobra do mês.
-- O dia a dia é **uma conta só**: categorias com limite e as sem limite (pela média) somam o mesmo total. Estourou uma categoria? O excesso sai das outras; todo gasto desconta 1:1 até zerar.
-- Toda confirmação de lançamento mostra o efeito: "Pode gastar: antes → depois" ou o motivo de não mudar (comida, conta fixa, plano, parcelado, agendado, fora do dia a dia).
-- O **pode gastar só muda com gastos e limites do mês atual**. Mês à frente que fica negativo vira aviso (Hoje, Contas, Planos); nunca desconta sozinho do pode gastar.
+- **Pode gastar** = o menor entre (a) **a média** do dia a dia **fora comida** (últimos 6 meses, sem meses fora do normal) menos o que já gastou no mês, e (b) **o dinheiro livre na conta** até o fim do mês (saldo + o que entra − contas − planos − folga). Nunca passa do dinheiro que existe.
+- **O projetado não é critério**: mudar limite ou previsto **não muda** o pode gastar. Só gastos do mês atual mudam.
+- O dia a dia é **uma conta só**: todo gasto dessas categorias desconta 1:1 na hora. Passou da média numa categoria? O excesso sai das outras **proporcionalmente**, até zerar.
+- **Saúde = só farmácia**. O resto de saúde vem descontado no contracheque: sai da sobra do mês, não do pode gastar.
+- Cartão sem categoria entra pela média dele, tirando as assinaturas fixas do cartão. Itens do histórico que hoje são contas fixas não entram na média.
+- A tela Hoje mostra **o que falta gastar** em cada categoria e item (não o que já gastou). "Como calculei" mostra média, gasto, falta e o que está influenciando.
+- Dívidas, impostos e assinaturas não entram no pode gastar: saem da sobra do mês.
+- Toda confirmação de lançamento mostra o efeito: "Pode gastar: antes → depois" ou o motivo de não mudar (comida, conta fixa, plano, parcelado, agendado, saúde fora da farmácia, fora do dia a dia).
+- Mês à frente que fica negativo vira aviso (Hoje, Contas, Planos); nunca desconta sozinho do pode gastar.
+- Valor de entrada ou conta de outro mês: Contas › mês › **Mudar** (só aquele mês ou daqui pra frente).
 - **Comida** (mercado, restaurante, delivery) tem limite próprio e sai do vale. Vale (VA/VR) só paga comida, nunca contas. Comida paga na conta diminui a sobra do mês, não o pode gastar.
 - **Data no futuro = agendado**: não sai da conta até a data. A data escrita na frase manda (a IA não pode trocar por "hoje").
 - **A conta nunca fica negativa**: se for faltar, tira da caixinha Sobras; se não der, crédito (fatura seguinte); por último, cheque especial.

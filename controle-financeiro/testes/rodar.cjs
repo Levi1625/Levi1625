@@ -61,6 +61,7 @@ async function gastos(b) {
     ['Farmácia 25 no débito', 'dia', {valor:25, desc:'Farmácia', cat:'Saúde', meio:'debito'}],
     ['Presente 60 (categoria sem limite)', 'dia', {valor:60, desc:'Presente', cat:'Presentes & doações', meio:'pix'}],
     ['Multa 90 (fora do dia a dia)', 'fora', {valor:90, desc:'Multa', cat:'Impostos & taxas', meio:'pix'}],
+    ['Consulta 200 (saúde fora da farmácia)', 'fora', {valor:200, desc:'Consulta médica', cat:'Saúde', meio:'pix'}],
   ];
   let a = await foto();
   for (const [nome, tipo, o] of casos) {
@@ -135,6 +136,24 @@ async function confirmacao(b) {
   ok(!erros.length, `confirmação: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
+// 3e) Regras do "pode gastar": média (não o projetado), Saúde só farmácia, nunca mais que o dinheiro livre
+async function regrasPode(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const g = () => p.evaluate(() => { const T = window.__T; T.render(); const x = T.podeGastar(), d = T.diaDiaBase(); return {total:x.total, dia:x.dia, porCaixa:x.porCaixa, livre:x.cx.livre, somaFalta:d.lista.reduce((t, c) => t + c.falta, 0), resto:d.resto}; });
+  const a = await g();
+  ok(Math.abs(a.somaFalta - a.resto) < 1, `a soma do que falta em cada categoria é o total (${Math.round(a.somaFalta)} × ${Math.round(a.resto)})`);
+  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, orc:{...S.cfg.orc, 'Bares e saídas':900, 'Lazer':900}}); }); await p.waitForTimeout(300);
+  const d = await g();
+  ok(Math.abs(d.total - a.total) < 0.6, `mudar limite (projetado) não muda o pode gastar (${Math.round(a.total)} → ${Math.round(d.total)})`);
+  await p.evaluate(async () => { await window.__T.criarLanc({tipo:'despesa', valor:30, desc:'Drogaria', cat:'Saúde', data:window.__T.hoje(), meio:'pix', nparc:1}); }); await p.waitForTimeout(300);
+  const e = await g();
+  ok(Math.abs(e.total - d.total + 30) < 0.6, `farmácia desconta (${Math.round(d.total)} → ${Math.round(e.total)})`);
+  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:-2500}}); }); await p.waitForTimeout(300);
+  const f = await g();
+  ok(f.porCaixa && Math.abs(f.total - Math.max(0, f.livre)) < 0.6 && f.total < f.dia, `com pouco dinheiro na conta, o pode gastar fica no que tem (${Math.round(f.total)}; média daria ${Math.round(f.dia)})`);
+  ok(!erros.length, `regras: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
 // 4) Datas escritas no chat
 async function datasChat(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 1500);
@@ -164,12 +183,30 @@ async function reserva(b) {
   ok(!erros.length, `reserva: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
-// 6) Todas as telas abrem sem erro
+// 6) Mudar o valor de uma entrada no mês seguinte (Contas › próximo mês › Mudar)
+async function mudarMes(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const val = () => p.evaluate(() => { const T = window.__T, f = T.S.fixos.find(x => x.id === 'rec-sal25'); return {nov:T.valorFixo(f, '2026-11'), dez:T.valorFixo(f, '2026-12'), jan:T.valorFixo(f, '2027-01')}; });
+  await ir(p, '#contas');
+  ok(await p.locator('.ri[data-a="editFixoMes"][data-id="rec-sal25"]').count() === 1, 'mês atual: tocar na linha do salário abre o editor');
+  await p.click('[data-a="calMes"][data-d="1"]'); await p.waitForTimeout(300);
+  const bt = p.locator('button[data-a="editFixoMes"][data-id="rec-sal25"][data-m="2026-12"]');
+  ok(await bt.count() === 1 && (await bt.innerText()).trim() === 'Mudar', 'dezembro: o salário tem o botão Mudar');
+  await bt.click(); await p.waitForTimeout(300);
+  ok(/Essa mudança vale/.test(await p.evaluate(() => document.querySelector('#sheet').innerText)), 'Mudar abre o editor com "só este mês" ou "daqui pra frente"');
+  await p.evaluate(() => { const fm = document.querySelector('#sheet form[data-f="fixo"]'); fm.valor.value = '3500'; fm.querySelector('input[name="escopo"][value="mes"]').checked = true; fm.dispatchEvent(new Event('change')); });
+  await p.click('#sheet button[type="submit"]'); await p.waitForTimeout(400);
+  const v = await val();
+  ok(v.dez === 3500 && v.nov === 3000 && v.jan === 3000, `"só em dezembro" muda só dezembro (nov ${v.nov} · dez ${v.dez} · jan ${v.jan})`);
+  ok(!erros.length, `mudar: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 7) Todas as telas abrem sem erro
 async function telas(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 2500);
   for (const v of ['inicio', 'contas', 'planos', 'ajuda', 'extrato', 'guardado', 'mes', 'fixos', 'cartoes', 'emprestimos', 'ajustes']) await ir(p, '#' + v);
   await ir(p, '#contas'); for (let i = 0; i < 4; i++) { await p.click('[data-a="calMes"][data-d="1"]'); await p.waitForTimeout(200); }
-  await ir(p, '#inicio'); await p.click('[data-a="porDiaDet"]').catch(() => {}); await p.waitForTimeout(300);
+  await ir(p, '#inicio'); await p.locator('[data-a="porDiaDet"]').first().click(); await p.waitForTimeout(300);
   ok(!erros.length, `todas as telas abrem sem erro${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
@@ -182,8 +219,10 @@ async function telas(b) {
     secao('Mês à frente não mexe no pode gastar'); await futuroNaoMexe(b);
     secao('Categoria estourada ainda desconta'); await estourada(b);
     secao('Confirmação mostra o efeito'); await confirmacao(b);
+    secao('Pode gastar pela média e pelo dinheiro'); await regrasPode(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
+    secao('Mudar valor no mês seguinte'); await mudarMes(b);
     secao('Telas'); await telas(b);
   } catch (e) { ok(false, 'o teste quebrou: ' + e.message); }
   await b.close();
