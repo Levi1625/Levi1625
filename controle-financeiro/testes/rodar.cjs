@@ -250,7 +250,39 @@ async function cartaoPrincipal(b) {
   ok(!erros.length, `cartão principal: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
-// 9) Todas as telas abrem sem erro
+// 9) Mudar o projetado na hora: tocar no item em Hoje, mudar o valor, usar a média, zerar o cartão sem categoria
+async function projManual(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  await p.evaluate(async () => { const T = window.__T;
+    for (const m of ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10']) await T.criarLanc({tipo:'despesa', valor:300, desc:'Fatura antiga', cat:'Cartão (sem detalhe)', data:m + '-10', meio:'credito', cartaoId:'azul', nparc:1}); });
+  await p.waitForTimeout(400);
+  const g = () => p.evaluate(() => { const T = window.__T; T.render(); const x = T.podeGastar(), d = T.diaDiaBase(), it = c => d.lista.find(y => y.c === c) || {};
+    const csdFut = [...T.projMes('2027-01').linhas, ...T.projMes('2027-01', undefined, false, true)].filter(l => l.tipo === 'previsto' && l.cat === 'Cartão (sem detalhe)').reduce((t, l) => t + l.v, 0);
+    return {total:x.total, lazer:it('Lazer').proj, lazerMedia:it('Lazer').media, csd:it('Cartão (sem detalhe)').proj, csdFut, orc:T.S.cfg.orc || {}}; });
+  const a = await g(), novoV = Math.round(a.lazerMedia + 300);
+  await ir(p, '#inicio'); await p.locator('.li[data-a="prevCat"][data-c="Lazer"]').first().click(); await p.waitForTimeout(300);
+  ok(await p.locator('#sheet form[data-f="proj"]').count() === 1, 'tocar no item em Hoje abre a ficha para mudar o projetado');
+  await p.fill('#sheet form[data-f="proj"] input[name="v"]', String(novoV)); await p.click('#sheet form[data-f="proj"] button[type="submit"]'); await p.waitForTimeout(400);
+  const d = await g();
+  ok(Math.abs(d.lazer - novoV) < 0.6 && Math.abs(d.total - a.total - (novoV - a.lazerMedia)) < 1, `Lazer projetado ${Math.round(a.lazerMedia)} → ${Math.round(d.lazer)}: o pode gastar sobe junto (${Math.round(a.total)} → ${Math.round(d.total)})`);
+  ok(/Pode gastar: R\$/.test(await p.evaluate(() => document.body.innerText)), 'a mensagem mostra o efeito no pode gastar');
+  await p.click('#sheet [data-a="projMedia"]'); await p.waitForTimeout(400);
+  const e = await g();
+  ok(Math.abs(e.total - a.total) < 0.6 && !('Lazer' in e.orc), `"Usar a média" volta como estava (${Math.round(e.total)})`);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(200); await ir(p, '#inicio');
+  ok(/Cartão sem categoria/.test(await texto(p)), 'o cartão sem categoria aparece com nome claro');
+  await p.locator('.li[data-a="prevCat"][data-c="Cartão (sem detalhe)"]').first().click(); await p.waitForTimeout(300);
+  ok(/De onde vem/.test(await p.evaluate(() => document.querySelector('#sheet').innerText)), 'a ficha explica de onde vem o cartão sem categoria');
+  await p.evaluate(async () => { await window.__T.criarLanc({tipo:'despesa', valor:100, desc:'Fatura do mês', cat:'Cartão (sem detalhe)', data:window.__T.hoje(), meio:'credito', cartaoId:'azul', nparc:1}); }); await p.waitForTimeout(400);
+  const e2 = await g();
+  await p.click('#sheet [data-a="projZerar"]'); await p.waitForTimeout(400);
+  const f = await g(), csdHoje = await p.evaluate(() => { const x = window.__T.diaDiaBase().lista.find(y => y.c === 'Cartão (sem detalhe)'); return {proj:x.proj, falta:x.falta, passou:x.passou}; });
+  ok(Math.abs(csdHoje.proj - 100) < 0.6 && csdHoje.falta < 0.5 && csdHoje.passou < 0.5, `zerar não vira "passou do projetado": este mês fica no que já foi gasto (${Math.round(csdHoje.proj)}), sem estourar`);
+  ok(f.csdFut < 0.5 && a.csdFut > 0.5 && f.total < e2.total, `zerar o cartão sem categoria tira a projeção dos próximos meses (jan: ${Math.round(a.csdFut)} → ${Math.round(f.csdFut)}) e o que faltava neste mês (pode gastar ${Math.round(e2.total)} → ${Math.round(f.total)})`);
+  ok(!erros.length, `projetado manual: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 10) Todas as telas abrem sem erro
 async function telas(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 2500);
   for (const v of ['inicio', 'contas', 'planos', 'ajuda', 'extrato', 'guardado', 'mes', 'fixos', 'cartoes', 'emprestimos', 'ajustes']) await ir(p, '#' + v);
@@ -274,6 +306,7 @@ async function telas(b) {
     secao('Mudar valor no mês seguinte'); await mudarMes(b);
     secao('Folga calculada e média em todos os meses'); await folgaMedia(b);
     secao('Crédito previsto só no cartão principal'); await cartaoPrincipal(b);
+    secao('Mudar o projetado na hora'); await projManual(b);
     secao('Telas'); await telas(b);
   } catch (e) { ok(false, 'o teste quebrou: ' + e.message); }
   await b.close();
