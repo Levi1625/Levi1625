@@ -119,7 +119,8 @@ export async function onRequestGet({ request, env }) {
   if (!env.LEMBRETES_CHAVE || u.searchParams.get("chave") !== env.LEMBRETES_CHAVE) return json({ erro: "Chave inválida." }, 403);
   const db = await banco(env), base = u.origin, teste = u.searchParams.get("hoje");
   const HOJE = /^\d{4}-\d{2}-\d{2}$/.test(teste || "") ? teste : hojeSP();
-  const dono = await db.prepare("SELECT casa FROM usuarios WHERE email = ?").bind(normEmail(env.LEMBRETES_EMAIL)).first();
+  // o controle de que o LEMBRETES_EMAIL é dono (mesmo que no momento ele esteja com outro controle aberto)
+  const dono = await db.prepare("SELECT id AS casa FROM casas WHERE dono = ? ORDER BY rowid LIMIT 1").bind(normEmail(env.LEMBRETES_EMAIL)).first() || await db.prepare("SELECT casa FROM usuarios WHERE email = ?").bind(normEmail(env.LEMBRETES_EMAIL)).first();
   const casas = (await db.prepare("SELECT id, whatsapp, callmebot, lembretes, pausado FROM casas").all()).results || [];
   const destinos = [];
   for (const c of casas) {

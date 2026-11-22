@@ -13,6 +13,10 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 2. Corrigiu um erro? Coloque em `testes/rodar.cjs` um teste que reproduz o erro, para ele não voltar.
 3. Os testes usam só a família fictícia `testes/familia-teste.json`.
 
+## Acesso e controles
+- Um e-mail pode participar de **mais de um controle** (ex.: ver o da família e ser dona do controle da casa da mãe, liberado em Ajustes › Clientes). Troca no menu ☰ › Controles; cada aparelho fica no controle que abriu; a cópia no aparelho é separada por controle; um controle nunca vê os dados do outro. Tirar a pessoa de um controle não apaga a conta dela se ela tem outro.
+- Mexeu no servidor (`app/functions`, `app/lib`)? Rode também `testes/servidor-controles.mjs` com o servidor local num banco novo (instruções no arquivo).
+
 ## Privacidade
 - Nunca commitar dados reais (lançamentos, saldos, nomes, planilhas, prints). Só código e a família fictícia.
 - Nunca commitar `.dev.vars` nem chaves. Segredos ficam só no Cloudflare. O telefone serve só para os lembretes de WhatsApp.

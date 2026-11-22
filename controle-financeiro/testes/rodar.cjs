@@ -318,7 +318,24 @@ async function mudarTexto(b) {
   ok(!erros.length, `mudar pelo texto: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
-// 11) Todas as telas abrem sem erro
+// 11) Mais de um controle no mesmo e-mail (ex.: ver o da família e cuidar da casa da mãe): o topo mostra qual está aberto e o menu troca,
+//     inclusive para quem só vê (o botão Abrir funciona no modo "só ver")
+async function controles(b) {
+  const {p, erros} = await abrir(b, '2026-11-22', 2500);
+  await p.evaluate(() => { window.__trocouPara = null; window.__casa = {papel:() => 've', whats:() => null, casas:() => [{id:'fam', nome:'Controle da família', papel:'ve', ativa:true}, {id:'mae', nome:'Casa da mãe', papel:'dono'}], casaAtual:() => ({id:'fam', nome:'Controle da família'}), trocar:async id => { window.__trocouPara = id; }}; window.__T.render(); });
+  await ir(p, '#inicio');
+  ok(/Controle da família ▾/.test(await p.evaluate(() => document.querySelector('header').innerText)), 'o topo mostra qual controle está aberto');
+  await p.click('header [data-a="menu"]'); await p.waitForTimeout(300);
+  const menu = await p.evaluate(() => document.querySelector('#sheet').innerText);
+  ok(/CONTROLES/.test(menu) && /Casa da mãe/.test(menu) && /você controla/.test(menu) && /só ver/.test(menu), 'o menu ☰ lista os controles e o papel em cada um');
+  const bt = p.locator('#sheet [data-a="trocarCasa"]');
+  ok(await bt.count() === 1 && await bt.isVisible(), 'quem só vê o controle da família ainda vê o botão Abrir da Casa da mãe');
+  await bt.click(); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => window.__trocouPara) === 'mae', 'Abrir troca para a Casa da mãe');
+  ok(!erros.length, `controles: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 12) Todas as telas abrem sem erro
 async function telas(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 2500);
   for (const v of ['inicio', 'contas', 'planos', 'ajuda', 'extrato', 'guardado', 'mes', 'fixos', 'cartoes', 'emprestimos', 'ajustes']) await ir(p, '#' + v);
@@ -344,6 +361,7 @@ async function telas(b) {
     secao('Crédito previsto só no cartão principal'); await cartaoPrincipal(b);
     secao('Mudar o projetado na hora'); await projManual(b);
     secao('Mudar pelo texto (chat)'); await mudarTexto(b);
+    secao('Mais de um controle no mesmo e-mail'); await controles(b);
     secao('Telas'); await telas(b);
   } catch (e) { ok(false, 'o teste quebrou: ' + e.message); }
   await b.close();

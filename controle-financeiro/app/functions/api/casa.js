@@ -1,6 +1,6 @@
 // POST /api/casa {acao: "add" | "remove" | "papel" | "ia" | "whats" | "testarWhats", email?, valor?}
 // Só o dono da casa (quem criou) pode mexer nas pessoas e nos ajustes. Ninguém tira o dono.
-import { json, banco, sessao, lerCasa, normEmail, mesmaOrigem, enviarWhats, PAPEIS } from "../../lib/server.js";
+import { json, banco, sessao, lerCasa, normEmail, mesmaOrigem, enviarWhats, PAPEIS, casasDoEmail } from "../../lib/server.js";
 export async function onRequestPost({ request, env }) {
   if (!mesmaOrigem(request)) return json({ erro: "Origem inválida." }, 403);
   const s = await sessao(request, env); if (!s) return json({ erro: "Entre no app." }, 401); if (s.pausado) return json({ erro: "Acesso pausado." }, 403);
@@ -16,15 +16,16 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true, casa: await lerCasa(db, s.casa) });
   } else if (b.acao === "add") {
     const e = normEmail(b.email); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return json({ erro: "E-mail inválido." }, 400);
-    const outra = await db.prepare("SELECT casa FROM usuarios WHERE email = ? AND hash IS NOT NULL").bind(e).first();
-    if (outra && outra.casa !== s.casa) return json({ erro: "Esse e-mail já usa outro controle." }, 409);
+    // pode já usar outro controle: passa a ter os dois e troca no menu
     if (!membros.includes(e)) membros = [...membros, e];
     papeis[e] = PAPEIS.includes(b.papel) ? b.papel : "ve"; await salvarPapeis();
   } else if (b.acao === "remove") {
     const e = normEmail(b.email); if (e === s.email || e === normEmail(c.dono)) return json({ erro: "O dono do controle não pode ser tirado." }, 400);
     delete papeis[e]; await salvarPapeis();
     membros = membros.filter((x) => x !== e);
-    await db.batch([db.prepare("DELETE FROM sessoes WHERE email = ?").bind(e), db.prepare("DELETE FROM usuarios WHERE email = ?").bind(e)]);
+    const outra = (await casasDoEmail(db, e)).find((x) => x.id !== s.casa);   // tem outro controle: continua com a conta, só sai deste
+    if (outra) await db.batch([db.prepare("DELETE FROM sessoes WHERE email = ? AND casa = ?").bind(e, s.casa), db.prepare("UPDATE usuarios SET casa = ? WHERE email = ? AND casa = ?").bind(outra.id, e, s.casa)]);
+    else await db.batch([db.prepare("DELETE FROM sessoes WHERE email = ?").bind(e), db.prepare("DELETE FROM usuarios WHERE email = ?").bind(e)]);
   } else if (b.acao === "ia") {
     await db.prepare("UPDATE casas SET ia = ?, upd = ? WHERE id = ?").bind(b.valor ? 1 : 0, Date.now(), s.casa).run();
     return json({ ok: true, casa: await lerCasa(db, s.casa) });

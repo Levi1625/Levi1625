@@ -1,5 +1,5 @@
 // /api/admin: só para quem administra o app (ADMIN_EMAIL). Lista, libera, pausa e define o limite de IA dos clientes.
-import { json, banco, sessao, lerCasa, normEmail, aleatorio, adminEmail, limiteIA, usoDoMes, mesmaOrigem } from "../../lib/server.js";
+import { json, banco, sessao, lerCasa, normEmail, aleatorio, adminEmail, limiteIA, usoDoMes, mesmaOrigem, casasDoEmail } from "../../lib/server.js";
 
 async function eAdmin(request, env) { const s = await sessao(request, env); return s && s.email === adminEmail(env) ? s : null; }
 
@@ -20,8 +20,9 @@ export async function onRequestPost({ request, env }) {
   const db = await banco(env), b = await request.json().catch(() => ({}));
   if (b.acao === "add") {
     const e = normEmail(b.email); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return json({ erro: "E-mail inválido." }, 400);
-    const ja = await db.prepare("SELECT id FROM casas WHERE membros LIKE ?").bind(`%"${e}"%`).first();
-    if (ja) return json({ erro: "Esse e-mail já tem um controle." }, 409);
+    // pode já participar de outro controle (ex.: vê o da família): vira dono deste também e troca no menu
+    const ja = await db.prepare("SELECT id FROM casas WHERE dono = ?").bind(e).first();
+    if (ja) return json({ erro: "Esse e-mail já é dono de um controle." }, 409);
     await db.prepare("INSERT INTO casas (id, dono, membros, cliente, upd) VALUES (?, ?, ?, ?, ?)").bind(aleatorio(10), e, JSON.stringify([e]), String(b.nome || "").slice(0, 60), Date.now()).run();
     return json({ ok: true });
   }
@@ -31,12 +32,16 @@ export async function onRequestPost({ request, env }) {
   if (b.acao === "pausar") await db.prepare("UPDATE casas SET pausado = ? WHERE id = ?").bind(b.valor ? 1 : 0, c.id).run();
   else if (b.acao === "limite") await db.prepare("UPDATE casas SET ia_limite = ? WHERE id = ?").bind(b.valor === null || b.valor === "" ? null : Math.max(0, +b.valor || 0), c.id).run();
   else if (b.acao === "remover") {
-    await db.batch([
-      db.prepare("DELETE FROM docs WHERE casa = ?").bind(c.id),
-      db.prepare("DELETE FROM sessoes WHERE email IN (SELECT email FROM usuarios WHERE casa = ?)").bind(c.id),
-      db.prepare("DELETE FROM usuarios WHERE casa = ?").bind(c.id),
-      db.prepare("DELETE FROM casas WHERE id = ?").bind(c.id),
-    ]);
+    // quem participa de outro controle continua com a conta (vai para o outro); quem só tinha este perde o acesso
+    const cc = await db.prepare("SELECT dono, membros FROM casas WHERE id = ?").bind(c.id).first(), ativos = ((await db.prepare("SELECT email FROM usuarios WHERE casa = ?").bind(c.id).all()).results || []).map((x) => x.email);
+    const pessoas = [...new Set([normEmail(cc.dono), ...JSON.parse(cc.membros || "[]"), ...ativos].map(normEmail))], ops = [db.prepare("DELETE FROM docs WHERE casa = ?").bind(c.id)];
+    for (const e of pessoas) {
+      const outra = (await casasDoEmail(db, e)).find((x) => x.id !== c.id);
+      if (outra) ops.push(db.prepare("DELETE FROM sessoes WHERE email = ? AND casa = ?").bind(e, c.id), db.prepare("UPDATE usuarios SET casa = ? WHERE email = ? AND casa = ?").bind(outra.id, e, c.id));
+      else ops.push(db.prepare("DELETE FROM sessoes WHERE email = ?").bind(e), db.prepare("DELETE FROM usuarios WHERE email = ?").bind(e));
+    }
+    ops.push(db.prepare("DELETE FROM casas WHERE id = ?").bind(c.id));
+    await db.batch(ops);
   } else return json({ erro: "Ação inválida." }, 400);
   return json({ ok: true });
 }

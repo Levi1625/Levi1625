@@ -23,7 +23,9 @@ export async function banco(env) {
       "ALTER TABLE casas ADD COLUMN pausado INTEGER DEFAULT 0", "ALTER TABLE casas ADD COLUMN papeis TEXT", "ALTER TABLE casas ADD COLUMN ia_limite REAL", "ALTER TABLE casas ADD COLUMN cliente TEXT",
       "CREATE TABLE IF NOT EXISTS ia_log (id INTEGER PRIMARY KEY AUTOINCREMENT, casa TEXT, email TEXT, quando INTEGER, tipo TEXT, usd REAL, modelo TEXT)",
       "CREATE INDEX IF NOT EXISTS ia_log_casa ON ia_log (casa, quando)",
-      "CREATE TABLE IF NOT EXISTS ajustes_app (chave TEXT PRIMARY KEY, valor TEXT)"]) {
+      "CREATE TABLE IF NOT EXISTS ajustes_app (chave TEXT PRIMARY KEY, valor TEXT)",
+      // controle aberto em cada aparelho (quem participa de mais de um controle troca no menu)
+      "ALTER TABLE sessoes ADD COLUMN casa TEXT"]) {
       try { await env.DB.prepare(sql).run(); } catch (_) { /* coluna já existe */ }
     }
     pronto = true;
@@ -61,15 +63,21 @@ export function mesmaOrigem(request) {
 }
 
 // Quem está logado (ou null).
+// A pessoa faz parte deste controle? (é a dona ou está na lista)
+export const ehMembro = (c, email) => !!c && (normEmail(c.dono) === normEmail(email) || JSON.parse(c.membros || "[]").includes(normEmail(email)));
 export async function sessao(request, env) {
   const db = await banco(env);
   const m = (request.headers.get("cookie") || "").match(/(?:^|;\s*)bolso_s=([a-f0-9]{64})/);
   if (!m) return null;
-  const s = await db.prepare("SELECT s.email, s.expira, u.nome, u.casa FROM sessoes s JOIN usuarios u ON u.email = s.email WHERE s.token = ?").bind(m[1]).first();
-  if (!s || s.expira < Date.now() || !s.casa) return null;
-  const c = await db.prepare("SELECT pausado, dono, papeis FROM casas WHERE id = ?").bind(s.casa).first();
+  const s = await db.prepare("SELECT s.email, s.expira, s.casa AS sc, u.nome, u.casa FROM sessoes s JOIN usuarios u ON u.email = s.email WHERE s.token = ?").bind(m[1]).first();
+  if (!s || s.expira < Date.now()) return null;
+  // o controle aberto neste aparelho; se a pessoa não faz mais parte dele, volta para o controle padrão dela
+  const ler = (id) => id ? db.prepare("SELECT pausado, dono, papeis, membros FROM casas WHERE id = ?").bind(id).first() : null;
+  let casa = s.sc || s.casa, c = await ler(casa);
+  if (s.sc && !ehMembro(c, s.email)) { casa = s.casa; c = await ler(casa); }
+  if (!casa) return null;
   const papel = s.email === adminEmail(env) && c && normEmail(c.dono) === s.email ? "dono" : papelDe(c, s.email);
-  return { email: s.email, nome: s.nome, casa: s.casa, token: m[1], pausado: !!(c && c.pausado), papel };
+  return { email: s.email, nome: s.nome, casa, token: m[1], pausado: !!(c && c.pausado), papel };
 }
 
 // Papel de cada pessoa na casa: "dono" (quem criou: manda em tudo e ninguém tira), "edita" (lança e corrige) ou "ve" (só vê e pergunta para a IA).
@@ -82,19 +90,26 @@ export function papelDe(c, email) {
 }
 
 // Se o dono foi tirado da própria casa (ou criou uma casa vazia por engano), devolve o dono para a casa com os dados dele.
+// Quem participa de mais de um controle (ex.: vê o da família e é dono do da casa da mãe) fica no que está aberto: nada é trocado nem apagado.
 export async function repararDono(db, email) {
   email = normEmail(email);
-  const minhas = (await db.prepare("SELECT id, membros FROM casas WHERE dono = ?").bind(email).all()).results || [];
+  const minhas = (await db.prepare("SELECT id, membros, cliente FROM casas WHERE dono = ?").bind(email).all()).results || [];
   if (!minhas.length) return null;
   const conta = async (id) => +((await db.prepare("SELECT COUNT(*) AS n FROM docs WHERE casa = ? AND del = 0").bind(id).first()) || {}).n || 0;
   const u = await db.prepare("SELECT casa FROM usuarios WHERE email = ?").bind(email).first();
+  for (const c of minhas) { const m = JSON.parse(c.membros || "[]"); if (!m.includes(email)) { const nm = [email, ...m]; await db.prepare("UPDATE casas SET membros = ?, upd = ? WHERE id = ?").bind(JSON.stringify(nm), Date.now(), c.id).run(); c.membros = JSON.stringify(nm); } }
+  if (u && u.casa) {
+    const at = await db.prepare("SELECT id, dono, membros, cliente FROM casas WHERE id = ?").bind(u.casa).first();
+    const vaziaPorEngano = at && normEmail(at.dono) === email && !at.cliente && JSON.parse(at.membros || "[]").every((x) => x === email) && minhas.some((c) => c.id !== at.id) && (await conta(at.id)) === 0;
+    if (ehMembro(at, email) && !vaziaPorEngano) return u.casa;
+  }
   const n = {}; for (const c of minhas) n[c.id] = await conta(c.id);
-  let alvo = minhas.reduce((a, c) => (n[c.id] > n[a.id] ? c : a), minhas[0]).id;
-  if (u && u.casa && u.casa !== alvo) { const nAtual = u.casa in n ? n[u.casa] : await conta(u.casa); if (nAtual >= n[alvo]) alvo = u.casa; }
+  // aqui o controle aberto não serve (a pessoa não faz parte dele, ou é uma casa vazia criada por engano): vai para o controle dela com mais dados
+  const alvo = minhas.reduce((a, c) => (n[c.id] > n[a.id] ? c : a), minhas[0]).id;
   for (const c of minhas) {
     const m = JSON.parse(c.membros || "[]");
     if (c.id === alvo) { if (!m.includes(email)) await db.prepare("UPDATE casas SET membros = ?, upd = ? WHERE id = ?").bind(JSON.stringify([email, ...m]), Date.now(), c.id).run(); }
-    else if (n[c.id] === 0 && m.every((x) => x === email)) await db.prepare("DELETE FROM casas WHERE id = ?").bind(c.id).run(); // casa vazia criada por engano
+    else if (n[c.id] === 0 && !c.cliente && m.every((x) => x === email)) await db.prepare("DELETE FROM casas WHERE id = ?").bind(c.id).run(); // casa vazia criada por engano (controle de cliente nunca)
   }
   if (u && u.casa !== alvo) await db.prepare("UPDATE usuarios SET casa = ? WHERE email = ?").bind(alvo, email).run();
   return alvo;
@@ -116,6 +131,18 @@ export async function lerCasa(db, id) {
 export async function casaDoEmail(db, email) {
   const r = await db.prepare("SELECT id, membros FROM casas WHERE membros LIKE ?").bind(`%"${email.replace(/[%_"]/g, "")}"%`).all();
   return (r.results || []).find((c) => JSON.parse(c.membros || "[]").includes(email)) || null;
+}
+
+// Todos os controles de que um e-mail faz parte (para trocar no menu)
+export async function casasDoEmail(db, email) {
+  email = normEmail(email);
+  const r = await db.prepare("SELECT id, dono, membros, papeis, cliente, pausado FROM casas WHERE dono = ? OR membros LIKE ?").bind(email, `%"${email.replace(/[%_"]/g, "")}"%`).all(), out = [];
+  for (const c of r.results || []) {
+    if (!ehMembro(c, email)) continue;
+    const dn = await db.prepare("SELECT nome FROM usuarios WHERE email = ?").bind(normEmail(c.dono)).first();
+    out.push({ id: c.id, nome: c.cliente || `Controle de ${(dn && dn.nome) || String(c.dono).split("@")[0]}`, papel: papelDe(c, email), pausado: !!c.pausado });
+  }
+  return out;
 }
 
 // Quem administra o app (você): ADMIN_EMAIL, ou o primeiro e-mail de EMAILS_PERMITIDOS.

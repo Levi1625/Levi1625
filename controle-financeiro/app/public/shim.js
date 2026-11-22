@@ -50,7 +50,10 @@
   const tirarLogin = () => { const d = document.getElementById('bl-login'); if (d) d.remove(); };
 
   /* ---------- dados: cópia local + sincronização + fila sem internet ---------- */
-  const LS = k => 'bolso:' + (eu ? eu.email : '') + ':' + k;
+  // A cópia no aparelho é separada por controle: quem participa de mais de um (ex.: família e casa da mãe) nunca mistura os dados.
+  const LS = k => 'bolso:' + (eu ? eu.email : '') + ':' + (casa && casa.id ? casa.id + ':' : '') + k;
+  const LS0 = k => 'bolso:' + (eu ? eu.email : '') + ':' + k;   // cópia de antes (um controle só): passa a ser a do controle aberto
+  function migrarCopia() { try { if (!casa || !casa.id) return; ['store', 'since', 'fila'].forEach(k => { const v = localStorage.getItem(LS0(k)); if (v == null) return; if (localStorage.getItem(LS(k)) == null) localStorage.setItem(LS(k), v); localStorage.removeItem(LS0(k)); }); } catch (_) {} }
   const ler = (k, padrao) => { try { const v = localStorage.getItem(LS(k)); return v ? JSON.parse(v) : padrao; } catch (_) { return padrao; } };
   const gravar = (k, v) => { try { localStorage.setItem(LS(k), JSON.stringify(v)); } catch (_) {} };
   let store = {}, since = 0, fila = {}, sincronizado = false, subs = [];
@@ -76,6 +79,8 @@
     try {
       await enviarFila();
       const r = await api('GET', '/api/sync?since=' + Math.max(0, since - 2000));
+      // o servidor está com outro controle aberto (trocado em outro lugar): recarrega em vez de misturar os dados
+      if (r.casa && casa && casa.id && r.casa.id !== casa.id) { let ult = 0; try { ult = +sessionStorage.getItem('bolso:trocouCasa') || 0; } catch (_) {} if (Date.now() - ult > 10000) { try { sessionStorage.setItem('bolso:trocouCasa', String(Date.now())); localStorage.removeItem('bolso:ultimo'); } catch (_) {} location.reload(); } sincronizando = false; return; }
       let mudou = !sincronizado;
       for (const d of r.docs) { if (d.path in fila) continue; if (d.del) { if (d.path in store) { delete store[d.path]; mudou = true; } } else if (JSON.stringify(store[d.path]) !== JSON.stringify(d.data)) { store[d.path] = d.data; mudou = true; } }
       since = r.agora; casa = r.casa || casa; sincronizado = true; salvarLocal();
@@ -114,6 +119,10 @@
       whats: () => ({numero:casa && casa.whatsapp || '', temChave:!!(casa && casa.temChaveWhats), ligado:!casa || casa.lembretes !== false}),
       setWhats: async (numero, chave, ligado) => { const r = await api('POST', '/api/casa', {acao:'whats', numero, chave, lembretes:ligado}); casa = r.casa; },
       testarWhats: () => api('POST', '/api/casa', {acao:'testarWhats'}),
+      // controles de que a pessoa faz parte (ex.: o da família e o da casa da mãe) e trocar entre eles
+      casas: () => (eu && eu.casas || []).slice(),
+      casaAtual: () => casa ? {id:casa.id, nome:((eu && eu.casas || []).find(c => c.id === casa.id) || {}).nome || ''} : null,
+      trocar: async id => { await enviarFila().catch(() => {}); await api('POST', '/api/trocar', {id}); try { localStorage.removeItem('bolso:ultimo'); } catch (_) {} location.reload(); },
       iaDetalhe: () => api('GET', '/api/iauso'),
       iaCredito: usd => api('POST', '/api/iauso', {usd}),
       iaSaldo: saldo => api('POST', '/api/iauso', {saldo}),
@@ -136,9 +145,9 @@
       if (!ultimo) { telaLogin('Sem internet agora. Conecte e tente de novo.'); return; }
       r = ultimo; // sem internet: abre com a cópia guardada no celular
     }
-    eu = {email:r.email, nome:r.nome, admin:!!r.admin, papel:r.papel || 'dono'}; casa = r.casa;
-    try { localStorage.setItem('bolso:ultimo', JSON.stringify({email:r.email, nome:r.nome, admin:!!r.admin, papel:eu.papel, casa:r.casa})); } catch (_) {}
-    store = ler('store', {}); since = ler('since', 0); fila = eu.papel === 've' ? {} : ler('fila', {});
+    eu = {email:r.email, nome:r.nome, admin:!!r.admin, papel:r.papel || 'dono', casas:r.casas || []}; casa = r.casa;
+    try { localStorage.setItem('bolso:ultimo', JSON.stringify({email:r.email, nome:r.nome, admin:!!r.admin, papel:eu.papel, casa:r.casa, casas:eu.casas})); } catch (_) {}
+    migrarCopia(); store = ler('store', {}); since = ler('since', 0); fila = eu.papel === 've' ? {} : ler('fila', {});
     publicarCasa(); tirarLogin(); resolverLogin();
     sincronizar();
     setInterval(() => { if (document.visibilityState === 'visible') sincronizar(); }, 15000);
