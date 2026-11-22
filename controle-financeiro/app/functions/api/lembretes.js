@@ -24,6 +24,11 @@ export function montar(dados, HOJE) {
     if ((f.tipo || "despesa") !== "despesa" || f.repasse || f.cartaoId || !ativo(f) || pago(f)) continue;
     const dd = dia(f); if (dd - D <= 3) contas.push({ dia: dd, desc: f.desc, v: valor(f) });
   }
+  // Gasto agendado (lançado antes, com data para pagar): avisa até 3 dias antes, como as contas fixas.
+  for (const l of lanc) {
+    if (l.tipo === "receita" || l.cartaoId || !l.data || l.data.slice(0, 7) !== M || l.data < HOJE || String(l.criado || "").slice(0, 10) >= l.data) continue;
+    const dd = +l.data.slice(8); if (dd - D <= 3) contas.push({ dia: dd, desc: `${l.desc} (agendado)`, v: +l.valor || 0 });
+  }
   // Conta paga com uma caixinha (ex.: financiamento do carro pago com a Reserva do carro): avisa no dia e diz de onde sai.
   const nrm = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
   for (const o of dados.objetivos || []) {
