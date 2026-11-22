@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 21:04';</script>
+<script>window.__versao = '21/11 21:47';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -741,11 +741,11 @@ function parseRapido(txt) {
     const now = new Date(hoje() + 'T12:00'); let yy = y ? +y : now.getFullYear(); if (yy < 100) yy += 2000;
     let dt = new Date(yy, +m - 1, +d); const passado = /\b(comprei|gastei|paguei|fiz|foi|tive|teve|recebi|ganhei|entrou)\b/i.test(txt) && !/\b(vai|vou|vamos|pagar|vence|vencimento|agend\w*|cai|cair)\b/i.test(txt);
     if (!y && !passado && (now - dt) / 864e5 > 60) dt = new Date(yy + 1, +m - 1, +d);   // sem ano e já passou há mais de 2 meses: é do ano que vem
-    if (!isNaN(dt)) r.data = isoDate(dt); return ' ';
+    if (!isNaN(dt)) { r.data = isoDate(dt); r.dataDita = true; } return ' ';
   });
   t = t.replace(/\b(?:vai ser pag[oa]|vou pagar|vamos pagar|pagar|vence|vencimento|agendad[oa]|agendei|cai|vai cair)\s+(?:no |em |para o |pro |para |pra )?dia\s+(\d{1,2})\b(?!\s*\/)/i, (w, d) => {
     const now = new Date(hoje() + 'T12:00'); let dt = new Date(now.getFullYear(), now.getMonth(), +d); if (dt < new Date(hoje() + 'T00:00')) dt = new Date(now.getFullYear(), now.getMonth() + 1, +d);
-    if (!isNaN(dt) && +d >= 1 && +d <= 31) r.data = isoDate(dt); return ' ';
+    if (!isNaN(dt) && +d >= 1 && +d <= 31) { r.data = isoDate(dt); r.dataDita = true; } return ' ';
   });
   t = t.replace(/\b(anteontem|ontem|hoje)\b/i, w => { const dt = new Date(); const k = w.toLowerCase(); if (k === 'ontem') dt.setDate(dt.getDate() - 1); if (k === 'anteontem') dt.setDate(dt.getDate() - 2); r.data = isoDate(dt); return ' '; });
   const mv = t.match(/(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\w\/])/i);
@@ -1433,6 +1433,17 @@ const passosDe = o => (o.passos || []).map(a => RX_PLANO_MES.test(a.t || '') ? {
 // Ajuste combinado em 21/11: saídas ~R$ 800 (restaurante/lanche/padaria no vale + bar na conta) e um pouco mais de mercado.
 // Roda uma vez, só para quem pode lançar, e nunca baixa um limite que já esteja maior.
 let _ajLimT = null;
+// Uma vez: o financiamento do carro e a academia de novembro já foram pagos no dia 1 (vieram da planilha com data 25/11).
+// Sem isso, a regra do agendado contava os dois de novo no dia 25.
+let _ajPagoT = null;
+function ajustePago2611() {
+  if (soVer() || !S.cfg || S.cfg.ajPago2611 || !S.lanc.length || !S.cfg.saldo || _ajPagoT) return;
+  _ajPagoT = setTimeout(async () => { if (S.cfg.ajPago2611) return; const m = ymNow(), mud = [];
+    const fxs = S.fixos.filter(f => f.tipo !== 'receita' && /financiamento do carro|academia/i.test(f.desc || '')).map(f => f.id);
+    for (const l of S.lanc.filter(l => fxs.includes(l.fixoId) && (l.refMes || l.mes) === m && l.data && l.data > hoje() && String(l.criado || '') <= String(S.cfg.saldo.em || ''))) {
+      try { await put(COLS.lanc, l.id, {...strip(l), data:`${m}-01`}); mud.push(l.desc); } catch (_) {} }
+    try { await saveCfg({ajPago2611:true}); if (mud.length) toast(`Corrigi a data para 01/${m.slice(5)} (já pagos): ${mud.join(' e ')}`, 6000); } catch (_) {} }, 4500);
+}
 let _ajDiasT = null;
 function ajusteDias2611() {
   if (soVer() || !S.cfg || S.cfg.ajDias2611 || !S.fixos.length || _ajDiasT) return;
@@ -2482,7 +2493,7 @@ let _raf = 0;
 function render() { _flx = null; _base = null; _pmC = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
   document.body.classList.toggle('sover', soVer());
-  try { sincPlanoMes(); guardarFoto(); ajusteLimites2611(); ajusteDias2611(); } catch (_) {}
+  try { sincPlanoMes(); guardarFoto(); ajusteLimites2611(); ajusteDias2611(); ajustePago2611(); } catch (_) {}
   renderNav();
   const main = $('#main');
   if (S.blocked) { main.innerHTML = `<div class="loading"><h2>Este controle financeiro é privado</h2><p style="margin-top:8px">Só o dono consegue ver e editar os dados.</p></div>`; return; }
@@ -2675,6 +2686,7 @@ function formLanc(l = {}, opts = {}) {
     <label class="fld"><span>Com o que foi</span><input id="l-desc" name="desc" value="${esc(l.desc || '')}" placeholder="Ex.: Mercado, Uber, Salário" ${opts.focusDesc ? 'autofocus' : ''}></label>
     <div class="f2"><label class="fld"><span>Categoria</span><select id="l-cat" name="cat">${catOpts(tipo, l.cat)}</select></label>
     <label class="fld"><span>Data</span><input id="l-data" name="data" type="date" value="${esc(l.data || hoje())}" required></label></div>
+    <p class="hint" style="margin-top:-4px">Data no futuro = <b>agendado</b>: não sai da conta hoje, só no dia.</p>
     <div class="f2"><label class="fld"><span id="lbl-meio">${tipo === 'receita' ? 'Entra em' : 'Sai de'}</span><select id="l-meio" name="meio" data-tipo="${tipo}">${meioOpts(l.meio || S.cfg.meioPadrao || 'pix', l.cartaoId, tipo)}</select></label>
     ${edit ? '' : `<label class="fld" id="w-parc"><span>Parcelas</span><input id="l-parc" name="nparc" type="number" min="1" max="48" value="${+l.nparc || 1}"></label>`}</div>
     <p class="hint" id="l-hint"></p>${grupoInfo}
@@ -2874,6 +2886,8 @@ async function lancarTexto(txt) {
     if (itens && itens.acao === 'pergunta') return {perguntaIA:true};
   }
   if (!itens || (!itens.length && local.valor > 0)) itens = local.valor > 0 ? [local] : [];
+  // Trava da data: a data escrita na frase manda. Se a IA devolveu outra (ex.: hoje no lugar de 30/01), usa a escrita.
+  if (local.dataDita && itens.length && itens !== null) { const datas = new Set(itens.map(it => it.data)); if (datas.size === 1 && !datas.has(local.data)) itens.forEach(it => { it.data = local.data; it._dataCorrigida = true; }); }
   if (!itens.length) { S.pend = {tipo:'valor', txt}; return {pergunta:'valor'}; }
   return processarItens(itens, txt);
 }
