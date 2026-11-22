@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '21/11 22:24';</script>
+<script>window.__versao = '22/11 11:12';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -2347,12 +2347,12 @@ function ajusteMes(m, hv) {
   const grupo = c => ((S.cfg.orcMeio || {})[c] === 'va' || vaCats().includes(c)) ? 'vale' : 'conta';
   const out = {lim:{}, cortes:{}, extras:{}, gasto, fech, semFolga:0, comidaFora:r2(sum(Object.keys(fora).filter(c => grupo(c) === 'vale'), c => fora[c])), semLimite:0};
   ['vale', 'conta'].forEach(gr => {
-    const cs = Object.keys(orc).filter(c => +orc[c] > 0 && grupo(c) === gr); cs.forEach(c => { out.lim[c] = +orc[c]; });
-    let saldo = 0; cs.forEach(c => { const v = gasto[c] || 0; if (v > orc[c]) { if (m <= ymNow()) saldo -= v - orc[c]; } else if (fech.includes(c)) { saldo += orc[c] - v; out.lim[c] = v; } });
-    // Mês atual: gasto do dia a dia (fora comida) em categoria sem limite, acima do que costuma ser, sai do que resta das outras.
+    const cs = Object.keys(orc).filter(c => +orc[c] > 0 && grupo(c) === gr), plano = {}; cs.forEach(c => { plano[c] = +orc[c]; out.lim[c] = +orc[c]; });
+    // Mês atual: as categorias do dia a dia sem limite (planejadas pela média) entram na mesma conta das que têm limite.
     if (gr === 'conta' && m === ymNow()) { const H0 = hv || histVar();
-      out.semLimite = r2(sum(Object.keys(gasto).filter(c => grupo(c) === 'conta' && !cs.includes(c) && DIA_CATS.includes(c)), c => Math.max(0, gasto[c] - (H0[c] ? H0[c].tot : 0))));
-      saldo -= out.semLimite; }
+      DIA_CATS.filter(c => grupo(c) === 'conta' && !cs.includes(c) && ((H0[c] && H0[c].tot > 0) || (gasto[c] || 0) > 0)).forEach(c => { plano[c] = H0[c] ? H0[c].tot : 0; out.lim[c] = plano[c]; cs.push(c); });
+      out.semLimite = r2(sum(cs.filter(c => !(+orc[c] > 0)), c => Math.max(0, (gasto[c] || 0) - plano[c]))); }
+    let saldo = 0; cs.forEach(c => { const v = gasto[c] || 0, pl = plano[c]; if (v > pl) { if (m <= ymNow()) saldo -= v - pl; } else if (fech.includes(c)) { saldo += pl - v; out.lim[c] = v; } });
     let alvo = cs.filter(c => (gasto[c] || 0) < out.lim[c] && !fech.includes(c)), rest = saldo;
     for (let k = 0; k < 6 && Math.abs(rest) > .5 && alvo.length; k++) {
       const parte = rest / alvo.length; rest = 0; const prox = [];
@@ -2750,8 +2750,8 @@ F.lanc = async (f) => {
         const fid = await put(COLS.fixos, null, {tipo:o.tipo, desc:o.desc, valor:r2(valor), cat:o.cat, dia:+o.data.slice(8), meio:o.meio, ...(o.cartaoId ? {cartaoId:o.cartaoId} : {}), inicio:o.data.slice(0, 7), ativo:true});
         o.fixoId = fid; o.nparc = 1; o.refMes = o.data.slice(0, 7); if (!o.cartaoId) o.mes = o.data.slice(0, 7);
       }
-      const ids = await criarLanc(o);
-      toast(o.nparc > 1 ? `Lançado em ${o.nparc} parcelas` : 'Lançado');
+      const g0 = podeGastar(), ids = await criarLanc(o), ef = efeitoTxt(o);
+      toast(`${o.nparc > 1 ? `Lançado em ${o.nparc} parcelas` : 'Lançado'}${g0 ? ` · ${ef ? ef : `pode gastar ${brl0(g0.total)} → ${brl0(Math.max(0, g0.total - valor))}`}` : ''}`, 6000);
       if (o.cat === 'Outros' || o.cat === 'Outras receitas') aiCategorizar(ids[0], o.desc, o.tipo);
     }
     closeSheet();
@@ -2920,7 +2920,7 @@ async function processarItens(itens, txt) {
   return salvarItens(out, txt);
 }
 async function salvarItens(out, txt) {
-  const ids = [], fixos = [], revs = [];
+  const ids = [], fixos = [], revs = [], g0 = podeGastar(), antes = g0 ? {total:g0.total, comida:g0.comida} : null;
   for (const it of out) {
     if (it._baixa === 'fatura') continue;
     if (it.objId && !it.objItem) { const o = S.objs.find(x => x.id === it.objId); const item = o && itemDoObj(o, it, txt); if (item) it.objItem = item.id; }
@@ -2933,7 +2933,7 @@ async function salvarItens(out, txt) {
       if (f && (!f.fim || f.fim > it.refMes) && Math.abs(vp - it.valor) > 1 && !(f.ajustes && f.ajustes[it.refMes] && f.ajustes[it.refMes].v != null)) { try { revs.push({id:f.id, data:strip(f)}); await put(COLS.fixos, f.id, {...strip(f), valor:r2(it.valor)}); it._prevAtual = [vp, it.valor]; } catch (_) {} } }
   }
   S.pend = null;
-  return {itens:out, ids, fixos, revs};
+  return {itens:out, ids, fixos, revs, antes};
 }
 const MESES_N = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function mesInicioTexto(txt) {
@@ -3092,7 +3092,31 @@ function perguntaHTML(r) {
   const ops = [['pix', 'Pix'], ['debito', 'Débito'], ['va', 'Vale'], ['dinheiro', 'Dinheiro'], ...S.cartoes.map(c => ['cc:' + c.id, 'Crédito ' + c.nome])].sort((a, b) => (b[0] === sug) - (a[0] === sug));
   return `De onde saiu o dinheiro de ${it.map(x => `<b>${esc(x.desc)}</b> (${brl(x.valor)})`).join(', ')}?<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${ops.map(([v, l]) => `<button class="btn sm${v === sug ? ' pri' : ''}" data-a="respMeio" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div><div class="small muted" style="margin-top:6px">Se for parcelado, escreva de novo com as parcelas (ex.: <i>tv 2000 10x nubank</i>).</div>`;
 }
-const resHTML = r => `✓ Lancei${r.itens.length > 1 ? ' ' + r.itens.length + ' itens' : ''}:<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${r.itens.map(it => `<div>${descItem(it)}</div>`).join('')}</div>${avisosItens(r.itens, r.ids)}`;
+function efeitoTxt(it) {
+  const mesG = it.cartaoId || !it.mes ? String(it.data || hoje()).slice(0, 7) : it.mes;
+  if (it.tipo === 'receita') return 'entrada: não muda o pode gastar';
+  if (it._baixa === 'fatura') return 'pagamento de fatura: não muda o pode gastar';
+  if (it.data > hoje() && !it.cartaoId) return `agendado para ${dLabel(it.data)}: só sai da conta no dia`;
+  if (it.fixoId) return 'conta fixa já prevista: não muda o pode gastar';
+  if (it.objId) { const o = S.objs.find(x => x.id === it.objId); return `gasto do plano ${o ? o.nome.replace(/\s*\(.*\)\s*$/, '') : ''}: não muda o pode gastar`; }
+  if ((it.nparc || 1) > 1) return 'parcelado: entra nas faturas, não muda o pode gastar de hoje';
+  if (isVA(it)) return 'comida no vale: sai da linha Comida e do vale';
+  if (vaCats().includes(it.cat)) return `comida paga ${it.cartaoId ? 'no cartão' : 'na conta'}: sai da linha Comida e da sobra do mês, não do pode gastar`;
+  if (mesG !== ymNow()) return `gasto de ${ymLabel(mesG)}: não muda o pode gastar de agora`;
+  if (!ehDia(it.cat)) return `fora do dia a dia (${it.cat}): sai da sobra do mês, não do pode gastar`;
+  return null;   // dia a dia: desconta do pode gastar
+}
+function efeitoHTML(r) {
+  if (!r.antes) return '';
+  const dia = r.itens.filter(it => !efeitoTxt(it)), com = r.itens.filter(it => it.tipo === 'despesa' && !it.fixoId && !it.objId && (it.nparc || 1) === 1 && !(it.data > hoje() && !it.cartaoId) && vaCats().includes(it.cat));
+  const vD = sum(dia, it => +it.valor || 0), vC = sum(com, it => +it.valor || 0), a = r.antes;
+  const linhas = [];
+  if (vD > 0.5) linhas.push(`<b>Pode gastar: ${brl0(a.total)} → ${brl0(Math.max(0, a.total - vD))}</b>`); else linhas.push(`Pode gastar continua <b>${brl0(a.total)}</b>`);
+  if (vC > 0.5 && a.comida != null) linhas.push(`Comida: falta ${brl0(a.comida)} → ${brl0(Math.max(0, a.comida - vC))}`);
+  const motivos = r.itens.map(it => efeitoTxt(it)).filter(Boolean);
+  return `<div class="small" style="margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--surface-2)">${linhas.join(' · ')}${motivos.length ? `<div class="muted" style="margin-top:3px">${[...new Set(motivos)].map(esc).join('<br>')}</div>` : ''}</div>`;
+}
+const resHTML = r => `✓ Lancei${r.itens.length > 1 ? ' ' + r.itens.length + ' itens' : ''}:<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${r.itens.map(it => `<div>${descItem(it)}</div>`).join('')}</div>${efeitoHTML(r)}${avisosItens(r.itens, r.ids)}`;
 // Comida paga fora do vale com saldo no vale: pode, mas o app pergunta o motivo (não aceita, esqueci ou foi no vale mesmo).
 const naoAceitaVale = desc => (S.cfg.naoAceitaVale || []).includes(norm(desc).replace(/\s+/g, ' ').trim());
 const foraValeHTML = (id, sv, it) => `<div class="fv" data-fv="${id}">⚠️ Ainda tinha <b>${brl(sv)}</b> no vale e ${esc(it.desc)} foi no ${esc((MEIOS[it.meio] || it.meio || 'conta').toLowerCase())}. Por quê?<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px"><button class="btn sm" data-a="foraVale" data-id="${id}" data-v="nao_aceita">Lá não aceita vale</button><button class="btn sm" data-a="foraVale" data-id="${id}" data-v="esqueci">Esqueci do vale</button><button class="btn sm" data-a="foraVale" data-id="${id}" data-v="vale">Foi no vale, corrigir</button></div></div><!--/fv-->`;

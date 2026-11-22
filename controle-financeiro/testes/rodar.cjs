@@ -104,6 +104,37 @@ async function futuroNaoMexe(b) {
   ok(!erros.length, `mês futuro: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
+// 3c) Categoria estourada: novo gasto do dia a dia ainda desconta (as sem limite entram na mesma conta)
+async function estourada(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const pode = () => p.evaluate(() => { const T = window.__T; T.render(); return T.podeGastar().total; });
+  const gasta = (desc, cat, valor) => p.evaluate(async o => { await window.__T.criarLanc({tipo:'despesa', data:window.__T.hoje(), meio:'pix', nparc:1, ...o}); }, {desc, cat, valor});
+  const a = await pode();
+  await gasta('Show grande', 'Lazer', Math.round(a - 60)); await p.waitForTimeout(250);
+  const d = await pode();
+  ok(Math.abs(d - 60) < 1, `estourou o Lazer: sobra o que falta no total do dia a dia (${Math.round(a)} → ${Math.round(d)}, esperado 60)`);
+  await gasta('Bar', 'Bares e saídas', 30); await p.waitForTimeout(250);
+  const e = await pode();
+  ok(Math.abs(e - 30) < 1, `mais um gasto depois de estourar ainda desconta (${Math.round(d)} → ${Math.round(e)})`);
+  await gasta('Cabeleireiro', 'Cuidados pessoais', 50); await p.waitForTimeout(250);
+  const f = await pode();
+  ok(Math.abs(f) < 1, `categoria sem limite também desconta, até zerar (${Math.round(e)} → ${Math.round(f)})`);
+  ok(!erros.length, `estourada: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 3d) A confirmação do lançamento diz o que mudou no "pode gastar" ou por que não mudou
+async function confirmacao(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const lanca = (txt, item) => p.evaluate(async ([txt, item]) => { const T = window.__T; window.__AI = {acao:'lancar', itens:[{data:T.hoje(), meio:'pix', ...item}]}; const r = await T.lancarTexto(txt); return T.resHTML(r).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '); }, [txt, item]);
+  let h = await lanca('bar 50 pix', {tipo:'despesa', valor:50, desc:'Bar', cat:'Bares e saídas'});
+  ok(/Pode gastar: R\$\s*[\d.]+ → R\$\s*[\d.]+/.test(h), `gasto do dia a dia mostra "Pode gastar: antes → depois" (${(h.match(/Pode gastar[^·]*/) || [''])[0].trim()})`);
+  h = await lanca('padaria 9 pix', {tipo:'despesa', valor:9, desc:'Padaria', cat:'Restaurantes e lanches'});
+  ok(/Pode gastar continua/.test(h) && /Comida: falta/.test(h) && /comida paga na conta/.test(h), 'comida pela conta explica: pode gastar continua, comida diminui');
+  h = await lanca('reforma 500 dia 30/01 pix', {tipo:'despesa', valor:500, desc:'Reforma', cat:'Moradia', data:'2027-01-30'});
+  ok(/agendado para/.test(h), 'agendado explica que só sai no dia');
+  ok(!erros.length, `confirmação: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
 // 4) Datas escritas no chat
 async function datasChat(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 1500);
@@ -149,6 +180,8 @@ async function telas(b) {
     secao('Cada gasto mexe no número certo'); await gastos(b);
     secao('Gasto com data futura é agendado'); await agendado(b);
     secao('Mês à frente não mexe no pode gastar'); await futuroNaoMexe(b);
+    secao('Categoria estourada ainda desconta'); await estourada(b);
+    secao('Confirmação mostra o efeito'); await confirmacao(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Telas'); await telas(b);

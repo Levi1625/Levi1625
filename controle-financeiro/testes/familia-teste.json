@@ -517,6 +517,56 @@
    "meio": "pix",
    "fixoId": "rec-sal10",
    "refMes": "2026-11"
+  },
+  "l052": {
+   "criado": "2026-06-25T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 120,
+   "desc": "Cabeleireiro",
+   "cat": "Cuidados pessoais",
+   "data": "2026-06-25",
+   "mes": "2026-06",
+   "meio": "pix"
+  },
+  "l053": {
+   "criado": "2026-07-25T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 120,
+   "desc": "Cabeleireiro",
+   "cat": "Cuidados pessoais",
+   "data": "2026-07-25",
+   "mes": "2026-07",
+   "meio": "pix"
+  },
+  "l054": {
+   "criado": "2026-08-25T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 120,
+   "desc": "Cabeleireiro",
+   "cat": "Cuidados pessoais",
+   "data": "2026-08-25",
+   "mes": "2026-08",
+   "meio": "pix"
+  },
+  "l055": {
+   "criado": "2026-09-25T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 120,
+   "desc": "Cabeleireiro",
+   "cat": "Cuidados pessoais",
+   "data": "2026-09-25",
+   "mes": "2026-09",
+   "meio": "pix"
+  },
+  "l056": {
+   "criado": "2026-10-25T12:00:00.000Z",
+   "tipo": "despesa",
+   "valor": 120,
+   "desc": "Cabeleireiro",
+   "cat": "Cuidados pessoais",
+   "data": "2026-10-25",
+   "mes": "2026-10",
+   "meio": "pix"
   }
  },
  "fixos": {
