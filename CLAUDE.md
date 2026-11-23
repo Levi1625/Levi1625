@@ -16,7 +16,8 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 ## Acesso e controles
 - Um e-mail pode participar de **mais de um controle** (ex.: ver o da família e ser dona do controle da casa da mãe, liberado em Ajustes › Clientes). Troca no menu ☰ › Controles; cada aparelho fica no controle que abriu; a cópia no aparelho é separada por controle; um controle nunca vê os dados do outro. Tirar a pessoa de um controle não apaga a conta dela se ela tem outro.
 - As correções únicas combinadas para a casa do dono (as funções `ajuste…2611`: limites dele, dia 1, Nubank…) **só rodam na casa do dono** (`casaDoDono`). Controle de cliente começa do zero e nada é trocado sozinho.
-- Mexeu no servidor (`app/functions`, `app/lib`)? Rode também `testes/servidor-controles.mjs` com o servidor local num banco novo (instruções no arquivo).
+- Mexeu no servidor (`app/functions`, `app/lib`) ou no `app/public/shim.js`? Rode também `testes/servidor-controles.mjs` e depois `testes/servidor-aparelhos.cjs` com o servidor local num banco novo (instruções no arquivo).
+- **Ajustes gravados por campo**: `saveCfg` manda só os campos que mudaram (`update`); o servidor junta com o resto numa operação só. Dois aparelhos (ou uma conta automática do app) nunca apagam a mudança feita no outro. Não volte a gravar o `config/geral` inteiro.
 
 ## Privacidade
 - Nunca commitar dados reais (lançamentos, saldos, nomes, planilhas, prints). Só código e a família fictícia.

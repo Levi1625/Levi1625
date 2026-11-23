@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '23/11 11:56';</script>
+<script>window.__versao = '23/11 12:08';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -127,6 +127,10 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .hz .nw{white-space:nowrap}.hz .op{opacity:.8;font-weight:500}
 .hz .lk{color:#fff;font-size:.86rem;opacity:.9;background:none;border:0;padding:0;text-align:left;text-decoration:underline;cursor:pointer}
 .cc-row{padding:8px 0;border-top:1px solid var(--line);cursor:pointer}.cc-row .t2{display:block;margin-top:2px}
+.res3{padding:4px 16px}.r3{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line)}.r3:first-child{border-top:0}.r3 > span{font-weight:600}.r3 b{font-size:1.1rem;font-weight:800}.r3 small{flex-basis:100%;text-align:right;color:var(--muted);font-size:.78rem}
+.pl-rola{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px 4px}
+.pbar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);margin:8px 0 6px}.pbar span{display:block;height:100%}
+.pleg{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted)}.pleg em.lg{margin-right:4px}
 .hero-m{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .hero-m button{background:rgba(255,255,255,.1);border:0;border-radius:14px;padding:10px;color:#fff;text-align:left;cursor:pointer;font:inherit;min-width:0}
 .hero-m small{display:block;font-size:.75rem;opacity:.8}.hero-m b{font-size:.98rem}.hero-m em{display:block;font-style:normal;font-size:.7rem;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -138,8 +142,8 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .cnt{font-size:.78rem;color:#fff;background:#E8590C;border-radius:999px;padding:1px 8px;margin-left:6px;font-family:var(--f-body)}
 .ri{display:flex;align-items:center;gap:8px 12px;padding:10px 0;border-top:1px solid var(--surface-2);min-width:0;flex-wrap:wrap}
 .ri:first-of-type{border-top:0}
-.ri .tx{flex:1 1 140px;min-width:0;display:flex;flex-direction:column;gap:1px}.ri .t1{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}.ri .t2{font-size:.82rem;color:var(--muted)}
-.ri .v{font-weight:700;white-space:nowrap;margin-left:auto}.ri > .btn,.ri > .okb{margin-left:auto}
+.ri .tx{flex:1 1 120px;min-width:0;display:flex;flex-direction:column;gap:1px}.ri .t1{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}.ri .t2{font-size:.82rem;color:var(--muted)}
+.ri .v{font-weight:700;white-space:nowrap;margin-left:auto}.ri > .btn,.ri > .okb,.ri > :last-child{margin-left:auto}
 .cic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none}.cic svg{width:20px;height:20px}
 .cic.sm{width:36px;height:36px;border-radius:11px}.cic.sm svg{width:18px;height:18px}
 .dt{width:40px;text-align:center;flex:none}.dt small{display:block;font-size:.68rem;font-weight:700;color:var(--muted)}.dt b{font-family:var(--f-display);font-size:1.1rem;font-weight:800}
@@ -603,7 +607,15 @@ async function del(col, id) {
   try { await S.db.doc(`${col}/${id}`).delete(); } catch (e) { dbErr(e); throw e; }
 }
 const strip = o => { const {id, ...rest} = o; return rest; };
-async function saveCfg(patch) { S.cfg = {...S.cfg, ...patch}; await put(P + 'config', 'geral', S.cfg); }
+// Ajustes: grava só os campos que mudaram (o servidor junta com o resto). Assim, dois aparelhos mexendo ao mesmo tempo
+// (ou uma conta automática do app, como o texto do plano do mês) nunca apagam a mudança feita no outro.
+async function saveCfg(patch) {
+  S.cfg = {...S.cfg, ...patch};
+  const ref = S.db && (S.cfgOk || S.db.mescla) ? S.db.doc(P + 'config/geral') : null;   // mescla: o servidor cria o documento se ainda não existe
+  if (!ref || typeof ref.update !== 'function') return put(P + 'config', 'geral', S.cfg);
+  if (soVer()) { const e = new Error(AVISO_VER); e.code = 'permission_denied'; throw e; }
+  try { await ref.update(clean(patch)); } catch (e) { dbErr(e); throw e; }
+}
 
 /* ================= regras de negócio ================= */
 // mês da fatura em que a compra no crédito cai (mês do vencimento)
@@ -1096,7 +1108,7 @@ function vHoje() {
   // Quem passou vem primeiro. Os valores inteiros da lista somam o total de cima.
   const DDh = diaDiaBase(), pg0 = podeGastar(), CMh = pg0 ? pg0.CM : comidaMes(m), [y0, m0] = m.split('-').map(Number);
   const rest = pg0 ? pg0.dias : Math.max(1, new Date(y0, m0, 0).getDate() - d + 1), ordF = (a, b) => (b.passou > 0.5) - (a.passou > 0.5) || b.passou - a.passou || b.falta - a.falta;
-  const itensF = DDh.lista.slice().sort(ordF), intF = inteiros(itensF.map(x => x.falta), Math.round(pg0 ? pg0.total : DDh.resto));
+  const itensF = DDh.lista.slice().sort(ordF), FI = faltaInt(), intF = itensF.map(x => FI[x.c] || 0);
   const comL = CMh.lista.slice().sort(ordF), intC = inteiros(comL.map(x => x.falta), Math.round(CMh.falta));
   const linhaF = (c, nome, v, extra) => `<button class="li" data-a="prevCat" data-c="${esc(c)}" data-m="${m}" style="align-items:flex-start">${catIco(c, 'despesa', 'sm')}<span class="tx"><span class="t1">${esc(nome)}</span><span class="t2" style="white-space:normal">${extra}</span></span><span class="am">${v}</span></button>`;
   // v = o valor inteiro mostrado na linha: "era" e "cobriram" fecham com ele (era 120; 30 cobriram → 90)
@@ -1176,12 +1188,12 @@ function linhaMes0(m) {
   const todos = [...L, ...E, ...G].sort((a, b) => a.dia - b.dia || (a.tipo === 'receita' ? -1 : 1));
   // Linha do tempo do mês. A conta nunca fica negativa: se for faltar, tira da caixinha Sobras; se não der, crédito; por último, cheque especial.
   const fxs = fluxo(), ix = fxs.findIndex(x => x.m === m), nd = diasNoMes(m), d1 = m === hojeM ? d0 : 1;
-  let saldoD = null, ini = null, cxIni = 0; const pontes = [], usoP = {cx:0, cred:0, cheque:0, dias:[]};
+  let saldoD = null, ini = null, cxIni = 0, ddDia = 0; const pontes = [], usoP = {cx:0, cred:0, cheque:0, dias:[]};
   if (ix >= 0) { const prevX = ix > 0 ? fxs[ix - 1] : null; let sd = ix === 0 ? saldoHoje() : (sobraCx() && prevX.livre >= 0 ? prevX.contaFim : prevX.livre);
     cxIni = sobraCx() ? (ix > 0 ? Math.max(0, prevX.cx || 0) : (objSobras() ? objGuardado(objSobras()) : 0)) : 0; ini = sd;
     // mês anterior não fechou: o que faltou foi para o cartão e aparece na fatura deste mês (a conta começa em zero)
     if (sd != null && sd < -0.5) { const fz = L.filter(p => p.kind === 'fatura').sort((a, b) => a.dia - b.dia)[0], dv = {kind:'dividaAnt', tipo:'despesa', valor:r2(-sd), desc:'Fatura: parte que ficou do mês anterior', sub:'o mês passado não fechou e o que faltou foi para o cartão', dia:fz ? fz.dia : d1, cat:'Cartão (sem detalhe)'}; G.push(dv); todos.push(dv); sd = 0; }
-    if (sd != null) { const P = partesMes(fxs[ix], ix), porDia = P.dia / (nd - d1 + 1); saldoD = {}; let cxDisp = Math.max(0, cxIni - Math.max(0, -(fxs[ix].cxMov || 0)));
+    if (sd != null) { const P = partesMes(fxs[ix], ix), porDia = P.dia / (nd - d1 + 1); ddDia = porDia; saldoD = {}; let cxDisp = Math.max(0, cxIni - Math.max(0, -(fxs[ix].cxMov || 0)));
       const sdD = S.cfg.saldo && S.cfg.saldo.d, efeito = p => { if (p.pago) return 0; if (m === hojeM && sdD && !['sobra', 'tirarSobra'].includes(p.kind) && `${m}-${pad(p.dia)}` < sdD) return 0; if (p.kind === 'guardar' || p.kind === 'fxCx') return 0; if (['sobra', 'repor', 'reservaObj', 'objDia', 'fxConta'].includes(p.kind)) return -p.valor; if (p.kind === 'tirarSobra' || p.kind === 'uso') return p.valor; if (p.kind === 'lanc') return p.tipo === 'receita' ? p.valor : -p.valor; if (p.tipo === 'receita') return walletRec(p.ref || {}) === 'conta' ? p.valor : 0; return p.valor ? -p.valor : 0; };
       const raw = {}; for (let d = d1; d <= nd; d++) { todos.filter(p => Math.max(p.dia, d1) === d && p.kind !== 'sobra').forEach(p => { sd += efeito(p); }); sd -= porDia; raw[d] = sd; }
       // no 1º dia em que a conta ficaria negativa, cobre de uma vez o que falta até o dinheiro entrar: caixinha Sobras → crédito → cheque especial
@@ -1199,7 +1211,7 @@ function linhaMes0(m) {
       const sep = r2(Math.min(usoP.cred, Math.max(0, sd))); if (sep > 0.5) { pontes.push({kind:'ponteFat', tipo:'guardar', valor:sep, desc:`Separar ${brl0(sep)} para a fatura de ${ymLabel(addM(m, 1))}`, sub:'o que foi pago no crédito este mês', dia:nd, cat:'Guardado'}); sd -= sep; }
       usoP.fatura = sep; usoP.divida = r2(usoP.cred - Math.max(0, sep));
       saldoD[nd] = sd; } }
-  return {L, E, G, pagos, pontes, saldoD, ini, cxIni, usoP, nd, d1, fxs, ix};
+  return {L, E, G, pagos, pontes, saldoD, ini, cxIni, usoP, nd, d1, fxs, ix, ddDia};
 }
 // Contas: calendário do mês com bolinhas (pagar, receber, já feito) e a lista com Paguei/Recebi.
 function vContasHoje() {
@@ -1207,10 +1219,11 @@ function vContasHoje() {
   let h = `<header class="hd2"><span class="tx"><b style="font-size:1.5rem">Contas</b></span><div class="seg3" role="group" aria-label="Ver" style="flex:none;width:190px"><button type="button" data-a="contasAba" data-v="contas" aria-pressed="${aba === 'contas'}">Contas</button><button type="button" data-a="contasAba" data-v="cartoes" aria-pressed="${aba === 'cartoes'}">Cartões</button></div></header>`;
   const nav = `<div class="row" style="justify-content:space-between;margin-bottom:12px"><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="-1" aria-label="Mês anterior">‹</button><b>${ymLong(m)}</b><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="1" aria-label="Próximo mês">›</button></div>`;
   if (aba === 'cartoes') return h + nav + cartoesContasHTML(m);
-  const {L, E, G, pagos, pontes, saldoD, ini, cxIni, usoP, nd, d1, fxs, ix} = linhaMes(m);
+  const {L, E, G, pagos, pontes, saldoD, ini, cxIni, usoP, nd, d1, fxs, ix, ddDia} = linhaMes(m);
   const fx = fluxo().find(x => x.m === m), fim = fx ? fx.livre : null;
-  const tile = (n, v, cor, sub = '') => `<div class="sec2" style="margin:0;padding:12px"><div class="small muted">${n}</div><div class="num" style="font-weight:800;font-size:1.05rem;color:${cor}">${v == null ? '—' : brl0(v)}</div>${sub ? `<div class="small muted" style="font-size:.7rem">${sub}</div>` : ''}</div>`;
-  h += nav + `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px">${tile('Falta pagar', sum(L.filter(p => !p.noSaldo)), 'var(--warn)')}${tile('Falta receber', sum(E.filter(p => !p.noSaldo)), 'var(--pos)')}${tile('Fica na conta no fim', fx ? fx.contaFim : null, fim != null && fim < 0 ? 'var(--neg)' : 'var(--ink)', sobraCx() && fx && fx.cx > 1 ? `+ ${brl0(fx.cx)} na caixinha` : fx && fx.destino > 1 ? `livre de verdade ${brl0(fx.livreReal)}` : 'tirando tudo')}</div>`;
+  const Ef = E.filter(p => !p.noSaldo), noVale = p => p.tipo === 'receita' && p.ref && p.kind !== 'uso' && walletRec(p.ref) !== 'conta', recV = sum(Ef.filter(noVale)), recC = sum(Ef) - recV;
+  const r3 = (n, v, cor, sub = '') => `<div class="r3"><span>${n}</span><b class="num" style="color:${cor}">${v == null ? '—' : brl0(v)}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+  h += nav + `<section class="sec2 res3">${r3('Falta pagar', sum(L.filter(p => !p.noSaldo)), 'var(--warn)')}${r3('Falta receber', recC + recV, 'var(--pos)', recV > 0.5 ? `na conta ${brl0(recC)} · no vale ${brl0(recV)} (só para comida)` : '')}${r3('Fica na conta no fim', fx ? fx.contaFim : null, fim != null && fim < 0 ? 'var(--neg)' : 'var(--ink)', sobraCx() && fx && fx.cx > 1 ? `+ ${brl0(fx.cx)} na caixinha ${NOME_SOBRAS}` : fx && fx.destino > 1 ? `livre de verdade ${brl0(fx.livreReal)}` : '')}</section>`;
   const sep = m === hojeM ? separadoInfo() : null;
   if (sep) h += `<div class="sec2" style="margin-bottom:14px;background:var(--warn-soft)"><b>⚠️ ${ymLabel(sep.ate)} fecha negativo pelo plano</b><p class="small" style="margin:4px 0 0">Faltam ${brl0(sep.v)}. Para cobrir: mude um plano, adie uma compra ou guarde ${brl0(sep.porMes)} por mês até lá. O "pode gastar" não muda sozinho por isso.</p><button class="btn sm" data-a="projIr2" data-m="${sep.ate}" style="margin-top:6px">Ver ${ymLabel(sep.ate)}</button></div>`;
   // lista dia a dia
@@ -1236,12 +1249,19 @@ function vContasHoje() {
     lista = `<div class="small" style="margin:0 0 10px;padding:10px 12px;border-radius:12px;background:${usoP.cred + usoP.cheque > 0.5 ? 'var(--warn-soft)' : 'var(--surface-2)'};line-height:1.55">
       <b>Começa:</b> conta ${brl0(Math.max(0, ini))}${ini < -0.5 ? ` <span class="neg">(+ ${brl0(-ini)} do mês anterior que ficaram no crédito)</span>` : ''}${sobraCx() ? ` · caixinha ${brl0(cxIni)}` : ''}<br>
       ${usoP.cx + usoP.cred + usoP.cheque > 0.5 ? `<b>Antes do dinheiro entrar:</b> ${[usoP.cx > 0.5 ? `tira ${brl0(usoP.cx)} da caixinha` : '', usoP.cred > 0.5 ? `paga ${brl0(usoP.cred)} no crédito` : '', usoP.cheque > 0.5 ? `usa ${brl0(usoP.cheque)} do cheque especial` : ''].filter(Boolean).join(', ')} (a partir do dia ${usoP.dias[0]}). A conta nunca fica negativa.<br>` : '<b>A conta não fica negativa</b> em nenhum dia.<br>'}
-      <b>Fim do mês: ≈ ${brl0(fimC)}</b> na conta${sobraCx() && fxm && fimC > 0.5 && fxm.livre >= colchao(m) - 0.5 ? ` (${folgaCurta(m)})` : ''}${sobraCx() && fxm ? ` · caixinha ${brl0(Math.max(0, fxm.cx) + (usoP.fatura || 0))}${usoP.fatura > 0.5 ? ` (${brl0(usoP.fatura)} separados para a fatura)` : ''}` : ''}.${usoP.divida > 0.5 ? `<br><b class="neg">O mês não fecha: ${brl0(usoP.divida)} ficam no cartão para a fatura de ${ymLabel(addM(m, 1))}.</b> Veja em Planos como cobrir.` : ''}${lrM != null ? `<br><b>Dia a dia projetado${m === hojeM ? ' que falta' : ''}:</b> ${brl0(pdM)} (fora comida) · <b class="${lrM < -0.5 ? 'neg' : 'pos'}">${lrM < -0.5 ? `Falta tirando tudo: ${brl0(-lrM)}` : `Sobra tirando tudo: + ${brl0(lrM)}`}</b>${lrM < -0.5 && fxm.paraM ? ` (em ${ymLabel(fxm.paraM)})` : ''}` : ''}</div>` + lista; }
+      <b>Fim do mês: ≈ ${brl0(fimC)}</b> na conta${sobraCx() && fxm && fimC > 0.5 && fxm.livre >= colchao(m) - 0.5 ? ` (${folgaCurta(m)})` : ''}${sobraCx() && fxm ? ` · caixinha ${brl0(Math.max(0, fxm.cx) + (usoP.fatura || 0))}${usoP.fatura > 0.5 ? ` (${brl0(usoP.fatura)} separados para a fatura)` : ''}` : ''}.${usoP.divida > 0.5 ? `<br><b class="neg">O mês não fecha: ${brl0(usoP.divida)} ficam no cartão para a fatura de ${ymLabel(addM(m, 1))}.</b> Veja em Planos como cobrir.` : ''}${lrM != null ? `<br><b>Dia a dia projetado${m === hojeM ? ' que falta' : ''}:</b> ${brl0(pdM)} (fora comida) · <b class="${lrM < -0.5 ? 'neg' : 'pos'}">${lrM < -0.5 ? `Falta tirando tudo: ${brl0(-lrM)}` : `Sobra tirando tudo: + ${brl0(lrM)}`}</b>${lrM < -0.5 && fxm.paraM ? ` (em ${ymLabel(fxm.paraM)})` : ''}` : ''}${ddDia > 0.5 ? `<br><span class="muted">O "conta ≈" de cada dia vale se o dia a dia que falta sair aos poucos (≈ ${brl0(ddDia)} por dia da conta).</span>` : ''}</div>` + lista; }
   h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">Dia a dia de ${ymLabel(m)}</h2><button class="lnk small" data-a="contasPagos">${S2 ? 'Esconder o que já foi' : 'Mostrar o que já foi'}</button></div>${m > hojeM && !ro && lista ? '<p class="small muted" style="margin:-4px 0 6px">Entrada ou conta com valor diferente neste mês? Toque em <b>Mudar</b>: vale só para este mês ou daqui pra frente.</p>' : ''}${lista || '<p class="muted small" style="padding:8px 0">Nada pendente neste mês.</p>'}</section>`;
   // previsto do dia a dia (sem dia certo) por categoria
   const p = projMes(m), prev = {}; prevGastoMes(m).forEach(l => { const o = prev[l.cat] = prev[l.cat] || {v:0, lug:{}}; o.v += l.v; o.lug[l.lugar] = (o.lug[l.lugar] || 0) + l.v; });
-  const pc = Object.entries(prev).sort((a, b) => b[1].v - a[1].v);
-  if (pc.length) h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">Previsto no dia a dia (${brl0(sum(pc, x => x[1].v))})</h2></div><p class="small muted" style="margin:-4px 0 6px">O que ainda falta gastar em ${ymLabel(m)} por categoria. Toque para mudar o projetado (todos os meses ou só este).</p>${pc.map(([c, o]) => `<div class="li" data-a="prevCat" data-c="${esc(c)}" data-m="${m}" role="button" tabindex="0">${catIco(c, 'despesa')}<span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">${itensTxt(c, o.v) || Object.keys(o.lug).map(esc).join(' · ')}</span></span><span class="am">${brl0(o.v)}</span><span class="chev">›</span></div>`).join('')}</section>`;
+  const pc = Object.entries(prev).sort((a, b) => b[1].v - a[1].v), grp = c => ehPool(c) ? 'dia' : vaCats().includes(c) || ['va', 'vr'].includes((S.cfg.orcMeio || {})[c]) ? 'com' : 'out';
+  // valores inteiros que somam o total de cada grupo (os mesmos da tela Hoje)
+  const G3 = {dia:pc.filter(x => grp(x[0]) === 'dia'), com:pc.filter(x => grp(x[0]) === 'com'), out:pc.filter(x => grp(x[0]) === 'out')}, tot3 = a => brl0(Math.round(sum(a, x => x[1].v)));
+  Object.values(G3).forEach(a => { const iv = inteiros(a.map(x => x[1].v), Math.round(sum(a, x => x[1].v))); a.forEach((x, i) => { x[1].vi = iv[i]; }); });
+  if (m === hojeM) { const FI = faltaInt(); G3.dia.forEach(x => { if (x[0] in FI) x[1].vi = FI[x[0]]; }); }
+  const liP = ([c, o]) => `<div class="li" data-a="prevCat" data-c="${esc(c)}" data-m="${m}" role="button" tabindex="0">${catIco(c, 'despesa')}<span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">${itensTxt(c, o.vi) || Object.keys(o.lug).map(esc).join(' · ')}</span></span><span class="am">${brl0(o.vi)}</span><span class="chev">›</span></div>`;
+  if (pc.length) h += `<section class="sec2" id="previstoMes"><div class="sec2-h"><h2 style="text-transform:none">Previsto no dia a dia (${tot3(G3.dia)})</h2></div><p class="small muted" style="margin:-4px 0 6px">O que ainda falta gastar em ${ymLabel(m)}, fora comida${m === hojeM ? ': é o "pode gastar"' : ''}. Toque para mudar o projetado (todos os meses ou só este).</p>${G3.dia.map(liP).join('') || '<p class="small muted">Nada previsto.</p>'}
+    ${G3.com.length ? `<h3 style="margin:14px 0 2px">Comida (${tot3(G3.com)})</h3><p class="small muted" style="margin:0 0 6px">Limite próprio, sai do vale.</p>${G3.com.map(liP).join('')}` : ''}
+    ${G3.out.length ? `<h3 style="margin:14px 0 2px">Outros previstos (${tot3(G3.out)})</h3><p class="small muted" style="margin:0 0 6px">Pela média dos últimos meses (ex.: impostos). Não entram no pode gastar: saem da sobra do mês.</p>${G3.out.map(liP).join('')}` : ''}</section>`;
   // viagens e planos do mês
   const objs = {}; p.linhas.filter(l => l.tipo === 'objetivo').forEach(l => { const k = l.cat.replace('Objetivo: ', ''); objs[k] = (objs[k] || 0) + l.v; });
   if (Object.keys(objs).length) h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">Viagens e planos em ${ymLabel(m)}</h2></div>${Object.entries(objs).map(([k, v]) => { const o = S.objs.find(x => x.nome === k); return `<div class="li" ${o ? `data-a="objGuia" data-id="${o.id}"` : ''} role="button" tabindex="0">${catIco('Viagens', 'despesa')}<span class="tx"><span class="t1">${esc(k)}</span><span class="t2">toque para ver o guia</span></span><span class="am">${brl0(v)}</span><span class="chev">›</span></div>`; }).join('')}</section>`;
@@ -1441,6 +1461,8 @@ function inteiros(vs, alvo) {
   for (let j = ord.length - 1; falta < 0 && j >= 0; j--) { const i = ord[j][1]; if (fl[i] > 0) { fl[i]--; falta++; } }
   return fl;
 }
+// O que falta em cada categoria do dia a dia, em reais inteiros que somam o pode gastar: os mesmos números em Hoje, Como calculei e Contas.
+function faltaInt() { const C = cacheDados(); if (C.fi) return C.fi; const DD = diaDiaBase(), iv = inteiros(DD.lista.map(x => x.falta), Math.round(DD.resto)), o = {}; DD.lista.forEach((x, i) => { o[x.c] = iv[i]; }); C.fi = o; return o; }
 // Comida do mês (mercado, restaurante, delivery): limite próprio, sai do vale. Passou numa? Sai das outras de comida, proporcional.
 function comidaMes(m = ymNow()) {
   const C = cacheDados(); C.cm = C.cm || new Map(); if (C.cm.has(m)) return C.cm.get(m);
@@ -1497,7 +1519,7 @@ A.porDiaDet = () => {
   const DD = g.DD, mesN = MESL[+m.slice(5) - 1].toLowerCase(), x = g.cx, nomeC = nomeDia;
   let h = `<p class="small" style="margin-top:0"><b>Pode gastar</b> é o que falta do <b>projetado</b> do dia a dia fora comida em ${mesN}, na conta ou no cartão. O projetado de cada categoria é a <b>média</b> (últimos ${DD.meses.length} meses, sem viagem e sem mês fora do normal) ou o valor que vocês mudaram. <b>Todo gasto lançado já desconta.</b></p>`;
   h += `<h3 style="margin:12px 0 2px">Quanto falta em cada categoria</h3>`;
-  const ordC = DD.lista.slice().sort((a, b) => (b.passou > 0.5) - (a.passou > 0.5) || b.passou - a.passou || b.falta - a.falta), intC = inteiros(ordC.map(y => y.falta), Math.round(DD.resto));
+  const ordC = DD.lista.slice().sort((a, b) => (b.passou > 0.5) - (a.passou > 0.5) || b.passou - a.passou || b.falta - a.falta), FI = faltaInt(), intC = ordC.map(y => FI[y.c] || 0);
   h += ordC.map((y, i) => `<div data-a="prevCat" data-c="${esc(y.c)}" data-m="${m}" class="cc-row small" role="button" tabindex="0"><div class="row" style="gap:8px"><b style="flex:1;min-width:0">${esc(nomeC(y.c))} ›</b><span class="muted">falta</span><b class="num">${brl0(intC[i])}</b></div><span class="t2 muted">projetado ${brl0(y.proj)}${y.mudou ? '*' : ''} · média ${brl0(y.media)} · gasto <span class="${y.passou > 0.5 ? 'neg' : ''}">${brl0(y.gasto)}</span>${y.passou > 0.5 ? ` · <span class="neg">passou ${brl0(y.passou)}</span>` : ''}${y.fech ? ' · terminado no mês' : y.tirado > 0.5 && Math.round(y.era) > intC[i] ? ` · ${brl0(Math.round(y.era) - intC[i])} cobri${Math.round(y.era) - intC[i] === 1 ? 'u' : 'ram'} quem passou` : ''}${y.ganhou > 0.5 && intC[i] > Math.round(y.era) ? ` · + ${brl0(intC[i] - Math.round(y.era))} de quem terminou` : ''}</span></div>`).join('') || '<p class="small muted">Sem histórico de gastos ainda.</p>';
   h += `<div class="cc-row small" style="cursor:default"><div class="row" style="gap:8px"><b style="flex:1">Total</b><span class="muted">falta</span><b class="num">${brl0(sum(intC, v => v))}</b></div><span class="t2 muted">projetado ${brl0(DD.proj)} · média ${brl0(DD.media)} · gasto ${brl0(DD.gasto)}</span></div>`;
   if (DD.mudou) h += `<p class="small muted" style="margin:4px 0 0">* valor que vocês mudaram. A média ao lado mostra se dá para ser menos ou mais.</p>`;
@@ -1876,11 +1898,13 @@ function vPlanos() {
   let h = header('Planos', 'Seus próximos meses, viagens e compras', '');
   const mx = Math.max(1, ...fut.map(x => Math.abs(x.livre)));
   h += `<section class="sec2"><div class="sec2-h"><h2>${sobraCx() ? 'Caixinha Sobras no fim do mês' : 'Livre de verdade no fim do mês'}</h2><span class="small muted">toque num mês</span></div>
-    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:3px;align-items:end;height:150px;margin-top:8px">${fut.map(x => { const lr = x.livre < 0 ? x.livre : x.livreReal, cor = lr < 0 ? 'var(--neg)' : lr < colchao(x.m) ? '#F59F00' : '#10B981', hT = Math.max(5, Math.round(Math.abs(x.livre) / mx * 118)), hR = x.livre < 0 ? hT : Math.max(lr > 0 ? 4 : 0, Math.round(Math.max(0, lr) / mx * 118)), hG = Math.round(Math.max(0, sobraCx() ? x.cx : 0) / mx * 118), lbl = ((sobraCx() && x.livre >= 0 ? x.cx : lr) / 1000).toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
-      return `<button data-a="projIr2" data-m="${x.m}" aria-label="${ymLong(x.m)}: livre de verdade ${brl0(lr)}, na conta ${brl0(x.livre)}" style="border:0;background:none;padding:0;height:150px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;cursor:pointer;font:inherit;color:var(--ink);min-width:0"><span style="font-size:.6rem;font-weight:700;white-space:nowrap">${lbl}</span>${x.livre > lr + 1 && !sobraCx() ? `<span style="width:100%;height:${Math.max(2, hT - hR)}px;border-radius:6px 6px 0 0;background:color-mix(in srgb, ${cor} 22%, var(--surface-2))"></span>` : ''}${sobraCx() && x.livre >= 0 ? `${hG > 0 ? `<span style="width:100%;height:${hG}px;border-radius:6px 6px 0 0;background:#3B5BDB"></span>` : ''}<span style="width:100%;height:${Math.max(3, Math.round(Math.max(0, x.contaFim) / mx * 118))}px;border-radius:${hG > 0 ? '0 0 2px 2px' : '6px 6px 2px 2px'};background:${x.contaFim < colchao(x.m) - 1 ? '#F59F00' : '#10B981'}"></span>` : `${hG > 0 ? `<span style="width:100%;height:${Math.min(hG, hR)}px;background:#3B5BDB"></span>` : ''}<span style="width:100%;height:${Math.max(0, hR - Math.min(hG, hR))}px;border-radius:${x.livre > lr + 1 || hG > 0 ? '0 0 2px 2px' : '6px 6px 2px 2px'};background:${cor}"></span>`}</button>`; }).join('')}</div>
-    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:3px;border-top:1.5px solid var(--line);padding-top:4px;font-size:.6rem;color:var(--muted);text-align:center">${fut.map(x => `<span>${MES[+x.m.slice(5) - 1]}</span>`).join('')}</div>
+    <div class="pl-rola"><div style="min-width:${fut.length * 58}px">
+    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:4px;align-items:end;height:150px;margin-top:8px">${fut.map(x => { const lr = x.livre < 0 ? x.livre : x.livreReal, cor = lr < 0 ? 'var(--neg)' : lr < colchao(x.m) ? '#F59F00' : '#10B981', hT = Math.max(5, Math.round(Math.abs(x.livre) / mx * 118)), hR = x.livre < 0 ? hT : Math.max(lr > 0 ? 4 : 0, Math.round(Math.max(0, lr) / mx * 118)), hG = Math.round(Math.max(0, sobraCx() ? x.cx : 0) / mx * 118), lbl = brl0(sobraCx() && x.livre >= 0 ? x.cx : lr);
+      return `<button data-a="projIr2" data-m="${x.m}" aria-label="${ymLong(x.m)}: livre de verdade ${brl0(lr)}, na conta ${brl0(x.livre)}" style="border:0;background:none;padding:0;height:150px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;cursor:pointer;font:inherit;color:var(--ink);min-width:0"><span style="font-size:.62rem;font-weight:700;white-space:nowrap">${lbl}</span>${x.livre > lr + 1 && !sobraCx() ? `<span style="width:100%;height:${Math.max(2, hT - hR)}px;border-radius:6px 6px 0 0;background:color-mix(in srgb, ${cor} 22%, var(--surface-2))"></span>` : ''}${sobraCx() && x.livre >= 0 ? `${hG > 0 ? `<span style="width:100%;height:${hG}px;border-radius:6px 6px 0 0;background:#3B5BDB"></span>` : ''}<span style="width:100%;height:${Math.max(3, Math.round(Math.max(0, x.contaFim) / mx * 118))}px;border-radius:${hG > 0 ? '0 0 2px 2px' : '6px 6px 2px 2px'};background:${x.contaFim < colchao(x.m) - 1 ? '#F59F00' : '#10B981'}"></span>` : `${hG > 0 ? `<span style="width:100%;height:${Math.min(hG, hR)}px;background:#3B5BDB"></span>` : ''}<span style="width:100%;height:${Math.max(0, hR - Math.min(hG, hR))}px;border-radius:${x.livre > lr + 1 || hG > 0 ? '0 0 2px 2px' : '6px 6px 2px 2px'};background:${cor}"></span>`}</button>`; }).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:4px;border-top:1.5px solid var(--line);padding-top:4px;font-size:.66rem;color:var(--muted);text-align:center">${fut.map((x, i) => `<span>${MES[+x.m.slice(5) - 1]}${i === 0 || x.m.endsWith('-01') ? '/' + x.m.slice(2, 4) : ''}</span>`).join('')}</div></div></div>
     <div class="row small muted" style="gap:12px;margin-top:8px;flex-wrap:wrap">${sobraCx() ? '<span><em class="lg" style="background:#3B5BDB"></em> caixinha Sobras</span><span><em class="lg" style="background:#10B981"></em> na conta</span>' : '<span><em class="lg" style="background:#10B981"></em> livre de verdade</span><span><em class="lg" style="background:color-mix(in srgb, #10B981 22%, var(--surface-2))"></em> já tem destino</span>'}<span><em class="lg" style="background:#F59F00"></em> apertado</span><span><em class="lg" style="background:var(--neg)"></em> vai faltar</span></div>
-    <p class="small muted" style="margin-top:8px;border-top:1px solid var(--surface-2);padding-top:8px">${sobraCx() ? `Número = quanto terá na caixinha ${NOME_SOBRAS} no fim do mês, em R$ mil (2,5 = R$ 2.500). No fim de cada mês fica na conta só o que o mês seguinte precisa até o dinheiro entrar; o resto vai para a caixinha; nos meses apertados sai dela só o que faltar. Toque num mês para ver quanto guarda ou tira.` : 'Número = o que fica livre de verdade no fim do mês, em R$ mil (2,9 = R$ 2.900):'} o que dá para usar sem faltar em nenhum mês até ${ymLabel(fut[fut.length - 1].m)}. A parte clara da barra também está na conta, mas já tem destino (viagens, reservas e meses mais justos à frente). O guardado fica à parte, em <a href="#guardado">Guardado</a> (${brl0(totalGuardadoObj())}).</p></section>`;
+    <p class="small muted" style="margin-top:8px;border-top:1px solid var(--surface-2);padding-top:8px">${sobraCx() ? `Número = quanto terá na caixinha ${NOME_SOBRAS} no fim de cada mês.` : 'Número = o que fica livre de verdade no fim de cada mês.'} Arraste para o lado para ver todos os meses; toque num mês para ver o que entra, sai e ${sobraCx() ? 'guarda' : 'sobra'}.</p>
+    <details class="small muted" style="margin-top:4px"><summary style="cursor:pointer">Como funciona</summary><p style="margin:6px 0 0">${sobraCx() ? `No fim de cada mês fica na conta só o que o mês seguinte precisa até o dinheiro entrar; o resto vai para a caixinha ${NOME_SOBRAS}; nos meses apertados sai dela só o que faltar.` : 'O livre de verdade é o que dá para usar sem faltar em nenhum mês; a parte clara da barra também está na conta, mas já tem destino (viagens, reservas e meses mais justos à frente).'} A conta vai até ${ymLabel(fut[fut.length - 1].m)}. O guardado fica à parte, em <a href="#guardado">Guardado</a> (${brl0(totalGuardadoObj())}).</p></details></section>`;
   h += mesAMesHTML(fut);
   // meses no vermelho: o plano
   fut.filter(x => x.livre < 0).slice(0, 3).forEach(x => { const pc = planoCobertura(x.m); h += `<button class="sec2" data-a="projIr2" data-m="${x.m}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:2px solid var(--neg);cursor:pointer;font:inherit;color:inherit"><span class="cic" style="background:var(--neg-soft);color:var(--neg)">${svgI('M12 8v5M12 16h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</span><span class="tx" style="flex:1"><b>${ymLong(x.m)}: vai faltar ${brl0(-x.livre)}</b><span class="small muted" style="display:block">Plano: ${esc(resumoCobertura(pc))}${pc && pc.passos.length > 1 ? ' e mais' : ''}</span></span><span class="muted">›</span></button>`; });
@@ -1891,7 +1915,11 @@ function vPlanos() {
   h += `<div class="sec2-h" style="margin:6px 2px 8px"><h2>Viagens e objetivos</h2>${ro ? '' : '<button class="btn sm pri" data-a="novoPlano">+ Novo</button>'}</div>`;
   h += objs.length ? objs.map(o => { const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), pct = prev ? (g + gasto) / prev : 0, pg = planoGuardar(o), prox = passosDe(o).find(a => a.d >= T);
     const linha = pg.resto >= 1 ? `<span class="small warnc" style="font-weight:600">guardar ${brl0(pg.resto)} até ${dCurto(pg.quando)}</span>` : prox ? `<span class="small" style="color:var(--accent);font-weight:600">${dCurto(prox.d)} · ${esc(prox.t.length > 60 ? prox.t.slice(0, 57) + '…' : prox.t)}</span>` : '';
-    return `<section class="sec2" style="display:flex;align-items:center;gap:14px">${anelP(pct, corObj(o))}<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><b>${esc(o.nome)}</b><span class="small muted">${o.alvo ? ymLabel(o.alvo) + ' · ' : ''}${brl0(g + gasto)} de ${brl0(prev)}${g ? ` · ${brl0(g)} guardado` : ''}</span>${linha}<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>${ro ? '' : `<button class="btn sm" data-a="guardMov" data-op="guardar" data-id="${o.id}">Guardar</button><button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>`}</div></div></section>`; }).join('') : '<p class="muted">Nenhum plano ainda.</p>';
+    const fal = Math.max(0, prev - g - gasto), tb = Math.max(prev, g + gasto, 1), w = v => (Math.max(0, v) / tb * 100).toFixed(1) + '%';
+    return `<section class="sec2 plano"><div class="row" style="justify-content:space-between;gap:10px;align-items:baseline"><b style="min-width:0">${esc(o.nome)}</b><span class="small muted" style="white-space:nowrap">${o.alvo ? ymLabel(o.alvo) + ' · ' : ''}${brl0(prev)}</span></div>
+      <div class="pbar" role="img" aria-label="Já pago ${brl0(gasto)}, guardado ${brl0(g)}, falta ${brl0(fal)}"><span style="width:${w(gasto)};background:#94A3B8"></span><span style="width:${w(g)};background:${corObj(o)}"></span></div>
+      <div class="small pleg"><span><em class="lg" style="background:#94A3B8"></em>já pago ${brl0(gasto)}</span><span><em class="lg" style="background:${corObj(o)}"></em>guardado ${brl0(g)}</span><span><em class="lg" style="background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)"></em>falta ${brl0(fal)}</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px">${linha}<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>${ro ? '' : `<button class="btn sm" data-a="guardMov" data-op="guardar" data-id="${o.id}">Guardar</button><button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>`}</div></div></section>`; }).join('') : '<p class="muted">Nenhum plano ainda.</p>';
   h += `<p style="margin-top:12px"><a class="lnk" href="#mes">Ver a análise do mês</a></p>`;
   return h;
 }
@@ -4586,7 +4614,7 @@ async function init() {
     db.collection(col).onSnapshot(snap => { S[k] = snap.docs.map(d => ({id:d.id, ...d.data()})); if (k === 'lanc') { _learn = null; atualizarNomes(); } done(k, snap); render(); if (!snap.metadata.fromCache) setTimeout(autoCredito, 400); },
       e => { console.error(col, e); setSync('err', 'Erro ao sincronizar'); });
   });
-  db.doc(P + 'config/geral').onSnapshot(snap => { S.cfg = snap.exists ? {...snap.data()} : {}; done('cfg', snap); render(); }, e => console.error('cfg', e));
+  db.doc(P + 'config/geral').onSnapshot(snap => { S.cfg = snap.exists ? {...snap.data()} : {}; S.cfgOk = !!snap.exists; done('cfg', snap); render(); }, e => console.error('cfg', e));
   claude.use('sample').then(s => { S.sample = s; });
   try { if (sessionStorage.getItem('bolso:atualizou')) { sessionStorage.removeItem('bolso:atualizou'); setTimeout(() => toast('App atualizado para a versão nova ✅'), 800); } } catch (_) {}
   if (window.__admin) { atualizarCred(); setInterval(atualizarCred, 60000); }

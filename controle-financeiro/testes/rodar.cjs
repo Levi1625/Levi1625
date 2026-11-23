@@ -243,6 +243,32 @@ async function hojeClara(b) {
   ok(!erros.length, `tela Hoje: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
+// 3g) Contas e Planos claros (análise do Cursor): resumo que cabe no celular, falta receber separado em conta e vale,
+// dia a dia sem impostos (outros à parte), a hipótese do "conta ≈", gráfico de Planos em reais e cada plano numa barra só
+async function contasPlanos(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  // imposto que aparece todo mês na média (ex.: IPVA parcelado): não pode entrar no "Previsto no dia a dia"
+  await p.evaluate(async () => { const T = window.__T; for (const m of ['2026-07', '2026-08', '2026-09', '2026-10']) await T.criarLanc({tipo:'despesa', valor:60, desc:'IPVA parcela', cat:'Impostos & taxas', data:m + '-10', meio:'pix', nparc:1}); });
+  await p.waitForTimeout(300); await ir(p, '#contas');
+  const c = await p.evaluate(() => { const T = window.__T, sec = document.getElementById('previstoMes'), txt = document.querySelector('main').innerText, r3 = [...document.querySelectorAll('.r3')].map(e => e.innerText.replace(/\s+/g, ' '));
+    const grupos = {}; let g = 'dia'; [...sec.children].forEach(e => { if (e.tagName === 'H3') g = /Comida/.test(e.textContent) ? 'com' : 'out'; if (e.classList.contains('li')) (grupos[g] = grupos[g] || []).push({t:e.querySelector('.t1').textContent, v:+e.querySelector('.am').textContent.replace(/\D/g, '')}); });
+    const main = document.querySelector('main'); return {txt, r3, grupos, h2:sec.querySelector('h2').textContent, pode:Math.round(T.podeGastar().total), larg:main.scrollWidth - main.clientWidth}; });
+  const rec = c.r3.find(x => /^Falta receber/.test(x)) || '', nums = (rec.match(/R\$\s*[\d.]+/g) || []).map(x => +x.replace(/\D/g, ''));
+  ok(/na conta R\$\s*[\d.]+ · no vale R\$\s*[\d.]+/.test(rec) && nums.length === 3 && nums[0] === nums[1] + nums[2], `"Falta receber" separa conta e vale (${rec})`);
+  ok(c.r3.length === 3 && c.larg <= 1, 'o resumo de Contas fica em linhas e nada passa da largura do celular');
+  const dia = c.grupos.dia || [], soma = dia.reduce((t, x) => t + x.v, 0);
+  ok(+c.h2.replace(/\D/g, '') === c.pode && soma === c.pode, `"Previsto no dia a dia" é o pode gastar e as linhas somam ele (${c.h2} · ${soma})`);
+  ok(!dia.some(x => /Impostos/.test(x.t)) && (c.grupos.out || []).some(x => /Impostos/.test(x.t)), 'imposto da média fica em "Outros previstos", fora do dia a dia');
+  ok((c.grupos.com || []).length > 0 && !(c.grupos.com || []).some(x => dia.some(y => y.t === x.t)), 'comida tem a sua parte, separada do dia a dia');
+  ok(/O "conta ≈" de cada dia vale se o dia a dia que falta sair aos poucos/.test(c.txt), 'Contas diz a hipótese dos saldos de cada dia');
+  await ir(p, '#planos');
+  const pl = await p.evaluate(() => { const main = document.querySelector('main'), T = window.__T; return {txt:main.innerText, larg:main.scrollWidth - main.clientWidth, rola:!!document.querySelector('.pl-rola'),
+    planos:[...document.querySelectorAll('.plano')].map(e => ({t:e.innerText.replace(/\s+/g, ' '), barras:e.querySelectorAll('.pbar span').length})), prev:T.S.objs.filter(o => o.status !== 'concluido').map(o => (o.itens || []).reduce((t, i) => t + (+i.prev || 0), 0))}; });
+  ok(!/R\$ mil|2,5 = R\$/.test(pl.txt) && /R\$\s*[\d.]+\s*\n?\s*nov\/26/.test(pl.txt) && pl.rola && pl.larg <= 1, 'gráfico de Planos em reais, rolando para o lado sem estourar a tela');
+  ok(pl.planos.length > 0 && pl.planos.every(x => { const v = ['já pago', 'guardado', 'falta'].map(k => +((x.t.match(new RegExp(k + ' R\\$\\s*([\\d.]+)')) || [])[1] || 'NaN').replace(/\./g, '')), tot = +((x.t.match(/· R\$\s*([\d.]+)/) || [])[1] || 'NaN').replace(/\./g, ''); return x.barras === 2 && v.every(n => !isNaN(n)) && v[0] + v[1] + v[2] === tot; }), `cada plano numa barra só: já pago + guardado + falta = total (${pl.planos.map(x => x.t.slice(0, 60)).join(' | ')})`);
+  ok(!erros.length, `Contas e Planos: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
 // 4) Datas escritas no chat
 async function datasChat(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 1500);
@@ -457,6 +483,7 @@ async function telas(b) {
     secao('Confirmação mostra o efeito'); await confirmacao(b);
     secao('Pode gastar pela média e pelo dinheiro'); await regrasPode(b);
     secao('Tela Hoje clara e regra proporcional única'); await hojeClara(b);
+    secao('Contas e Planos claros'); await contasPlanos(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);

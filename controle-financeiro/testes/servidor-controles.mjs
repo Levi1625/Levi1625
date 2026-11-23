@@ -29,4 +29,19 @@ await post(dono, '/api/admin', {acao:'pausar', id:idMae, valor:true}); r = await
 await post(dono, '/api/admin', {acao:'pausar', id:idMae, valor:false}); await post(par1, '/api/trocar', {id:idMae});
 r = await post(dono, '/api/admin', {acao:'remover', id:idMae}); const par3 = cli(); await post(par3, '/api/entrar', {email:'parceira@teste.com', senha:'abcdef'});
 ok(r.s === 200 && (await par3('/api/eu')).j.casa.id === casaFam, 'remover o cliente apaga a Casa da mãe, e ela continua com a conta da família');
+// Ajustes gravados por campo: dois aparelhos mudando ao mesmo tempo não apagam a mudança um do outro
+const ap1 = cli(), ap2 = cli(); await post(ap1, '/api/entrar', {email:'dono@teste.com', senha:'123456'}); await post(ap2, '/api/entrar', {email:'dono@teste.com', senha:'123456'});
+const campos = (f, patch) => f('/api/doc', {method:'PUT', body:JSON.stringify({path:'config/geral', patch})});
+const cfgDe = async f => ((await f('/api/sync?since=0')).j.docs.find(d => d.path === 'config/geral' && !d.del) || {}).data || {};
+await put(ap1, 'config/geral', {orc:{Mercado:500, Lazer:100}, saldo:{v:1000}});
+const [c1, c2] = await Promise.all([campos(ap1, {orc:{Mercado:600}}), campos(ap2, {saldo:{v:2000, d:'2026-11-22'}})]);
+let cfg = await cfgDe(ap1);
+ok(c1.s === 200 && c2.s === 200 && cfg.orc && cfg.orc.Mercado === 600 && !('Lazer' in cfg.orc) && cfg.saldo.v === 2000, `dois aparelhos mudam campos diferentes ao mesmo tempo e os dois ficam (orc ${JSON.stringify(cfg.orc)}, saldo ${cfg.saldo && cfg.saldo.v})`);
+await Promise.all(Array.from({length:10}, (_, i) => campos(i % 2 ? ap1 : ap2, {['k' + i]:i})));
+cfg = await cfgDe(ap2);
+ok(Array.from({length:10}, (_, i) => cfg['k' + i] === i).every(Boolean) && cfg.orc.Mercado === 600 && cfg.saldo.v === 2000, '10 mudanças ao mesmo tempo, nenhuma se perde');
+const antes = (await ap1('/api/sync?since=0')).j.agora; await campos(ap1, {k0:'novo'});
+ok(((await ap2('/api/sync?since=' + antes)).j.docs || []).some(d => d.path === 'config/geral' && d.data.k0 === 'novo'), 'o outro aparelho recebe a mudança na próxima sincronização');
+ok((await campos(ap1, {'a"b':1})).s === 400 && (await campos(ap1, {})).s === 400, 'campo com nome inválido ou vazio é recusado');
+r = await par3('/api/doc', {method:'PUT', body:JSON.stringify({path:'config/geral', patch:{x:1}})}); ok(r.s === 403, 'quem só vê não grava ajustes');
 console.log(R.join('\n')); console.log(R.some(x => x.startsWith('ERRO')) ? '❌ falhou' : '✅ tudo certo'); process.exit(R.some(x => x.startsWith('ERRO')) ? 1 : 0);

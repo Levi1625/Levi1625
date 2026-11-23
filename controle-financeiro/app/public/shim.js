@@ -68,7 +68,7 @@
   function enviarFila() { if (enviando) { deNovo = true; return enviando; } enviando = (async () => { do { deNovo = false; await enviarFilaAgora(); } while (deNovo); enviando = null; })(); return enviando; }
   async function enviarFilaAgora() {
     for (const [p, op] of Object.entries(fila)) {
-      try { if (op.del) await api('DELETE', '/api/doc?path=' + encodeURIComponent(p)); else await api('PUT', '/api/doc', {path:p, data:op.data}); if (fila[p] === op) delete fila[p]; }
+      try { if (op.del) await api('DELETE', '/api/doc?path=' + encodeURIComponent(p)); else await api('PUT', '/api/doc', op.patch ? {path:p, patch:op.patch} : {path:p, data:op.data}); if (fila[p] === op) delete fila[p]; }
       catch (e) { if (e.status === 400 || e.status === 413 || (e.status === 403 && /só para ver|pausado/.test(e.message || ''))) { delete fila[p]; console.error('descartado', p, e.message); } else if (e.status === 401) { telaLogin('Sua sessão expirou. Entre de novo.'); break; } else break; }
     }
     salvarLocal();
@@ -82,7 +82,8 @@
       // o servidor está com outro controle aberto (trocado em outro lugar): recarrega em vez de misturar os dados
       if (r.casa && casa && casa.id && r.casa.id !== casa.id) { let ult = 0; try { ult = +sessionStorage.getItem('bolso:trocouCasa') || 0; } catch (_) {} if (Date.now() - ult > 10000) { try { sessionStorage.setItem('bolso:trocouCasa', String(Date.now())); localStorage.removeItem('bolso:ultimo'); } catch (_) {} location.reload(); } sincronizando = false; return; }
       let mudou = !sincronizado;
-      for (const d of r.docs) { if (d.path in fila) continue; if (d.del) { if (d.path in store) { delete store[d.path]; mudou = true; } } else if (JSON.stringify(store[d.path]) !== JSON.stringify(d.data)) { store[d.path] = d.data; mudou = true; } }
+      // documento com campos ainda na fila: a versão do servidor com esses campos por cima (não perde a mudança de outro aparelho)
+      for (const d of r.docs) { if (d.path in fila) { const op = fila[d.path]; if (op.patch && !d.del) { const v = {...d.data, ...clone(op.patch)}; if (JSON.stringify(store[d.path]) !== JSON.stringify(v)) { store[d.path] = v; mudou = true; } } continue; } if (d.del) { if (d.path in store) { delete store[d.path]; mudou = true; } } else if (JSON.stringify(store[d.path]) !== JSON.stringify(d.data)) { store[d.path] = d.data; mudou = true; } }
       since = r.agora; casa = r.casa || casa; sincronizado = true; salvarLocal();
       if (r.papel && eu && r.papel !== eu.papel) { try { localStorage.removeItem('bolso:ultimo'); } catch (_) {} location.reload(); return; }
       if (mudou) emitir();
@@ -91,11 +92,17 @@
   }
   let salvarT = null;
   function escrever(p, op) { if (eu && eu.papel === 've') { const e = new Error('Seu acesso é só para ver.'); e.code = 'permission_denied'; return Promise.reject(e); } if (op.del) delete store[p]; else store[p] = clone(op.data); fila[p] = op; clearTimeout(salvarT); salvarT = setTimeout(salvarLocal, 300); emitir(); enviarFila().catch(() => {}); return Promise.resolve(); }
+  // Só os campos que mudaram (ajustes): o servidor junta com o resto. Se já havia algo na fila para o mesmo documento, junta também.
+  function mesclar(p, patch) { if (eu && eu.papel === 've') { const e = new Error('Seu acesso é só para ver.'); e.code = 'permission_denied'; return Promise.reject(e); }
+    patch = clone(patch); store[p] = {...(store[p] || {}), ...patch}; const ant = fila[p];
+    fila[p] = ant && !ant.del ? (ant.patch ? {patch:{...ant.patch, ...patch}} : {data:{...ant.data, ...patch}}) : {patch};
+    clearTimeout(salvarT); salvarT = setTimeout(salvarLocal, 300); emitir(); enviarFila().catch(() => {}); return Promise.resolve(); }
   const novoId = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(36).padStart(2, '0')).join('').slice(0, 20);
   const docRef = p => ({id:p.split('/')[1], path:p,
-    set: d => escrever(p, {data:d}), delete: () => escrever(p, {del:true}), get: async () => snapDoc(p),
+    set: d => escrever(p, {data:d}), update: d => mesclar(p, d), delete: () => escrever(p, {del:true}), get: async () => snapDoc(p),
     onSnapshot: (cb, err) => { const s = {path:p, cb}; subs.push(s); setTimeout(() => cb(snapDoc(p)), 0); return () => { subs = subs.filter(x => x !== s); }; }});
   const db = {
+    mescla: true,   // update(campos) cria o documento se ainda não existe e só mexe nos campos enviados
     doc: p => docRef(p),
     collection: col => ({doc: id => docRef(col + '/' + (id || novoId())),
       onSnapshot: (cb, err) => { const s = {col, cb}; subs.push(s); setTimeout(() => cb(snapCol(col)), 0); return () => { subs = subs.filter(x => x !== s); }; }}),
