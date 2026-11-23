@@ -1951,7 +1951,9 @@ A.perguntaPronta = el => { const q = el.dataset.q; if (/algo de/.test(q)) { cons
 function vAjuda() {
   let h = header('Ajuda', 'Pergunte qualquer coisa sobre o seu dinheiro', '');
   h += `<details class="sec2" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">Como o app funciona</summary><ul class="small" style="margin:8px 0 0;padding-left:18px;line-height:1.6">
-    <li><b>Pode gastar</b> (tela Hoje): o que falta do projetado do dia a dia deste mês, fora comida. O projetado de cada categoria é a média dos últimos meses (sem viagem) ou o valor que você mudou. Cada gasto desconta na hora.</li>
+    <li><b>Pode gastar</b> (tela Hoje): o que falta do projetado do dia a dia deste mês, fora comida. O projetado de cada categoria é a média dos últimos meses (sem viagem) ou o valor que você mudou. Cada gasto desconta na hora. <b>Por dia</b> = pode gastar ÷ os dias que faltam, contando hoje.</li>
+    <li><b>Na conta, Comprometido e Sobra</b> (os quadrinhos do topo): o que tem hoje; o que ainda sai até o fim do mês (contas, faturas, planos); e o que sobra tirando tudo até o fim da projeção. Sobra positiva = dá para gastar mais ou guardar; <b>Falta</b> = diminua o projetado ou um plano.</li>
+    <li><b>Passou numa categoria?</b> O excesso sai das outras, proporcional ao que faltava em cada uma. "Terminei este gasto" faz o contrário: o que sobrou vai para as outras.</li>
     <li><b>Fim do mês e "tirando tudo"</b>: seguindo o projetado, quanto fica na conta e na caixinha, e quanto sobra (ou falta) depois de contas, planos e do que os próximos meses precisam. Negativo = diminua o projetado.</li>
     <li><b>Comida</b>: limite próprio, sai do vale. Vale só paga comida.</li>
     <li><b>Contas</b>: cada mês, dia a dia, o que paga, recebe e guarda. A conta nunca fica negativa: o app mostra de onde tirar.</li>
