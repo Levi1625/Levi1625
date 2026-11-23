@@ -163,6 +163,86 @@ async function regrasPode(b) {
   ok(!erros.length, `regras: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
+// 3f) Tela Hoje clara (pedido do dono + análise do Cursor): pode gastar é sempre o número grande; por dia = total ÷ dias contando hoje;
+// a lista soma o total; quem passou vem primeiro; uma regra só (proporcional) para passar do projetado e para "Terminei";
+// comida aparece (também com o vale vazio); um aviso só; próximo aperto no topo; Como calculei cabe no celular.
+async function hojeClara(b) {
+  const {p, erros} = await abrir(b, '2026-11-22'); await ir(p, '#inicio');
+  const le = () => p.evaluate(() => { const T = window.__T; T.render(); const sec = document.getElementById('faltaGastar'), DD = T.diaDiaBase(), n = DD.lista.length, g = T.podeGastar();
+    const rows = sec ? [...sec.querySelectorAll('.li')].map(li => ({t:li.querySelector('.t1').textContent, s:li.querySelector('.t2').textContent, v:+li.querySelector('.am').textContent.replace(/\D/g, '')})) : [];
+    return {dd:rows.slice(0, n), com:rows.slice(n), txt:sec ? sec.innerText : '', hero:(document.querySelector('.hz') || {}).innerText || '', main:document.querySelector('main').innerText,
+      total:g.total, porDia:g.porDia, dias:g.dias, livre:g.livre, lim:g.limCaixa, pdc:g.porDiaCaixa, livre1:g.pj.livre1, DD, CM:T.comidaMes(T.ymNow()), aj:T.ajusteMes(T.ymNow()),
+      nAv:document.querySelectorAll('#aviso1 .av1').length, mais:!!document.querySelector('[data-a="avisosTodos"]'), av:T.avisosHoje(T.ymNow()).map(a => ({h:a.h, ap:!!a.ap})), ap:T.proxAperto()}; });
+  const soma = a => a.reduce((t, x) => t + x.v, 0), gasta = (o, data) => p.evaluate(async ([o, data]) => { const T = window.__T; await T.criarLanc({tipo:'despesa', data:data || T.hoje(), meio:'pix', nparc:1, ...o}); }, [o, data || null]);
+  const cfg = o => p.evaluate(o => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, ...o}); }, o);
+  let a = await le();
+  ok(a.dias === 9 && Math.abs(a.porDia - a.total / 9) < 0.01, `por dia = pode gastar ÷ 9 dias, contando hoje (${Math.round(a.porDia)} = ${Math.round(a.total)} ÷ ${a.dias})`);
+  ok(/9 dias \(com hoje\)/.test(a.txt), 'a lista diz os mesmos 9 dias do "por dia"');
+  ok(soma(a.dd) === Math.round(a.total), `os valores da lista somam o pode gastar (${soma(a.dd)} × ${Math.round(a.total)})`);
+  ok(soma(a.com) === Math.round(a.CM.falta) && a.com.length === a.CM.lista.length, `a comida da lista soma o "Comida à parte" (${soma(a.com)} × ${Math.round(a.CM.falta)})`);
+  ok(/Pode gastar até/.test(a.hero) && !/Segure/.test(a.hero), 'o topo mostra o pode gastar como número grande');
+  ok(a.livre >= 0 ? /Sobra tirando tudo: \+ R\$\s*[\d.]+ · mês mais justo: [a-z]{3}\/\d\d/.test(a.hero) : /Falta tirando tudo/.test(a.hero), `o "tirando tudo" diz o mês mais justo (${(a.hero.match(/(Sobra|Falta) tirando tudo[^\n]*/) || [''])[0]})`);
+  // quem passou vem primeiro e o resto cobre proporcional ao que faltava em cada uma
+  const lz = a.DD.lista.find(x => x.c === 'Lazer');
+  if (!(lz.passou > 0.5)) { await gasta({valor:Math.round(lz.falta + 50), desc:'Show', cat:'Lazer'}); await p.waitForTimeout(250); a = await le(); }
+  const ks = a.DD.lista.filter(x => x.era > 0.5).map(x => x.falta / x.era);
+  ok(a.dd[0].t === 'Lazer' && /passou R\$\s*[\d.]+ do projetado/.test(a.dd[0].s), `quem passou do projetado vem primeiro (${a.dd[0].t}: ${a.dd[0].s.slice(0, 40)})`);
+  ok(ks.length > 1 && ks.every(k => Math.abs(k - ks[0]) < 0.01), `o excesso sai das outras proporcional ao que faltava em cada uma (${ks.map(k => k.toFixed(3)).join(' ')})`);
+  ok(a.dd.slice(1).some(x => /era R\$\s*[\d.]+; R\$\s*[\d.]+ cobri(ram|u) Lazer/.test(x.s)), 'a linha mostra "era R$ X; R$ Y cobriram Lazer"');
+  ok(a.dd.slice(1).every(x => { const m = x.s.match(/era R\$\s*([\d.]+); R\$\s*([\d.]+) cobri/); return !m || +m[1].replace(/\./g, '') - +m[2].replace(/\./g, '') === x.v; }), '"era" menos "cobriram" fecha com o valor da linha');
+  ok(soma(a.dd) === Math.round(a.total), `depois de passar, a lista ainda soma o pode gastar (${soma(a.dd)} × ${Math.round(a.total)})`);
+  ok(a.DD.lista.every(x => Math.abs(a.aj.lim[x.c] - (x.gasto + x.falta)) < 0.02), 'a conta do mês (ajusteMes) usa o mesmo projetado do pode gastar');
+  const al = (await p.evaluate(() => window.__T.alertasMes(window.__T.ymNow()).map(x => x.h).join(' | '))).replace(/<[^>]+>/g, '');
+  ok(/Lazer passou R\$\s*[\d.,]+ do projetado/.test(al) && /proporcional ao que faltava/.test(al) && !/igualmente| cada \(/.test(al), 'o aviso diz "passou do projetado" e que saiu das outras proporcional');
+  ok(a.nAv === 1 && a.mais === (a.av.length > 1) && !/Meta do mês/.test(a.main), `um aviso só no topo (${a.nAv} de ${a.av.length}); guardar para planos fica em Planos`);
+  const conf = await p.evaluate(async () => { const T = window.__T; window.__AI = {acao:'lancar', itens:[{data:T.hoje(), meio:'pix', tipo:'despesa', valor:20, desc:'Cinema', cat:'Lazer'}]}; const r = await T.lancarTexto('cinema 20 pix'); return T.resHTML(r).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '); });
+  ok(/passou R\$\s*[\d.,]+ do projetado do mês\. Saiu das outras categorias, proporcional/.test(conf) && !/igualmente/.test(conf), 'a confirmação do lançamento usa a mesma regra proporcional');
+  // "Terminei este gasto": o que sobrou vai para as outras, o total não muda
+  a = await le(); const fe = a.DD.lista.filter(x => x.c !== 'Lazer' && x.falta > 0.5).sort((x, y) => y.falta - x.falta)[0];
+  await cfg({orcFech:{[await p.evaluate(() => window.__T.ymNow())]:[fe.c]}}); await p.waitForTimeout(250);
+  const t = await le(), feD = t.DD.lista.find(x => x.c === fe.c);
+  ok(Math.abs(t.total - a.total) < 0.6 && feD.falta === 0 && t.dd.some(x => /terminado no mês/.test(x.s)), `"Terminei" em ${fe.c}: o que sobrou vai para as outras e o pode gastar fica igual (${Math.round(a.total)} → ${Math.round(t.total)})`);
+  ok(soma(t.dd) === Math.round(t.total), 'com uma categoria terminada, a lista ainda soma o pode gastar');
+  await cfg({orcFech:{}}); await p.waitForTimeout(250);
+  // comida: passou num limite de comida sai das outras de comida (proporcional); vale vazio aparece no topo
+  const rs = a.CM.lista.find(x => x.c === 'Restaurantes e lanches');
+  await gasta({valor:Math.round(rs.falta + 20), desc:'Restaurante', cat:'Restaurantes e lanches'}); await p.waitForTimeout(250);
+  const c = await le(), rsC = c.CM.lista.find(x => x.c === 'Restaurantes e lanches'), outC = c.CM.lista.filter(x => x.tirado > 0.005).map(x => x.tirado / (x.falta + x.tirado));
+  ok(Math.abs(rsC.passou - 20) < 1 && c.com[0].t === 'Restaurantes e lanches' && /passou R\$\s*20 do limite/.test(c.com[0].s), `comida que passou aparece na lista (${c.com[0].t}: ${c.com[0].s.slice(0, 30)})`);
+  ok(outC.length > 1 && outC.every(k => Math.abs(k - outC[0]) < 0.01), `o que passou na comida sai das outras de comida, proporcional (${outC.map(k => k.toFixed(3)).join(' ')})`);
+  ok(soma(c.com) === Math.round(c.CM.falta), 'a comida da lista ainda soma o total de comida');
+  await cfg({saldoVA:{v:5, d:'2026-11-22', em:new Date('2026-11-22T12:00:00').toISOString()}}); await p.waitForTimeout(250);
+  const v = await le();
+  ok(/Vale acabou: até o dia 26 a comida sai da conta/.test(v.hero) && /o vale acabou/.test(v.txt), 'com o vale vazio, o topo e a lista dizem que a comida sai da conta até o vale cair');
+  // a conta até o dinheiro cair: vira frase, não muda o número
+  await cfg({saldo:{...(await p.evaluate(() => window.__T.S.cfg.saldo)), v:(await p.evaluate(() => window.__T.S.cfg.saldo.v)) - (v.livre1 - 60)}}); await p.waitForTimeout(250);
+  const l = await le();
+  ok(l.lim && Math.abs(l.porDia - l.total / l.dias) < 0.01 && /a conta aguenta R\$\s*[\d.]+ por dia/.test(l.hero), `pouco dinheiro até o salário: o por dia continua ${Math.round(l.porDia)} e a frase diz que a conta aguenta ${Math.round(l.pdc)} por dia`);
+  await cfg({saldo:{...(await p.evaluate(() => window.__T.S.cfg.saldo)), v:(await p.evaluate(() => window.__T.S.cfg.saldo.v)) - 200}}); await p.waitForTimeout(250);
+  const n = await le();
+  ok(n.livre1 < 0 && /Pode gastar até/.test(n.hero) && /a conta não fecha: faltam R\$/.test(n.hero) && !/Segure/.test(n.hero), 'conta que não fecha até o salário: o pode gastar continua no topo e o aviso vira frase');
+  await cfg({saldo:{...(await p.evaluate(() => window.__T.S.cfg.saldo)), v:2200}}); await p.waitForTimeout(250);
+  // próximo aperto: dezembro precisa de mais do que novembro deixa
+  const f0 = await p.evaluate(() => { const T = window.__T; return {livre:T.fluxo()[0].livre, folga:T.folgaInfo(T.ymNow()).v}; });
+  await gasta({valor:Math.round(f0.livre - f0.folga + 300), desc:'Conserto grande', cat:'Moradia'}, '2026-12-02'); await p.waitForTimeout(300);
+  const z = await le(), cv = await p.evaluate(() => { const T = window.__T; return {livre:T.fluxo()[0].livre, f:T.folgaInfo(T.ymNow())}; });
+  ok(z.ap && z.ap.m === '2026-12' && Math.abs(z.ap.falta - (cv.f.v - cv.livre)) < 0.6 && z.ap.falta > 250, `próximo aperto em dez: faltam ${z.ap ? Math.round(z.ap.falta) : '?'} até o dinheiro entrar`);
+  ok(z.ap && cv.livre + cv.f.curva[z.ap.dia - 1] < 0 && (z.ap.dia === 1 || cv.livre + cv.f.curva[z.ap.dia - 2] >= -0.5), `o dia do aperto é o dia em que a conta zera (${z.ap && z.ap.dia})`);
+  ok(/Próximo aperto: \d+ de dez\. Faltam R\$\s*[\d.]+ na conta até o dinheiro entrar/.test(z.hero) && !z.av.some(x => x.ap), 'o topo mostra o próximo aperto e o aviso igual não se repete');
+  // Como calculei em cartões (cabe no celular)
+  await p.locator('[data-a="porDiaDet"]').first().click(); await p.waitForTimeout(300);
+  const det = await p.evaluate(() => ({t:document.body.innerText, n:document.querySelectorAll('.cc-row').length, larg:Math.max(...[...document.querySelectorAll('.cc-row')].map(e => e.scrollWidth - e.clientWidth))}));
+  ok(/contando hoje/.test(det.t) && det.n >= z.DD.lista.length && det.larg <= 1, `Como calculei: ${det.n} cartões sem rolar para o lado e o por dia explicado`);
+  // as mesmas regras nos itens de um plano e nas contas de apoio
+  const u = await p.evaluate(() => { const T = window.__T, S = T.S, L0 = S.lanc;
+    S.lanc = [...L0, {id:'tz1', tipo:'despesa', valor:400, objId:'planoTeste', objItem:'c', data:'2026-11-22', mes:'2026-11', cat:'Viagens', desc:'Comida da viagem'}];
+    const r = T.objTetos({id:'planoTeste', itens:[{id:'a', cat:'Hotel', prev:1000}, {id:'b', cat:'Passeios', prev:500}, {id:'c', cat:'Comida', prev:300}]}); S.lanc = L0;
+    return {a:r.a.teto, b:r.b.teto, c:r.c.teto, i:T.inteiros([1.4, 1.4, 1.2], 4), rp:T.repartir({x:100, y:300}, -40).d}; });
+  ok(Math.abs(u.a - (1000 - 100 * 1000 / 1500)) < 0.01 && Math.abs(u.b - (500 - 100 * 500 / 1500)) < 0.01, `itens de um plano: o que passou sai dos outros proporcional (hotel ${u.a.toFixed(2)}, passeios ${u.b.toFixed(2)})`);
+  ok(u.i.reduce((t, x) => t + x, 0) === 4 && Math.abs(u.rp.x + 10) < 0.01 && Math.abs(u.rp.y + 30) < 0.01, `arredonda somando o total (${u.i.join('+')}) e reparte proporcional (−10 / −30)`);
+  ok(!erros.length, `tela Hoje: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
 // 4) Datas escritas no chat
 async function datasChat(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 1500);
@@ -376,6 +456,7 @@ async function telas(b) {
     secao('Categoria estourada ainda desconta'); await estourada(b);
     secao('Confirmação mostra o efeito'); await confirmacao(b);
     secao('Pode gastar pela média e pelo dinheiro'); await regrasPode(b);
+    secao('Tela Hoje clara e regra proporcional única'); await hojeClara(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);
