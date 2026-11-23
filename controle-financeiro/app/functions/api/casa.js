@@ -31,7 +31,7 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true, casa: await lerCasa(db, s.casa) });
   } else if (b.acao === "whats") {
     const numero = String(b.numero || "").replace(/\D/g, "");
-    if (numero && (numero.length < 12 || numero.length > 13)) return json({ erro: "Número inválido. Use o formato que o CallMeBot mostrou (ex.: 558888326967)." }, 400);
+    if (numero && (numero.length < 12 || numero.length > 13)) return json({ erro: "Número inválido. Use o formato que o CallMeBot mostrou (ex.: 5511912345678)." }, 400);
     const sets = ["whatsapp = ?", "lembretes = ?", "upd = ?"], vals = [numero, b.lembretes === false ? 0 : 1, Date.now()];
     if (b.chave !== undefined && String(b.chave).trim() !== "") { sets.push("callmebot = ?"); vals.push(String(b.chave).trim().slice(0, 40)); }
     if (b.limparChave) sets.push("callmebot = NULL");

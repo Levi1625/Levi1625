@@ -4363,8 +4363,8 @@ function whatsHTML() {
     <details${w.numero ? '' : ' open'}><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Como ativar (uma vez só)</summary><ol class="small" style="margin:8px 0;padding-left:18px">
       <li>Abra <b>callmebot.com</b> → "WhatsApp" e salve nos contatos o número do CallMeBot que aparece lá.</li>
       <li>Mande para ele, no WhatsApp: <i>I allow callmebot to send me messages</i>.</li>
-      <li>Ele responde com o seu número (ex.: 558888326967) e a <b>apikey</b>. Coloque os dois aqui embaixo.</li></ol></details>
-    <form class="form" data-f="whats" style="gap:8px"><div class="f2"><label class="fld"><span>Número (como o CallMeBot mostrou)</span><input name="numero" inputmode="numeric" value="${esc(w.numero)}" placeholder="558888326967"></label>
+      <li>Ele responde com o seu número (ex.: 5511912345678) e a <b>apikey</b>. Coloque os dois aqui embaixo.</li></ol></details>
+    <form class="form" data-f="whats" style="gap:8px"><div class="f2"><label class="fld"><span>Número (como o CallMeBot mostrou)</span><input name="numero" inputmode="numeric" value="${esc(w.numero)}" placeholder="5511912345678"></label>
       <label class="fld"><span>Apikey do CallMeBot</span><input name="chave" inputmode="numeric" placeholder="${w.temChave ? 'já salva (deixe vazio para manter)' : 'ex.: 1234567'}"></label></div>
       <label class="chk"><input type="checkbox" name="ligado" ${w.ligado ? 'checked' : ''}> Receber os lembretes</label>
       <div class="row"><button class="btn pri" type="submit">Salvar</button>${w.numero && w.temChave ? '<button class="btn" type="button" data-a="testarWhats">Mandar teste</button>' : ''}</div></form></section>`;

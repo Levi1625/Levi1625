@@ -74,7 +74,7 @@ Cada pessoa cadastra o próprio número e a apikey do CallMeBot em **Ajustes →
 | Tipo | Nome | Valor |
 |---|---|---|
 | **Secret** | `CALLMEBOT_APIKEY` | o número da chave que o CallMeBot mandou no WhatsApp |
-| Text | `WHATSAPP` | `558888326967` (o número no formato que o CallMeBot ativou) |
+| Text | `WHATSAPP` | `5511912345678` (o número no formato que o CallMeBot ativou) |
 | Text | `LEMBRETES_EMAIL` | o seu e-mail do app |
 | **Secret** | `LEMBRETES_CHAVE` | uma senha inventada, longa, só com letras e números (ex.: 20 caracteres). Anote. |
 
