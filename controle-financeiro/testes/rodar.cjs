@@ -704,6 +704,11 @@ async function trocarSenha(b) {
     await envia('senha-velha-1', 'senha-nova-123', 'senha-nova-123'); const t2 = (document.querySelector('.toast, #toast') || {}).textContent || '';
     return {chamadas, t1, t2, fechou:document.getElementById('sheet').hidden}; });
   ok(r.chamadas.length === 1 && r.chamadas[0][1] === 'senha-nova-123' && /não são iguais/.test(r.t1) && /Senha trocada\. 2 outros aparelhos vão pedir/.test(r.t2) && r.fechou, `trocar minha senha: confere as duas e avisa os outros aparelhos (${r.t2})`);
+  // o menu ☰ tem Sair e Trocar senha (antes só no fim dos Ajustes)
+  const mn = await p.evaluate(async () => { let saiu = 0; window.__casa = {...window.__casa, email:() => 'dono@teste.com', sair:async () => { saiu++; }};
+    document.querySelector('[data-a="menu"]').click(); await new Promise(r => setTimeout(r, 300)); const box = document.getElementById('menuConta');
+    const txt = box ? box.innerText : ''; if (box) box.querySelector('[data-a="sair"]').click(); await new Promise(r => setTimeout(r, 200)); return {txt, saiu}; });
+  ok(/dono@teste\.com/.test(mn.txt) && /Trocar senha/.test(mn.txt) && /Sair/.test(mn.txt) && mn.saiu === 1, `o menu ☰ mostra o e-mail, Trocar senha e Sair (${mn.txt.replace(/\s+/g, ' ')})`);
   ok(!erros.length, `trocar senha: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
