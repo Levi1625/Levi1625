@@ -6,7 +6,7 @@ export async function onRequestPost({ request, env }) {
   const b = await request.json().catch(() => ({}));
   const email = normEmail(b.email), senha = String(b.senha || ""), nome = String(b.nome || "").trim().slice(0, 40);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ erro: "E-mail inválido." }, 400);
-  if (senha.length < 6) return json({ erro: "A senha precisa de pelo menos 6 letras ou números." }, 400);
+  if (senha.length < 8) return json({ erro: "A senha precisa de pelo menos 8 letras ou números." }, 400);   // vale para senha nova; quem já tem a de 6 continua entrando
   const ehDono = await db.prepare("SELECT id FROM casas WHERE dono = ? LIMIT 1").bind(email).first();
   const casa = await casaDoEmail(db, email) || ehDono;
   if (!casa && !permitidosEnv(env).includes(email)) return json({ erro: "Este e-mail não tem acesso. Peça para alguém da casa liberar em Ajustes." }, 403);

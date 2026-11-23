@@ -1,10 +1,11 @@
-// GET /api/lembretes?chave=...&enviar=1[&hoje=AAAA-MM-DD]
+// GET /api/lembretes?chave=...&enviar=1[&hoje=AAAA-MM-DD]  (sem enviar=1: só diz quantas casas recebem, nunca o texto)
+// GET /api/lembretes?ver=1: o lembrete de hoje do controle aberto, para quem entrou no app (não usa a chave)
 // Monta o lembrete do dia (contas, dinheiro que cai, agenda das viagens e do plano) a partir
 // dos dados do app e, com enviar=1, manda pelo WhatsApp (CallMeBot). Chamado todo dia de manhã (8h) pelo cron-job.org.
 // Cada casa cadastra o próprio WhatsApp e a chave do CallMeBot em Ajustes. Para a casa de LEMBRETES_EMAIL,
 // se ela não tiver cadastro próprio, valem as variáveis WHATSAPP e CALLMEBOT_APIKEY do Cloudflare.
 // LEMBRETES_CHAVE (segredo) protege esta rota; o cron-job.org chama com ?chave=...&enviar=1.
-import { json, banco, enviarWhats, normEmail } from "../../lib/server.js";
+import { json, banco, enviarWhats, normEmail, sessao } from "../../lib/server.js";
 
 const brl = (v) => "R$ " + (+v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const addDia = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -116,6 +117,13 @@ async function dadosDaCasa(db, casa) {
 
 export async function onRequestGet({ request, env }) {
   const u = new URL(request.url);
+  // ver o lembrete de hoje: só entrando no app, e só o do controle aberto
+  if (u.searchParams.get("ver") === "1") {
+    const s = await sessao(request, env); if (!s) return json({ erro: "Entre no app." }, 401); if (s.pausado) return json({ erro: "Acesso pausado." }, 403);
+    const dia = u.searchParams.get("hoje"), HOJE = /^\d{4}-\d{2}-\d{2}$/.test(dia || "") ? dia : hojeSP();
+    const t = montar(await dadosDaCasa(await banco(env), s.casa), HOJE);
+    return json({ hoje: HOJE, texto: t ? t + "\n" + u.origin : null });
+  }
   if (!env.LEMBRETES_CHAVE || u.searchParams.get("chave") !== env.LEMBRETES_CHAVE) return json({ erro: "Chave inválida." }, 403);
   const db = await banco(env), base = u.origin, teste = u.searchParams.get("hoje");
   const HOJE = /^\d{4}-\d{2}-\d{2}$/.test(teste || "") ? teste : hojeSP();
@@ -129,11 +137,12 @@ export async function onRequestGet({ request, env }) {
     if ((!numero || !chave) && dono && dono.casa === c.id) { numero = numero || env.WHATSAPP; chave = chave || env.CALLMEBOT_APIKEY; }
     if (numero && chave) destinos.push({ id: c.id, numero, chave });
   }
-  // Sem enviar=1: só mostra o texto da sua casa (para conferir).
+  // Sem enviar=1: só confere se está tudo certo (quantas casas recebem e se a sua tem lembrete hoje). O texto nunca sai
+  // por aqui: quem tem a chave (o agendador) não vê os dados. Para ler o lembrete, use o app (Ajustes › Lembretes no WhatsApp).
   if (u.searchParams.get("enviar") !== "1") {
     if (!dono) return json({ erro: "LEMBRETES_EMAIL não tem conta no app." }, 404);
     const t = montar(await dadosDaCasa(db, dono.casa), HOJE);
-    return json({ hoje: HOJE, texto: t ? t + "\n" + base : null, casasComWhats: destinos.length });
+    return json({ hoje: HOJE, temLembrete: !!t, linhas: t ? t.split("\n").length : 0, casasComWhats: destinos.length });
   }
   let enviados = 0, falhas = 0;
   for (const d of destinos) {

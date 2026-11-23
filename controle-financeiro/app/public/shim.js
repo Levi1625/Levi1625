@@ -33,14 +33,14 @@
     const d = document.createElement('div'); d.id = 'bl-login';
     d.innerHTML = `<div class="bx"><h1>Bolso em Dia</h1><p id="bl-p">${aviso || 'Entre com seu e-mail e senha.'}</p>
       <input id="bl-n" placeholder="Seu nome (ex.: Levi)" autocomplete="name" style="display:none">
-      <input id="bl-e" type="email" placeholder="E-mail" autocomplete="email"><input id="bl-s" type="password" placeholder="Senha (mínimo 6 letras ou números)" autocomplete="current-password">
+      <input id="bl-e" type="email" placeholder="E-mail" autocomplete="email"><input id="bl-s" type="password" placeholder="Senha" autocomplete="current-password">
       <div class="msg" id="bl-m"></div>
       <button class="pri" id="bl-ok">Entrar</button><button class="sec" id="bl-troca">Primeiro acesso: criar minha senha</button>
       <div class="dica">Esqueceu a senha? Peça para outra pessoa da casa, em Ajustes, tirar e colocar seu e-mail de novo. Depois toque em "Primeiro acesso".</div></div>`;
     document.body.appendChild(d);
     const $ = id => document.getElementById(id); let criar = false;
     const msg = (t, ok) => { $('bl-m').style.color = ok ? '#14804a' : '#C0392B'; $('bl-m').textContent = t || ''; };
-    $('bl-troca').onclick = () => { criar = !criar; $('bl-n').style.display = criar ? '' : 'none'; $('bl-ok').textContent = criar ? 'Criar senha e entrar' : 'Entrar'; $('bl-troca').textContent = criar ? 'Já tenho senha: entrar' : 'Primeiro acesso: criar minha senha'; $('bl-s').autocomplete = criar ? 'new-password' : 'current-password'; msg(); };
+    $('bl-troca').onclick = () => { criar = !criar; $('bl-n').style.display = criar ? '' : 'none'; $('bl-ok').textContent = criar ? 'Criar senha e entrar' : 'Entrar'; $('bl-troca').textContent = criar ? 'Já tenho senha: entrar' : 'Primeiro acesso: criar minha senha'; $('bl-s').autocomplete = criar ? 'new-password' : 'current-password'; $('bl-s').placeholder = criar ? 'Crie uma senha (mínimo 8 letras ou números)' : 'Senha'; msg(); };
     const ir = async () => { msg(); $('bl-ok').disabled = true;
       try { await api('POST', criar ? '/api/criar' : '/api/entrar', {email:$('bl-e').value, senha:$('bl-s').value, nome:$('bl-n').value}); await iniciar(); }
       catch (e) { msg(e.status ? e.message : 'Sem internet agora. Tente de novo.'); }
@@ -54,6 +54,8 @@
   const LS = k => 'bolso:' + (eu ? eu.email : '') + ':' + (casa && casa.id ? casa.id + ':' : '') + k;
   const LS0 = k => 'bolso:' + (eu ? eu.email : '') + ':' + k;   // cópia de antes (um controle só): passa a ser a do controle aberto
   function migrarCopia() { try { if (!casa || !casa.id) return; ['store', 'since', 'fila'].forEach(k => { const v = localStorage.getItem(LS0(k)); if (v == null) return; if (localStorage.getItem(LS(k)) == null) localStorage.setItem(LS(k), v); localStorage.removeItem(LS0(k)); }); } catch (_) {} }
+  // apaga a cópia dos dados deste e-mail neste aparelho (todos os controles dele) e o que mais for pedido (ex.: a senha de 4 números)
+  function apagarCopia(extra = []) { try { const pre = 'bolso:' + (eu ? eu.email : '') + ':'; Object.keys(localStorage).filter(k => k.startsWith(pre)).forEach(k => localStorage.removeItem(k)); ['bolso:ultimo', ...extra].forEach(k => localStorage.removeItem(k)); sessionStorage.removeItem('bolso:liberado'); } catch (_) {} store = {}; fila = {}; since = 0; }
   const ler = (k, padrao) => { try { const v = localStorage.getItem(LS(k)); return v ? JSON.parse(v) : padrao; } catch (_) { return padrao; } };
   const gravar = (k, v) => { try { localStorage.setItem(LS(k), JSON.stringify(v)); } catch (_) {} };
   let store = {}, since = 0, fila = {}, sincronizado = false, subs = [];
@@ -119,7 +121,16 @@
       dono: () => casa && casa.dono || '',
       setPapel: async (e, valor) => { const r = await api('POST', '/api/casa', {acao:'papel', email:e, valor}); casa = r.casa; },
       remove: async e => { const r = await api('POST', '/api/casa', {acao:'remove', email:e}); casa = r.casa; },
-      sair: async () => { await api('POST', '/api/sair').catch(() => {}); location.reload(); },
+      // Sair: manda o que falta; se ainda sobrar algo sem enviar, pergunta antes. Precisa de internet (senão a sessão continuaria
+      // valendo e o aparelho entraria de novo sozinho). Depois apaga a cópia dos dados deste e-mail neste aparelho.
+      sair: async (opc = {}) => {
+        await enviarFila().catch(() => {});
+        const pend = Object.keys(fila).length;
+        if (pend && !confirm(`${pend} mudança${pend > 1 ? 's' : ''} deste aparelho ainda não ${pend > 1 ? 'foram enviadas' : 'foi enviada'}. Se sair agora, ${pend > 1 ? 'elas se perdem' : 'ela se perde'}. Sair mesmo assim?`)) return false;
+        await api('POST', '/api/sair');
+        apagarCopia(opc.tirar); location.reload(); return true; },
+      sairOutros: () => api('POST', '/api/sair', {outros:true}),
+      verLembrete: () => api('GET', '/api/lembretes?ver=1'),
       ia: () => !casa || casa.ia !== false,
       setIA: async v => { await api('POST', '/api/casa', {acao:'ia', valor:!!v}); location.reload(); },
       usoIA: () => { const m = new Date().toISOString().slice(0, 7), u = (casa && casa.uso || {})[m] || {}; return {usd:+u.usd || 0, n:+u.n || 0, limite:casa && casa.iaLimite}; },

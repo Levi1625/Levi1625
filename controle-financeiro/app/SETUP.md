@@ -84,6 +84,7 @@ Cada pessoa cadastra o próprio número e a apikey do CallMeBot em **Ajustes →
    - URL: `https://bolso-em-dia-26l.pages.dev/api/lembretes?chave=SUA_CHAVE&enviar=1` (troque `SUA_CHAVE` pela senha do passo 1)
    - Execution schedule: **Every day at 8:00**, fuso **America/Sao_Paulo**
    - **Create**. Toque em **Test run** para ver chegar no WhatsApp (se não houver nada no dia, não chega mensagem).
+4. Para **ler** o lembrete de hoje sem mandar: no app, **Ajustes → Lembretes no WhatsApp → Ver o lembrete de hoje**. O endereço com a chave nunca mostra o texto (sem `enviar=1` ele só diz se está tudo certo), então quem tiver a chave não vê os seus números.
 
 ## 7. Clientes (repassar ou vender)
 Só quem administra (o primeiro e-mail de `EMAILS_PERMITIDOS`, ou a variável `ADMIN_EMAIL`) vê **Ajustes → Clientes**:
@@ -92,6 +93,12 @@ Só quem administra (o primeiro e-mail de `EMAILS_PERMITIDOS`, ou a variável `A
 - **Limite de IA**: quanto a IA de cada cliente pode gastar por mês na sua chave (padrão US$ 0,50; mude o padrão com a variável `IA_LIMITE_PADRAO`).
 - **Remover**: apaga o controle e todos os dados daquele cliente.
 Todos recebem automaticamente cada melhoria do app.
+
+## Senha, celular perdido e senha do aparelho
+- Senha nova precisa de **8 letras ou números** ou mais. Depois de 8 erros seguidos, o login trava por 15 minutos.
+- **Celular perdido**: em outro aparelho, entre e toque em **Ajustes → Sair dos outros aparelhos**. Todos os outros pedem a senha de novo.
+- **Sair** apaga a cópia dos dados que ficava naquele aparelho (se houver algo ainda não enviado, o app avisa antes). Para sair precisa de internet.
+- **Senha de 4 números** (Ajustes ou menu): protege o app aberto no aparelho. Depois de 5 erros, espera cada vez mais. "Esqueci a senha" só funciona com internet: sai da conta e pede o e-mail e a senha de novo.
 
 ## Esqueci a senha
 Outra pessoa da casa tira e coloca seu e-mail de novo em **Ajustes**. Depois você toca em **Primeiro acesso** e cria uma senha nova. Se você for o único da casa, crie a variável `RESET_SENHA` com o seu e-mail no Cloudflare, faça **Retry deployment**, crie a senha nova e depois apague a variável.

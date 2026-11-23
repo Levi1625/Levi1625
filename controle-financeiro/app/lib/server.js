@@ -37,6 +37,9 @@ export const normEmail = (e) => String(e || "").trim().toLowerCase();
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 export const aleatorio = (n = 24) => hex(crypto.getRandomValues(new Uint8Array(n)));
 
+// PBKDF2 com 20 mil voltas: o Cloudflare Workers tem limite de tempo de CPU por pedido, e mais voltas derrubariam o login.
+// A proteção contra adivinhar a senha vem junto: senha nova com 8 ou mais, trava de 15 minutos depois de 8 erros (entrar.js)
+// e o sal aleatório de cada pessoa. Se um dia subir as voltas, guarde o número junto do hash para as senhas antigas continuarem valendo.
 export async function hashSenha(senha, salt) {
   const chave = await crypto.subtle.importKey("raw", new TextEncoder().encode(senha), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations: 20000 }, chave, 256);

@@ -181,7 +181,8 @@ async function hojeClara(b) {
   ok(soma(a.dd) === Math.round(a.total), `os valores da lista somam o pode gastar (${soma(a.dd)} × ${Math.round(a.total)})`);
   ok(soma(a.com) === Math.round(a.CM.falta) && a.com.length === a.CM.lista.length, `a comida da lista soma o "Comida à parte" (${soma(a.com)} × ${Math.round(a.CM.falta)})`);
   ok(/Pode gastar até/.test(a.hero) && !/Segure/.test(a.hero), 'o topo mostra o pode gastar como número grande');
-  ok(a.livre >= 0 ? /Sobra tirando tudo: \+ R\$\s*[\d.]+ · mês mais justo: [a-z]{3}\/\d\d/.test(a.hero) : /Falta tirando tudo/.test(a.hero), `o "tirando tudo" diz o mês mais justo (${(a.hero.match(/(Sobra|Falta) tirando tudo[^\n]*/) || [''])[0]})`);
+  ok(a.livre >= 0 ? /Sobra\s*\+ R\$\s*[\d.]+\s*tirando tudo · mais justo: [a-z]{3}\/\d\d/.test(a.hero) : /Falta tirando tudo/.test(a.hero), `o "tirando tudo" diz o mês mais justo (${(a.hero.match(/(Sobra|Falta)\s*[+−] R\$[^\n]*\n[^\n]*/) || [''])[0].replace(/\n/g, ' ')})`);
+  ok(/Na conta[\s\S]*Comprometido[\s\S]*(Sobra|Falta)/.test(a.hero) && /Pode gastar até/.test(a.hero), 'a primeira tela usa as 4 palavras: Pode gastar, Na conta, Comprometido e Sobra');
   // quem passou vem primeiro e o resto cobre proporcional ao que faltava em cada uma
   const lz = a.DD.lista.find(x => x.c === 'Lazer');
   if (!(lz.passou > 0.5)) { await gasta({valor:Math.round(lz.falta + 50), desc:'Show', cat:'Lazer'}); await p.waitForTimeout(250); a = await le(); }
@@ -267,6 +268,104 @@ async function contasPlanos(b) {
   ok(!/R\$ mil|2,5 = R\$/.test(pl.txt) && /R\$\s*[\d.]+\s*\n?\s*nov\/26/.test(pl.txt) && pl.rola && pl.larg <= 1, 'gráfico de Planos em reais, rolando para o lado sem estourar a tela');
   ok(pl.planos.length > 0 && pl.planos.every(x => { const v = ['já pago', 'guardado', 'falta'].map(k => +((x.t.match(new RegExp(k + ' R\\$\\s*([\\d.]+)')) || [])[1] || 'NaN').replace(/\./g, '')), tot = +((x.t.match(/· R\$\s*([\d.]+)/) || [])[1] || 'NaN').replace(/\./g, ''); return x.barras === 2 && v.every(n => !isNaN(n)) && v[0] + v[1] + v[2] === tot; }), `cada plano numa barra só: já pago + guardado + falta = total (${pl.planos.map(x => x.t.slice(0, 60)).join(' | ')})`);
   ok(!erros.length, `Contas e Planos: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 3h) Segurança no aparelho: a senha de 4 números é oferecida uma vez no app instalado; depois de 5 erros, espera
+// (e recarregar não zera); "Esqueci a senha" só funciona com internet (sem internet a trava continua).
+async function seguranca(b) {
+  const p = await b.newPage({viewport:{width:390, height:844}}), erros = []; p.on('pageerror', e => erros.push(e.message));
+  await p.clock.setFixedTime(new Date('2026-11-22T10:00:00'));
+  await p.addInitScript(() => { window.__sairChamado = []; window.__semNet = true; window.__casa = {papel:() => 'dono', email:() => 'dono@teste.com', dono:() => 'dono@teste.com', whats:() => ({}), casas:() => [],
+    sair:async o => { window.__sairChamado.push(o || {}); if (window.__semNet) throw new Error('sem internet'); return true; }}; });
+  await p.goto(ARQ); await p.waitForTimeout(2500);
+  const tem = s => p.evaluate(s => !!document.querySelector(s), s), dig = async t => { for (const c of t) { await p.click(`#pinlock [data-pin="${c}"]`); await p.waitForTimeout(40); } };
+  ok(await tem('#pinOferta'), 'no app instalado, a senha de 4 números é oferecida na tela Hoje');
+  await p.click('#pinOferta [data-a="pinNao"]'); await p.waitForTimeout(300); await p.reload(); await p.waitForTimeout(2500);
+  ok(!(await tem('#pinOferta')), '"Agora não" não pergunta de novo');
+  await p.evaluate(() => { localStorage.removeItem('bolso:pinOferta'); }); await p.reload(); await p.waitForTimeout(2500);
+  await p.click('#pinOferta [data-a="pinToggle"]'); await p.waitForTimeout(200); await dig('2580'); await dig('2580'); await p.waitForTimeout(300);
+  ok(!!(await p.evaluate(() => localStorage.getItem('bolso:pin'))) && !(await tem('#pinOferta')), 'cria a senha pela oferta e a oferta some');
+  await p.evaluate(() => sessionStorage.removeItem('bolso:liberado')); await p.reload(); await p.waitForTimeout(2500);
+  ok(await tem('#pinlock'), 'ao abrir de novo, pede a senha');
+  for (let i = 0; i < 5; i++) await dig('1111');
+  let msg = await p.evaluate(() => document.querySelector('#pinlock').innerText);
+  ok(/Espere 30 s/.test(msg), `depois de 5 erros, espera 30 s (${msg.match(/Senha errada[^\n]*/) || ''})`);
+  await dig('2580'); msg = await p.evaluate(() => document.querySelector('#pinlock') && document.querySelector('#pinlock').innerText);
+  ok(!!msg && /Muitas tentativas/.test(msg), 'durante a espera, nem a senha certa abre');
+  await p.reload(); await p.waitForTimeout(2500); await dig('2580');
+  ok(await tem('#pinlock'), 'recarregar a página não zera a espera');
+  await p.clock.setFixedTime(new Date('2026-11-22T10:01:00')); await dig('2580'); await p.waitForTimeout(300);
+  ok(!(await tem('#pinlock')), 'passada a espera, a senha certa abre');
+  // esqueci a senha: sem internet a trava continua; com internet sai da conta e tira a senha do aparelho
+  await p.evaluate(() => sessionStorage.removeItem('bolso:liberado')); await p.reload(); await p.waitForTimeout(2500);
+  p.on('dialog', d => d.accept());
+  await p.click('#pinlock [data-pin="esqueci"]'); await p.waitForTimeout(400);
+  msg = await p.evaluate(() => document.querySelector('#pinlock') && document.querySelector('#pinlock').innerText);
+  ok(!!msg && /Sem internet/.test(msg) && !!(await p.evaluate(() => localStorage.getItem('bolso:pin'))), '"Esqueci a senha" sem internet: a trava e a senha continuam');
+  await p.evaluate(() => { window.__semNet = false; }); await p.click('#pinlock [data-pin="esqueci"]'); await p.waitForTimeout(400);
+  const ch = await p.evaluate(() => window.__sairChamado);
+  ok(ch.length === 2 && (ch[1].tirar || []).includes('bolso:pin'), '"Esqueci a senha" com internet sai da conta e tira a senha do aparelho');
+  ok(!erros.length, `segurança: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 3i) Celular: todo campo de texto com letra de 16 px (o iPhone não dá zoom ao tocar); no Lançar, a caixa de escrever fica embaixo
+async function celular(b) {
+  const {p, erros} = await abrir(b, '2026-11-22', 2500); await ir(p, '#inicio');
+  const pequenos = () => p.evaluate(() => [...document.querySelectorAll('input,select,textarea')].filter(e => !['checkbox', 'radio', 'range', 'hidden', 'file'].includes(e.type) && e.getClientRects().length && parseFloat(getComputedStyle(e).fontSize) < 15.9).map(e => (e.id || e.name || e.className || e.tagName) + ' ' + getComputedStyle(e).fontSize));
+  const ruins = [], abre = async (a, extra = {}) => { await p.evaluate(([a, extra]) => { const el = document.createElement('button'); el.dataset.a = a; Object.assign(el.dataset, extra); document.body.appendChild(el); el.click(); el.remove(); }, [a, extra]); await p.waitForTimeout(350); ruins.push(...(await pequenos()).map(x => a + ': ' + x)); };
+  await abre('saldoEdit'); await abre('novo'); await p.evaluate(() => { const b = document.querySelector('[data-a="lkMais"]'); if (b) b.click(); }); await p.waitForTimeout(250); ruins.push(...(await pequenos()).map(x => 'novo+data: ' + x));
+  await abre('prevCat', {c:'Lazer', m:'2026-11'}); await abre('editLimites', {m:'2026-11'}); await abre('lkModo', {v:'chat'});
+  ok(!ruins.length, `campos de texto com letra de 16 px ou mais${ruins.length ? ' → ' + [...new Set(ruins)].slice(0, 5).join('; ') : ''}`);
+  // Lançar escrevendo: depois de várias mensagens, a caixa continua embaixo e visível
+  for (const t of ['quanto posso gastar hoje?', 'onde estou gastando mais?', 'quanto falta pagar este mês?', 'quanto tenho guardado?']) { await p.evaluate(t => window.__T.enviarChat(t), t); await p.waitForTimeout(250); }
+  const cx = await p.evaluate(() => { const f = document.querySelector('.sh-panel .quick.fixo'), pn = document.querySelector('.sh-panel'); if (!f || !pn) return null; const a = f.getBoundingClientRect(), z = pn.getBoundingClientRect(); return {ultimo:f === pn.querySelector('.sh-body, .sh-panel > *:last-child') || !f.nextElementSibling, dentro:a.top >= z.top - 1 && a.bottom <= z.bottom + 1, rola:pn.scrollHeight > pn.clientHeight}; });
+  ok(cx && cx.ultimo && cx.dentro, `no Lançar, a caixa de escrever fica embaixo e visível mesmo com várias mensagens${cx && cx.rola ? ' (rolando)' : ''}`);
+  ok(!erros.length, `celular: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 3j) Abrir rápido: com internet lenta, o app instalado abre com o que está guardado depois de 2 s (e a rede atualiza para a próxima vez)
+async function swRapido() {
+  const fs = require('fs'), path = require('path'), vm = require('vm'), src = fs.readFileSync(path.join(__dirname, '..', 'app', 'public', 'sw.js'), 'utf8');
+  const ouv = {}, guardado = {url:'https://app/', v:'guardado'}, poe = [];
+  const ctx = {self:{addEventListener:(t, f) => { ouv[t] = f; }, skipWaiting:async () => {}, clients:{claim:async () => {}}}, location:{origin:'https://app'}, URL, setTimeout, clearTimeout, Promise, Response:{error:() => ({v:'erro'})}, console,
+    caches:{match:async k => { const u = typeof k === 'string' ? 'https://app/' + k.replace(/^\.\//, '') : k.url; return u === guardado.url || u === 'https://app/index.html' ? guardado : undefined; }, open:async () => ({put:async (k, r) => { poe.push(r.v); }, addAll:async () => {}}), keys:async () => [], delete:async () => true}};
+  vm.createContext(ctx); vm.runInContext(src, ctx);
+  const pede = (url, rede, modo = 'navigate') => new Promise(ok2 => { ctx.fetch = rede; const t0 = Date.now(); let fim = null; ouv.fetch({request:{url, method:'GET', mode:modo}, respondWith:pr => { fim = pr; }, waitUntil:() => {}}); fim.then(r => ok2({v:r && r.v, ms:Date.now() - t0})); });
+  const resp = (v, ms, falha) => () => new Promise((res, rej) => setTimeout(() => falha ? rej(new Error('sem rede')) : res({ok:true, v, clone() { return this; }}), ms));
+  let r = await pede('https://app/', resp('rede', 5000));
+  ok(r.v === 'guardado' && r.ms >= 1900 && r.ms < 2600, `internet lenta: abre com o guardado em ~2 s (${r.v}, ${r.ms} ms)`);
+  r = await pede('https://app/', resp('rede', 100));
+  ok(r.v === 'rede' && r.ms < 600, `internet boa: abre a versão da rede (${r.v}, ${r.ms} ms)`);
+  r = await pede('https://app/', resp('', 50, true));
+  ok(r.v === 'guardado' && r.ms < 600, `sem internet: abre direto do guardado (${r.ms} ms)`);
+  r = await pede('https://app/fonts/nova.woff2', resp('rede', 2600), 'no-cors');
+  ok(r.v === 'rede' && r.ms >= 2500, `o que não está guardado espera a rede (${r.ms} ms)`);
+  await new Promise(res => setTimeout(res, 3200));
+  ok(poe.includes('rede'), 'a resposta da rede fica guardada para a próxima vez, mesmo quando chega depois');
+}
+
+// 3k) Começar do zero (quem compra o app): 3 perguntas e quanto quer gastar; o menu só mostra o que a casa usa
+async function comecarZero(b) {
+  const {p, erros} = await abrir(b, '2026-11-22', 2500);
+  await p.evaluate(async () => { const S = window.__T.S; for (const k of Object.keys(window.__store)) await S.db.doc(k).delete(); }); await p.waitForTimeout(500); await ir(p, '#inicio');
+  ok(await p.evaluate(() => !!document.querySelector('#comecar [data-a="onb"]')), 'controle vazio: a tela Hoje mostra "Começar"');
+  await p.click('#comecar [data-a="onb"]'); await p.waitForTimeout(300);
+  const passo = async (vals, botao = 'button[type=submit]') => { for (const [n, v] of Object.entries(vals)) await p.fill(`#onb input[name="${n}"]`, v); await p.click(`#onb ${botao}`); await p.waitForTimeout(450); };
+  await passo({v:'1.500', va:'300'}); await passo({v:'4000', dia:'5'}); await passo({v:'600', dia:'1'}); await passo({v:'900'});
+  const r = await p.evaluate(() => { const T = window.__T, S = T.S, g = T.podeGastar(); return {txt:document.querySelector('#onb').innerText, saldo:S.cfg.saldo && S.cfg.saldo.v, va:S.cfg.saldoVA && S.cfg.saldoVA.v, sal:S.fixos.find(f => f.cat === 'Salário'), vale:S.fixos.find(f => f.meio === 'va'), outros:(S.cfg.orc || {}).Outros, pode:g && g.total}; });
+  ok(r.saldo === 1500 && r.va === 300 && r.sal && r.sal.valor === 4000 && r.sal.dia === 5 && r.vale && r.vale.valor === 600 && r.outros === 900, `as respostas viram saldo, salário (dia 5), vale e o projetado (${r.saldo}/${r.va}/${r.sal && r.sal.valor}/${r.vale && r.vale.valor}/${r.outros})`);
+  ok(Math.abs(r.pode - 900) < 0.6 && /Pronto! Você pode gastar R\$\s*900/.test(r.txt) && /mercado 80/.test(r.txt), `no fim mostra quanto pode gastar e o próximo passo (${(r.txt.match(/Pronto![^\n]*/) || [''])[0]})`);
+  await p.evaluate(() => { document.querySelector('[data-a="closeSheet"], .sh-x') && document.querySelector('[data-a="closeSheet"], .sh-x').click(); }); await p.waitForTimeout(300); await ir(p, '#inicio');
+  ok(/Na conta[\s\S]*Comprometido[\s\S]*(Sobra|Falta)/.test(await p.evaluate(() => (document.querySelector('.hz') || {}).innerText || '')), 'depois de responder, o topo já mostra Na conta, Comprometido e Sobra');
+  await p.click('#tabbar ~ * [data-a="menu"], header [data-a="menu"]').catch(() => p.evaluate(() => document.querySelector('[data-a="menu"]').click())); await p.waitForTimeout(350);
+  const m = await p.evaluate(() => ({grade:[...document.querySelectorAll('.mgrid a, .mgrid button')].map(e => e.innerText.trim()), mais:[...document.querySelectorAll('.menu-mais a')].map(e => e.textContent.trim())}));
+  ok(!m.grade.some(t => /Guardado|Cartões|Dívidas|Reservas/.test(t)) && m.grade.some(t => /Lançamentos/.test(t)) && m.mais.some(t => /Cartões/.test(t)) && m.mais.some(t => /Análise do mês/.test(t)), `menu de quem está começando: só o que usa; o resto em "Mais" (${m.grade.join(', ')} | ${m.mais.length} em Mais)`);
+  await ir(p, '#contas'); ok(!(await p.evaluate(() => !!document.querySelector('[data-a="contasAba"]'))), 'sem cartão, Contas não mostra a aba Cartões');
+  ok(!erros.length, `começar do zero: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+  // com a família (tem cartões e caixinhas), o menu mostra os dois
+  const f = await abrir(b, '2026-11-22', 2500); await f.p.evaluate(() => document.querySelector('[data-a="menu"]').click()); await f.p.waitForTimeout(350);
+  const g = await f.p.evaluate(() => [...document.querySelectorAll('.mgrid a')].map(e => e.innerText.trim()));
+  ok(g.some(t => /Cartões/.test(t)) && g.some(t => /Guardado/.test(t)), `quem já usa cartão e caixinha vê os dois no menu (${g.join(', ')})`); await f.p.close();
 }
 
 // 4) Datas escritas no chat
@@ -484,6 +583,10 @@ async function telas(b) {
     secao('Pode gastar pela média e pelo dinheiro'); await regrasPode(b);
     secao('Tela Hoje clara e regra proporcional única'); await hojeClara(b);
     secao('Contas e Planos claros'); await contasPlanos(b);
+    secao('Senha do aparelho'); await seguranca(b);
+    secao('Celular'); await celular(b);
+    secao('Abrir rápido com internet lenta'); await swRapido();
+    secao('Começar do zero e menu que cresce'); await comecarZero(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);

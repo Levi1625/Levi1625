@@ -22,6 +22,10 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 ## Privacidade
 - Nunca commitar dados reais (lançamentos, saldos, nomes, planilhas, prints). Só código e a família fictícia.
 - Nunca commitar `.dev.vars` nem chaves. Segredos ficam só no Cloudflare. O telefone serve só para os lembretes de WhatsApp.
+- Lembretes: o endereço com a chave (o agendador) **nunca devolve o texto**; ler o lembrete só dentro do app (Ajustes › Lembretes no WhatsApp › Ver o lembrete de hoje).
+- Senha nova com **8 ou mais**; login trava 15 min depois de 8 erros. PBKDF2 fica em 20 mil voltas (limite de CPU do Workers): só suba guardando o número de voltas junto do hash.
+- **Sair** precisa de internet e apaga a cópia dos dados do aparelho (pergunta antes se há mudança sem enviar). **Sair dos outros aparelhos** fica em Ajustes.
+- Senha de 4 números do aparelho: oferecida uma vez no app instalado; depois de 5 erros, espera crescente (30 s, 1 min…); "Esqueci a senha" só funciona com internet.
 
 ## Regras de dinheiro combinadas com o dono (não mudar sem ele pedir)
 - **Projetado do dia a dia** (fora comida), em todos os meses: em cada categoria vale **a média** dos últimos 6 meses (sem viagem e sem mês fora do normal), que se ajusta sozinha todo mês. O dono pode mudar o valor (todos os meses ou só um mês, ex.: férias zeradas em dezembro); a média fica ao lado mostrando se dá para ser menos ou mais.
@@ -35,6 +39,9 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 - **Todo projetado se muda na mão, na hora**: tocar no item (Hoje, Como calculei, Contas › Previsto no dia a dia, fatura) abre a ficha com o valor (todos os meses ou só aquele mês), "Usar a média" e "Zerar", e a mensagem mostra o efeito ("Pode gastar: antes → depois", "Tirando tudo"). **Zerar tira só o que falta**: no mês atual o projetado fica no que já foi gasto (não vira "passou do projetado"); os outros meses vão a zero.
 - **Cartão principal = o Nubank do dono.** Todo gasto previsto no crédito vai para ele, e "no cartão" sem dizer qual também. **Nunca projetar no cartão de outra pessoa** (mãe, sogra…), a não ser que o dono escolha o "Sai de" daquela categoria. Trocar o principal: Contas › Cartões › Tornar principal.
 - A tela Hoje mostra **o que falta gastar** em cada categoria e item (não o que já gastou). Quem passou vem primeiro ("era R$ X; R$ Y cobriram Lazer"); os valores inteiros da lista **somam o pode gastar**. Comida aparece à parte (também quando o vale acabou: "até o dia X a comida sai da conta").
+- **Primeira tela com 4 palavras**: **Pode gastar** (o número grande), **Na conta**, **Comprometido** (contas, faturas, planos e comida que o vale não cobre até o fim do mês) e **Sobra** (tirando tudo, com o mês mais justo; negativo vira **Falta** e ganha uma frase de aviso).
+- **Começar do zero** (controle novo): botão **Começar** na tela Hoje com 3 perguntas (quanto tem na conta e no vale, salário e dia, vale e dia) e quanto quer gastar por mês fora as contas (vai para o projetado de "Outros"). Cada passo já salva.
+- **Menu que cresce**: Guardado, Cartões, Dívidas e Reservas só aparecem no menu (e a aba Cartões em Contas) quando a casa usa; o resto fica em **Mais**.
 - Topo da Hoje: pode gastar, por dia, fim do mês, sobra/falta tirando tudo com o **mês mais justo**, e o **próximo aperto** (o dia em que a conta zera no mês seguinte e quanto falta até o dinheiro entrar: vai no cartão). Embaixo, **um aviso só** (o mais importante); os outros num toque. Lembrete de guardar para plano fica em Planos.
 - Dívidas, impostos e assinaturas não entram no pode gastar: saem da sobra do mês.
 - Toda confirmação de lançamento mostra o efeito: "Pode gastar: antes → depois" ou o motivo de não mudar (comida, conta fixa, plano, parcelado, agendado, saúde fora da farmácia, fora do dia a dia).

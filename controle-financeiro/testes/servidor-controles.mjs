@@ -8,14 +8,15 @@ const cli = () => { let ck = ''; return async (path, opt = {}) => { const r = aw
 const post = (f, p, b) => f(p, {method:'POST', body:JSON.stringify(b)}), put = (f, path, data) => f('/api/doc', {method:'PUT', body:JSON.stringify({path, data})});
 const paths = r => (r.j && r.j.docs || []).filter(d => !d.del).map(d => d.path);
 const dono = cli(), par1 = cli(), par2 = cli();
-let r = await post(dono, '/api/criar', {email:'dono@teste.com', senha:'123456', nome:'Dono'}); ok(r.s === 200, `dono cria a conta (${r.s})`);
+let r = await post(dono, '/api/criar', {email:'dono@teste.com', senha:'123456', nome:'Dono'}); ok(r.s === 400, `senha nova com menos de 8 é recusada (${r.s})`);
+r = await post(dono, '/api/criar', {email:'dono@teste.com', senha:'senha-do-dono', nome:'Dono'}); ok(r.s === 200, `dono cria a conta (${r.s})`);
 const casaFam = (await dono('/api/eu')).j.casa.id; await put(dono, 'lanc/da-familia', {desc:'Mercado da família', valor:100});
 r = await post(dono, '/api/casa', {acao:'add', email:'parceira@teste.com', papel:'ve'}); ok(r.s === 200, 'dono libera a parceira só para ver');
-r = await post(par1, '/api/criar', {email:'parceira@teste.com', senha:'abcdef', nome:'Parceira'}); ok(r.s === 200, 'parceira cria a senha');
+r = await post(par1, '/api/criar', {email:'parceira@teste.com', senha:'senha-da-parceira', nome:'Parceira'}); ok(r.s === 200, 'parceira cria a senha');
 r = await post(dono, '/api/admin', {acao:'add', email:'parceira@teste.com', nome:'Casa da mãe'}); ok(r.s === 200, `o mesmo e-mail vira cliente "Casa da mãe" (antes: "Esse e-mail já tem um controle") (${r.s})`);
 r = await par1('/api/eu'); const mae = (r.j.casas || []).find(c => c.nome === 'Casa da mãe');
 ok((r.j.casas || []).length === 2 && mae && mae.papel === 'dono' && r.j.casa.id === casaFam, 'ela passa a ter os 2 controles e continua no da família');
-r = await post(par2, '/api/entrar', {email:'parceira@teste.com', senha:'abcdef'}); ok(((await par2('/api/eu')).j.casas || []).length === 2, 'entrar de novo não apaga o controle vazio da mãe');
+r = await post(par2, '/api/entrar', {email:'parceira@teste.com', senha:'senha-da-parceira'}); ok(((await par2('/api/eu')).j.casas || []).length === 2, 'entrar de novo não apaga o controle vazio da mãe');
 r = await post(par1, '/api/trocar', {id:'naoexiste'}); ok(r.s === 403, 'não abre controle de que não faz parte');
 r = await post(par1, '/api/trocar', {id:mae.id}); ok(r.s === 200 && (await par1('/api/eu')).j.papel === 'dono', 'troca para a Casa da mãe, onde é dona');
 r = await put(par1, 'lanc/da-mae', {desc:'Luz da casa da mãe', valor:150}); ok(r.s === 200, 'lança na Casa da mãe');
@@ -27,10 +28,10 @@ r = await post(dono, '/api/casa', {acao:'add', email:'parceira@teste.com', papel
 const idMae = (await dono('/api/admin')).j.casas.find(c => c.cliente === 'Casa da mãe').id;
 await post(dono, '/api/admin', {acao:'pausar', id:idMae, valor:true}); r = await par1('/api/eu'); ok(r.s === 200 && r.j.casa.id === casaFam, 'controle aberto pausado: abre o outro sozinho');
 await post(dono, '/api/admin', {acao:'pausar', id:idMae, valor:false}); await post(par1, '/api/trocar', {id:idMae});
-r = await post(dono, '/api/admin', {acao:'remover', id:idMae}); const par3 = cli(); await post(par3, '/api/entrar', {email:'parceira@teste.com', senha:'abcdef'});
+r = await post(dono, '/api/admin', {acao:'remover', id:idMae}); const par3 = cli(); await post(par3, '/api/entrar', {email:'parceira@teste.com', senha:'senha-da-parceira'});
 ok(r.s === 200 && (await par3('/api/eu')).j.casa.id === casaFam, 'remover o cliente apaga a Casa da mãe, e ela continua com a conta da família');
 // Ajustes gravados por campo: dois aparelhos mudando ao mesmo tempo não apagam a mudança um do outro
-const ap1 = cli(), ap2 = cli(); await post(ap1, '/api/entrar', {email:'dono@teste.com', senha:'123456'}); await post(ap2, '/api/entrar', {email:'dono@teste.com', senha:'123456'});
+const ap1 = cli(), ap2 = cli(); await post(ap1, '/api/entrar', {email:'dono@teste.com', senha:'senha-do-dono'}); await post(ap2, '/api/entrar', {email:'dono@teste.com', senha:'senha-do-dono'});
 const campos = (f, patch) => f('/api/doc', {method:'PUT', body:JSON.stringify({path:'config/geral', patch})});
 const cfgDe = async f => ((await f('/api/sync?since=0')).j.docs.find(d => d.path === 'config/geral' && !d.del) || {}).data || {};
 await put(ap1, 'config/geral', {orc:{Mercado:500, Lazer:100}, saldo:{v:1000}});
@@ -44,4 +45,12 @@ const antes = (await ap1('/api/sync?since=0')).j.agora; await campos(ap1, {k0:'n
 ok(((await ap2('/api/sync?since=' + antes)).j.docs || []).some(d => d.path === 'config/geral' && d.data.k0 === 'novo'), 'o outro aparelho recebe a mudança na próxima sincronização');
 ok((await campos(ap1, {'a"b':1})).s === 400 && (await campos(ap1, {})).s === 400, 'campo com nome inválido ou vazio é recusado');
 r = await par3('/api/doc', {method:'PUT', body:JSON.stringify({path:'config/geral', patch:{x:1}})}); ok(r.s === 403, 'quem só vê não grava ajustes');
+// Lembretes: a chave do agendador nunca mostra o texto; quem entrou no app vê o do controle aberto
+r = await dono('/api/lembretes?chave=chave-teste&hoje=2026-11-22'); ok(r.s === 200 && !('texto' in (r.j || {})) && 'casasComWhats' in (r.j || {}), 'o endereço com a chave só diz se está tudo certo, sem o texto do lembrete');
+r = await cli()('/api/lembretes?ver=1'); ok(r.s === 401, 'ver o lembrete sem entrar no app é recusado');
+r = await ap1('/api/lembretes?ver=1&hoje=2026-11-22'); ok(r.s === 200 && 'texto' in (r.j || {}), 'quem entrou no app vê o lembrete de hoje do controle aberto');
+// Sair dos outros aparelhos (ex.: celular perdido): este continua, os outros pedem a senha de novo
+r = await post(ap1, '/api/sair', {outros:true}); ok(r.s === 200 && r.j.aparelhos >= 2, `sair dos outros aparelhos desconecta os outros (${r.j && r.j.aparelhos})`);
+ok((await ap1('/api/eu')).s === 200 && (await ap2('/api/eu')).s === 401 && (await dono('/api/eu')).s === 401, 'este aparelho continua; os outros pedem a senha de novo');
+ok((await par3('/api/eu')).s === 200, 'os aparelhos de outra pessoa não são afetados');
 console.log(R.join('\n')); console.log(R.some(x => x.startsWith('ERRO')) ? '❌ falhou' : '✅ tudo certo'); process.exit(R.some(x => x.startsWith('ERRO')) ? 1 : 0);
