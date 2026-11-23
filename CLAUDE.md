@@ -46,17 +46,25 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
   - **Destino do dinheiro a mais** (`destinoExtras`): na ordem, os planos e caixinhas do próprio mês, depois o que o mês seguinte precisa até o dinheiro entrar (já inclui as contas e os planos dele) e o resto para a caixinha. **Cada destino leva só o que cabe no que entrou; a soma é sempre o valor que entrou.** Nada conta duas vezes. **Mês e Ano contam a mesma história**: a mesma lista (`extrasMes`: o que já entrou no mês, ex.: o 13º, e o que ainda vai entrar) e o mesmo destino (`destinoMes`). O dinheiro só vai para o que sai **depois** de ele entrar: o que sai antes (ex.: a viagem do dia 1º, quando o 13º cai no dia 19) já está no que o mês anterior deixou.
   - **Ano, um mês ajuda o outro**: o fim de cada mês, o mais justo marcado (▼) e "O que segura {mês}"; a frase não aponta outros meses como quem segura (a sobra deles já tem destino). Dinheiro a mais com destino, por mês. Os objetivos com barra (já pago, guardado, falta) e o dia em que o dinheiro sai. **Guardar só vira botão quando o dinheiro está na conta**; antes é plano. A tela velha "Análise do mês" não fica no menu (só em Relatórios do ano).
   - **Viagem: o painel fica no Guia** (Ano › a viagem › Guia; `objResumo`). Mostra:
-    - planejado, já saiu e **ainda pode**: no total, por fonte (da conta, do vale, no cartão) e em cada item;
+    - planejado, já saiu e **ainda pode**: no total (a soma do que falta nos itens abertos), por fonte (da conta, do vale, no cartão X) e em cada item;
     - **entrou fora do plano**: receita ligada à viagem (reembolso, devolução). Soma no que ainda pode (`objGasto` = saiu − entrou) e não vira "dinheiro a mais" da casa;
     - **ficou a menos**: item com **Terminei este item**. A sobra vai para os outros itens, e item terminado não gasta mais na projeção (`objRestante`);
     - o que **passou**: sai dos outros itens;
-    - gasto **sem item**: sai dos itens da mesma fonte, proporcional ao que falta (a regra única, `objTetos`).
+    - gasto **sem item**: sai dos itens da mesma fonte, proporcional ao que falta (a regra única, `objTetos`);
+    - **fonte** = conta, vale (VA/VR) ou **cada cartão à parte**. O que passa no cartão não come o que ainda pode no Pix. O que passou e não coube nos itens da mesma fonte aparece como "não coube".
   - Escrever "reembolso … <nome da viagem>" liga a receita à viagem. "Recebi as férias" é o pagamento de férias e não liga.
-  - **Calendário da viagem** (`espalharViagem`): o que falta de cada item sai no dia do "quando" dele.
-    - Datas ("06/12", "sábados 06, 13 e 20/12") caem nesses dias.
+  - **Voltei** (no Guia, depois do primeiro dia da viagem): termina os itens abertos. O que ainda podia não sai mais: some do calendário, e o topo mostra "Sobrou". **Reabrir a viagem** desfaz só esses itens.
+  - **Viagem valendo** (do primeiro ao último dia dela, até o Voltei; `viagemHoje`):
+    - a tela **Hoje** mostra uma linha: ainda pode no total e quanto sobra em cada item de hoje (alimentação, gasolina), com o vale e o cartão marcados. Sem item hoje, mostra o próximo com data;
+    - o **lembrete das 8h** traz a mesma linha. O app guarda em `resumoWhats.viagem` os itens dos próximos 7 dias, e o lembrete pega os de hoje, mesmo na virada do mês.
+  - **Datas da viagem** (`datasQuando`, `diasViagem`): o que falta de cada item sai no dia do "quando" dele. Se o "quando" não tem data, vale a data do nome do item (ex.: "Gasolina até 25/12").
+    - Datas ("06/12", "06, 13 e 20/12") caem nesses dias.
+    - Dias da semana ("sábados", "domingos", "fim de semana") viram esses dias da viagem.
     - Períodos ("de 21/12 a 03/01", "até 25/12") e item sem data são espalhados, por semana. Sem data, valem os dias da viagem: o "(29/11 a 04/01)" do nome, a agenda ou o mês todo.
-    - Tudo fica dentro do mês da viagem; no mês atual, nunca antes de hoje.
-    - O total do mês não muda. Muda o que o mês anterior precisa deixar na conta até o dinheiro entrar. No destino do dinheiro a mais, a viagem é um destino só ("Férias de 19 a 29").
+    - **Vale em qualquer mês**: a passagem de 27/11 sai em novembro, os dias 1 a 4/01 saem em janeiro. O ano de "dd/mm" é o mais perto do mês da viagem.
+    - O que era para ter saído antes de hoje e não foi lançado sai hoje.
+    - Item no cartão vai para a fatura do cartão, não para a conta no dia.
+    - Somando os meses, o total da viagem não muda. Muda em que mês e em que dia sai, e por isso o que cada mês precisa deixar na conta até o dinheiro entrar. No destino do dinheiro a mais, a viagem é um destino só ("Férias de 19 a 29").
 - **Começar do zero** (controle novo): botão **Começar** na tela Hoje, 7 passos, cada um já salva:
   1. quanto tem na conta e no vale;
   2. salário e dia;

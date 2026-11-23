@@ -593,12 +593,15 @@ async function mesmoDinheiro(b) {
 async function viagemControle(b) {
   const {p, erros} = await abrir(b, '2026-11-22');
   // o "quando" de cada item vira dia no calendário
-  const q = await p.evaluate(() => { const T = window.__T, f = (quando, cat = '') => { const r = T.diasDoItem({quando, cat}, '2026-12', [1, 31], 1); return Object.entries(r.partes).map(([d, v]) => `${d}:${Math.round(v * 100)}`).join(' '); };
-    return {d:f('06/12'), sab:f('sábados 06, 13, 20 e 27/12'), bf:f('27 ou 28/11 (Black Friday)'), dia:f('R$ 25/dia até 20/12 · R$ 45/dia de 21 a 25/12').split(' ').length, fim:f('26/12 a 03/01'), sem:f('só se precisar').split(' ').length,
-      gas:f('~R$ 400 por semana', 'Gasolina até 25/12').split(' ').length, ceia:f('23/12 (Natal R$ 500) e 30/12 (Ano Novo R$ 500)'), hoje:Object.keys(T.diasDoItem({quando:'10/11'}, '2026-11', [1, 30], 22).partes).join(),
-      per:T.periodoViagem({nome:'Férias (29/11 a 04/01)'}, '2026-12').join('-') + ' ' + T.periodoViagem({nome:'Praia (05/02 a 15/02)'}, '2027-02').join('-')}; });
-  ok(q.d === '6:100' && q.sab === '6:25 13:25 20:25 27:25' && q.bf === '1:100' && q.dia === 25 && q.fim === '26:17 27:17 28:17 29:17 30:17 31:17' && q.sem === 31 && q.gas === 25 && q.ceia === '23:50 30:50' && q.hoje === '22' && q.per === '1-31 5-15',
-    `o "quando" do item vira dia: ${JSON.stringify(q)}`);
+  const q = await p.evaluate(() => { const T = window.__T, per = ['2026-11-29', '2027-01-04'], f = quando => { const r = T.datasQuando(quando, '2026-12', per); return r.datas.map(z => z.d.slice(5)).join(' '); };
+    const n = quando => T.datasQuando(quando, '2026-12', per).datas.length, sab = T.datasQuando('sábados', '2026-12', per).datas.map(z => z.d);
+    const gas = T.diasViagem({nome:'Férias (29/11 a 04/01)', alvo:'2026-12', itens:[{id:'g', cat:'Gasolina até 25/12', quando:'~R$ 400 por semana'}]}).itens.g.datas.map(z => z.d);
+    return {d:f('06/12'), sab4:f('sábados 06, 13, 20 e 27/12'), bf:f('27 ou 28/11 (Black Friday)'), dia:n('R$ 25/dia até 20/12 · R$ 45/dia de 21 a 25/12'), fim:f('26/12 a 03/01'), sem:n('só se precisar'), ceia:f('23/12 (Natal R$ 500) e 30/12 (Ano Novo R$ 500)'),
+      sabados:sab.length >= 5 && sab.every(d => new Date(d + 'T12:00').getDay() === 6) && sab[0] >= '2026-11-29' && sab[sab.length - 1] <= '2027-01-04', gas:`${gas[0]}..${gas[gas.length - 1]} ${gas.length}`,
+      per:T.periodoViagem({nome:'Férias (29/11 a 04/01)', alvo:'2026-12'}).join('..') + ' ' + T.periodoViagem({nome:'Praia (05/02 a 15/02)', alvo:'2027-02'}).join('..')}; });
+  ok(q.d === '12-06' && q.sab4 === '12-06 12-13 12-20 12-27' && q.bf === '11-27 11-28' && q.dia === 27 && q.fim === '12-26 12-27 12-28 12-29 12-30 12-31 01-01 01-02 01-03' && q.sem === 37 && q.ceia === '12-23 12-30'
+    && q.sabados && q.gas === '2026-11-29..2026-12-25 27' && q.per === '2026-11-29..2027-01-04 2027-02-05..2027-02-15',
+    `o "quando" do item vira dia, em qualquer mês ("sábados" vira os sábados da viagem; "Gasolina até 25/12" vale pelo nome): ${JSON.stringify(q)}`);
   // calendário: a viagem de fev/27 sai no dia de cada item (e o resto espalhado por semana), somando o mesmo total
   const cal = await p.evaluate(async () => { const T = window.__T, S = T.S, o = S.objs.find(x => x.id === 'obj-viagem'), antes = T.itensMes('2027-02').G.filter(x => x.kind === 'objDia');
     await S.db.doc('objetivos/obj-viagem').set({...o, nome:'Viagem de verão (05/02 a 15/02)', itens:[{...o.itens[0], quando:'06/02'}, {...o.itens[1], quando:'todo dia'}]}); await new Promise(r => setTimeout(r, 400));
@@ -634,6 +637,35 @@ async function viagemControle(b) {
     await new Promise(r => setTimeout(r, 300));
     const r1 = S.lanc.find(l => l.desc === 'Reembolso do hotel'), r2 = S.lanc.find(l => l.desc === 'Férias' && l.tipo === 'receita'); return {reemb:r1 && r1.objId, ferias:r2 ? (r2.objId || 'sem plano') : 'não lançou'}; });
   ok(t.reemb === 'obj-ferias' && t.ferias === 'sem plano', `reembolso escrito fica na viagem; "recebi as férias" não (${JSON.stringify(t)})`);
+  // data fora do mês da viagem cai no mês dela: o passeio marcado para 20/01 sai em janeiro, não em fevereiro
+  const mes = await p.evaluate(async () => { const T = window.__T, S = T.S, o = S.objs.find(x => x.id === 'obj-viagem');
+    await S.db.doc('objetivos/obj-viagem').set({...o, itens:o.itens.map(it => it.id === 'v1' ? {...it, fechado:false, quando:'20/01'} : it)}); await new Promise(r => setTimeout(r, 400));
+    const o2 = S.objs.find(x => x.id === 'obj-viagem'), jan = T.itensMes('2027-01').G.filter(x => x.kind === 'objDia' && x.o === o2), fev = T.itensMes('2027-02').G.filter(x => x.kind === 'objDia' && x.o === o2);
+    return {jan:jan.map(x => `${x.dia}:${Math.round(x.valor)}`).join(' '), fev:Math.round(fev.reduce((t, x) => t + x.valor, 0)), falta:Math.round(T.objFalta(o2)), tot:Math.round([...jan, ...fev].reduce((t, x) => t + x.valor, 0))}; });
+  ok(/^20:\d+$/.test(mes.jan) && mes.tot === mes.falta, `a hospedagem marcada para 20/01 sai em janeiro (${mes.jan}); fevereiro fica com ${mes.fev}; soma ${mes.tot} = falta ${mes.falta}`);
+  // cartão é uma fonte à parte: o que passa no cartão não come o que ainda pode no Pix
+  const cc = await p.evaluate(async () => { const T = window.__T, S = T.S, o = S.objs.find(x => x.id === 'obj-viagem'), TT0 = T.objTetos(o), h0 = TT0.v1.teto;
+    await S.db.doc('objetivos/obj-viagem').set({...o, itens:[...o.itens, {id:'v3', cat:'Aluguel do carro', prev:500, meio:'cc:azul'}]}); await new Promise(r => setTimeout(r, 300));
+    await T.criarLanc({tipo:'despesa', valor:700, desc:'Locadora', cat:'Viagens', data:T.hoje(), meio:'credito', cartaoId:'azul', nparc:1, objId:'obj-viagem', objItem:'v3'}); await new Promise(r => setTimeout(r, 400));
+    const o2 = S.objs.find(x => x.id === 'obj-viagem'), TT = T.objTetos(o2), R = T.objResumo(o2);
+    return {h0:Math.round(h0), h:Math.round(TT.v1.teto), carro:TT.v3.estourou, naoCoube:R.naoCoube, fontes:Object.keys(R.porFonte).join(', ')}; });
+  ok(cc.h === cc.h0 && cc.carro === 200 && cc.naoCoube === 200, `o cartão que passou não come a conta: hospedagem continua ${cc.h} (era ${cc.h0}); o carro passou ${cc.carro} e não coube (${cc.naoCoube})`);
+  // "Voltei": o que ainda podia não sai mais (some do calendário); Reabrir desfaz
+  const vt = await p.evaluate(async () => { const T = window.__T, S = T.S, b = document.createElement('button'); b.dataset.a = 'voltei'; b.dataset.id = 'obj-viagem'; document.body.appendChild(b); b.click(); b.click(); b.remove();
+    await new Promise(r => setTimeout(r, 600)); const o = S.objs.find(x => x.id === 'obj-viagem'), R = T.objResumo(o), cal = ['2027-01', '2027-02'].flatMap(m => T.itensMes(m).G.filter(x => x.kind === 'objDia' && x.o === o));
+    return {voltou:!!o.voltou, abertos:o.itens.filter(it => !it.fechado).length, pode:R.pode, falta:T.objFalta(o), cal:cal.length, painel:(document.querySelector('#sheet .vg') || {}).innerText || ''}; });
+  ok(vt.voltou && vt.abertos === 0 && vt.pode === 0 && vt.falta === 0 && vt.cal === 0 && /Sobrou/.test(vt.painel) && /Reabrir a viagem/.test(vt.painel), `"Voltei" termina a viagem: ainda pode 0, nada no calendário (${vt.painel.replace(/\s+/g, ' ').slice(0, 90)}…)`);
+  await p.click('#sheet [data-a="reabrirViagem"]'); await p.waitForTimeout(600);
+  ok(await p.evaluate(() => { const o = window.__T.S.objs.find(x => x.id === 'obj-viagem'); return !o.voltou && o.itens.filter(it => !it.fechado).length === 2 && o.itens.find(it => it.id === 'v2').fechado; }), 'Reabrir desfaz o "Voltei" (o passeio, terminado antes, continua terminado)');
+  await p.evaluate(() => { const x = document.querySelector('[data-a="closeSheet"]'); if (x) x.click(); });
+  // viagem valendo hoje: a linha na tela Hoje e no lembrete das 8h
+  await p.evaluate(async () => { await window.__T.S.db.doc('objetivos/obj-agora').set({nome:'Praia (20/11 a 30/11)', tipo:'viagem', alvo:'2026-11', status:'ativo', passos:[], movs:[], itens:[{id:'a1', cat:'Almoço', prev:300, quando:'todo dia'}, {id:'a2', cat:'Passeio de barco', prev:200, quando:'25/11'}, {id:'a3', cat:'Gasolina', prev:150, meio:'cc:azul', quando:'todo dia'}]}); });
+  await p.waitForTimeout(400); await ir(p, '#contas'); await ir(p, '#inicio');
+  const hz = await p.evaluate(() => (document.getElementById('viagemHoje') || {}).innerText || '');
+  ok(/✈️ Praia[\s\S]*ainda pode R\$\s*650[\s\S]*Hoje: Almoço R\$\s*300 · Gasolina R\$\s*150 \(cartão\)/.test(hz), `Hoje mostra a viagem que está valendo: ainda pode e os itens de hoje (${hz.replace(/\s+/g, ' ').slice(0, 110)})`);
+  const { pathToFileURL } = require('url'), L = await import(pathToFileURL(require('path').join(__dirname, '..', 'app', 'functions', 'api', 'lembretes.js')).href);
+  const rw = await p.evaluate(() => window.__T.resumoWhats()), txt = L.montar({lanc:[], fixos:[], cartoes:[], objetivos:[], config:{resumoWhats:rw}}, '2026-11-22') || '', txt25 = L.montar({lanc:[], fixos:[], cartoes:[], objetivos:[], config:{resumoWhats:rw}}, '2026-11-25') || '';
+  ok(/✈️ Praia: ainda pode R\$\s*650,00 · hoje: Almoço R\$\s*300,00, Gasolina R\$\s*150,00 \(cartão\)/.test(txt) && /✈️ Praia[^\n]*hoje: [^\n]*Passeio de barco R\$\s*200,00/.test(txt25), `o lembrete das 8h traz a mesma linha da viagem (${(txt.split('\n').find(l => /✈️/.test(l)) || 'sem linha').slice(0, 120)})`);
   ok(!erros.length, `viagem: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 

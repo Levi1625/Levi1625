@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '23/11 16:24';</script>
+<script>window.__versao = '23/11 16:49';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -1125,6 +1125,10 @@ function vHoje() {
     h += `<section class="hz s-${st}">${pg ? top : `<div class="hero-top">${top}</div>`}${linhas ? `<div class="hero-l">${linhas}</div>` : ''}
       ${pg ? '' : `<div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div>`}</section>`;
   }
+  // a viagem que está valendo hoje: quanto ainda pode e quanto sobra nos itens de hoje (sem precisar abrir Ano › Guia)
+  { const vh = sh != null ? viagemHoje() : null; if (vh) h += `<section class="sec2" id="viagemHoje"><div class="row" style="gap:8px;align-items:baseline;justify-content:space-between;flex-wrap:nowrap"><b style="min-width:0">✈️ ${esc(vh.nome)}</b><span class="small" style="white-space:nowrap">ainda pode <b class="num pos">${brl0(vh.pode)}</b></span></div>
+    ${vh.hoje.length ? `<p class="small" style="margin:4px 0 0">Hoje: ${vh.hoje.map(x => `${esc(x.n)} <b class="num">${brl0(x.v)}</b>${x.f !== 'conta' ? ` <span class="muted">(${x.f})</span>` : ''}`).join(' · ')}</p>` : vh.prox ? `<p class="small muted" style="margin:4px 0 0">Próximo: ${esc(vh.prox.n)} em ${dCurto(vh.prox.d)} (${brl0(vh.prox.v)})</p>` : ''}
+    <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-a="objGuia" data-id="${vh.o.id}">Guia</button>${soVer() ? '' : `<button class="btn sm" data-a="gastoObj" data-id="${vh.o.id}">Lançar gasto</button>`}</div></section>`; }
   // quem ainda não sabe quanto gastar por mês: o app calcula pelo que entra e sai
   { const pgT = sh != null ? podeGastar() : null; if (pgT && !soVer() && tetoDia() == null && pgT.DD.proj < 0.5) h += `<section class="sec2" id="tetoConvite"><b>Quanto dá para gastar por mês?</b><p class="small" style="margin:4px 0 8px">O app calcula pelo que entra, menos as contas fixas, as parcelas, a comida e o que você quer guardar. Cadastre as contas fixas antes.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm pri" data-a="tetoCalc">Calcular quanto posso gastar</button><button class="btn sm" data-a="onbFixos">Contas fixas</button></div></section>`; }
   // primeira vez no app instalado: oferece a senha de 4 números para este aparelho (uma vez)
@@ -1327,42 +1331,66 @@ A.guardarSobra = async el => { const v = Math.min(r2(+el.dataset.v || 0), guarda
 // a caixinha Sobras (cria quando ainda não existe)
 async function caixinhaSobras() { const o = objSobras(); if (o) return o; const nv = {nome:NOME_SOBRAS, tipo:'reserva', itens:[], passos:[], movs:[], status:'ativo', guardar:true}, id = await put(COLS.objs, null, nv);
   await new Promise(r0 => setTimeout(r0, 150)); return S.objs.find(x => x.id === id) || {id, ...nv}; }
-// Quando sai o dinheiro de cada item de uma viagem (o que ainda falta), pelo "quando" do item:
-// datas escritas ("06/12"; "sábados 06, 13 e 20/12"; "23/12 e 30/12") caem nesses dias; períodos ("de 21/12 a 03/01", "até 25/12",
-// "17 a 21/06") e sem data nenhuma ("todo dia", "por semana", "só se precisar") são espalhados pelos dias (os da viagem, quando não diz).
-// Fica dentro do mês da viagem; no mês atual, nunca antes de hoje. Volta {dia: parte do valor}, somando 1.
-function periodoViagem(o, m) {
-  const nd = diasNoMes(m), mm = +m.slice(5), dd = (d, mo) => mo === mm ? Math.min(nd, Math.max(1, d)) : ((mo < mm && mm - mo < 6) || mo > mm + 6) ? 1 : nd;
-  const x = String(o.nome || '').match(/(\d{1,2})\/(\d{1,2})\s*(?:a|até|-|–)\s*(\d{1,2})\/(\d{1,2})/);
-  if (x) { const a = dd(+x[1], +x[2]), b = dd(+x[3], +x[4]); if (a <= b) return [a, b]; }
-  const ps = passosDe(o).map(p => p.d).filter(d => d && d.slice(0, 7) === m).map(d => +d.slice(8)).sort((a, b) => a - b);
-  return ps.length > 1 ? [ps[0], ps[ps.length - 1]] : [1, nd];
+// Quando sai o dinheiro de cada item de uma viagem (o que ainda falta), pelo "quando" do item (ou pelo nome, se o "quando" não tem data):
+// datas escritas ("06/12"; "06, 13 e 20/12"; "23/12 e 30/12") caem nesses dias; dias da semana ("sábados", "domingos", "fim de semana")
+// viram esses dias da viagem; períodos ("de 21/12 a 03/01", "até 25/12", "17 a 21/06") e o que não tem data são espalhados pelos dias
+// (os da viagem, quando o item não diz). Vale em qualquer mês: a passagem de 27/11 sai em novembro, a gasolina de 03/01 em janeiro.
+const maisDia = (d, n) => { const x = new Date(d + 'T12:00'); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
+const anoPerto = (ref, mo) => { const y0 = +ref.slice(0, 4), m0 = +ref.slice(5); return mo - m0 > 6 ? y0 - 1 : m0 - mo > 6 ? y0 + 1 : y0; };
+// os dias da viagem: o "(29/11 a 04/01)" do nome; senão a agenda do mês dela; senão o mês todo
+function periodoViagem(o) {
+  const ref = o.alvo || ymNow(), x = String(o.nome || '').match(/(\d{1,2})\/(\d{1,2})\s*(?:a|até|ate|-|–)\s*(\d{1,2})\/(\d{1,2})/);
+  if (x) { const a = `${anoPerto(ref, +x[2])}-${pad(+x[2])}-${pad(+x[1])}`, b = `${anoPerto(ref, +x[4])}-${pad(+x[4])}-${pad(+x[3])}`; if (a <= b) return [a, b]; }
+  const ps = passosDe(o).map(p => p.d).filter(d => d && d.slice(0, 7) === ref).sort();
+  return ps.length > 1 ? [ps[0], ps[ps.length - 1]] : [`${ref}-01`, `${ref}-${pad(diasNoMes(ref))}`];
 }
-function diasDoItem(it, m, per, d0, txt = null) {
-  // sem data no "quando", tenta o nome do item (ex.: "Gasolina até 25/12")
-  if (txt == null && it) { const r = diasDoItem(it, m, per, d0, it.quando || ''); return r.semData && it.cat ? diasDoItem(it, m, per, d0, it.cat) : r; }
-  const nd = diasNoMes(m), mm = +m.slice(5), q = norm(txt || '').replace(/\s+/g, ' ');
-  const dd = (d, mo) => mo === mm ? Math.min(nd, Math.max(1, d)) : ((mo < mm && mm - mo < 6) || mo > mm + 6) ? 0 : nd + 1;   // 0: antes do mês; nd+1: depois
-  const cl = d => Math.min(nd, Math.max(d0, d)), out = {}, dias = new Set();
-  let resto = q;
-  // períodos: "21/12 a 03/01", "de 21 a 25/12", "17 a 21/06", "até 20/12"
-  resto = resto.replace(/(\d{1,2})(?:\/(\d{1,2}))?\s*(?:a|ate|-|–)\s*(\d{1,2})\/(\d{1,2})/g, (_, d1, m1, d2, m2) => { const a = dd(+d1, +(m1 || m2)), b = dd(+d2, +m2); for (let d = Math.max(1, a); d <= Math.min(nd, b); d++) dias.add(d); if (b < 1) dias.add(1); if (a > nd) dias.add(nd); return ' '; });
-  resto = resto.replace(/\bate (?:o dia )?(\d{1,2})\/(\d{1,2})/g, (_, d2, m2) => { const b = dd(+d2, +m2); for (let d = per[0]; d <= Math.min(nd, b); d++) dias.add(d); if (b < per[0]) dias.add(Math.max(1, Math.min(nd, b))); return ' '; });
-  if (dias.size) { const ds = [...new Set([...dias].map(cl))]; ds.forEach(d => { out[d] = (out[d] || 0) + 1 / dias.size; }); return {modo:'periodo', partes:out}; }
-  // datas soltas: "06/12", "06, 13, 20 e 27/12", "27 ou 28/11"
-  const datas = []; resto.replace(/((?:\d{1,2}\s*(?:,|e|ou)\s*)*)(\d{1,2})\/(\d{1,2})/g, (_, lista, d, mo) => { [...(lista.match(/\d{1,2}/g) || []), d].forEach(x => { const v = dd(+x, +mo); datas.push(v < 1 ? 1 : v > nd ? nd : v); }); return ' '; });
-  if (datas.length) { datas.map(cl).forEach(d => { out[d] = (out[d] || 0) + 1 / datas.length; }); return {modo:'data', partes:out}; }
-  // sem data: espalhado pelos dias da viagem (a partir de hoje no mês atual)
-  const a = cl(per[0]), b = Math.max(a, Math.min(nd, per[1])); for (let d = a; d <= b; d++) out[d] = 1 / (b - a + 1);
-  return {modo:'periodo', partes:out, semData:true};
+function datasQuando(txt, ref, per) {
+  const q = norm(txt || '').replace(/\s+/g, ' '), dt = (d, mo) => { const y = anoPerto(ref, mo), nd = diasNoMes(`${y}-${pad(mo)}`); return `${y}-${pad(mo)}-${pad(Math.min(nd, Math.max(1, d)))}`; };
+  const dias = (a, b) => { const out = []; for (let x = a; x <= b && out.length < 400; x = maisDia(x, 1)) out.push(x); return out; };
+  const per0 = new Set(); let resto = q;
+  // períodos: "21/12 a 03/01", "de 21 a 25/12", "17 a 21/06", "até 20/12" (do começo da viagem até lá; se é antes da viagem, é o prazo)
+  resto = resto.replace(/(\d{1,2})(?:\/(\d{1,2}))?\s*(?:a|ate|-|–)\s*(\d{1,2})\/(\d{1,2})/g, (_, d1, m1, d2, m2) => { const a = dt(+d1, +(m1 || m2)), b = dt(+d2, +m2); (a <= b ? dias(a, b) : [a]).forEach(x => per0.add(x)); return ' '; });
+  resto = resto.replace(/\bate (?:o dia )?(\d{1,2})\/(\d{1,2})/g, (_, d2, m2) => { const b = dt(+d2, +m2); (per[0] <= b ? dias(per[0], b) : [b]).forEach(x => per0.add(x)); return ' '; });
+  const datas = []; resto.replace(/((?:\d{1,2}\s*(?:,|e|ou)\s*)*)(\d{1,2})\/(\d{1,2})/g, (_, lista, d, mo) => { [...(lista.match(/\d{1,2}/g) || []), d].forEach(x => datas.push(dt(+x, +mo))); return ' '; });
+  const igual = ds => ds.map(d => ({d, p:1 / ds.length}));
+  if (datas.length && !per0.size) return {modo:'data', datas:igual(datas)};
+  // dias da semana: os desses dias no período do item (ou da viagem)
+  const SEM = [[/\bdomingos?\b/, [0]], [/\bsegundas?\b/, [1]], [/\btercas?\b/, [2]], [/\bquartas?\b/, [3]], [/\bquintas?\b/, [4]], [/\bsextas?\b/, [5]], [/\bsabados?\b/, [6]], [/\bfins? de semana\b/, [0, 6]]], wd = new Set();
+  SEM.forEach(([rx, ws]) => { if (rx.test(q)) ws.forEach(w => wd.add(w)); });
+  const base = per0.size ? [...per0].sort() : null;
+  if (wd.size) { const ds = (base || dias(per[0], per[1])).filter(x => wd.has(new Date(x + 'T12:00').getDay())); if (ds.length) return {modo:'data', datas:igual(ds)}; }
+  if (base) return {modo:'periodo', datas:igual(base)};
+  return {modo:'periodo', semData:true, datas:igual(dias(per[0], per[1]))};
+}
+// Os dias de cada item de uma viagem (cache por plano). "sem" = o que não tem item, espalhado pela viagem.
+function diasViagem(o) { const C = cacheDados(); C.dv = C.dv || new Map(); if (C.dv.has(o)) return C.dv.get(o);
+  const per = periodoViagem(o), ref = o.alvo || ymNow(), r = {per, itens:{}, sem:datasQuando('', ref, per)};
+  (o.itens || []).forEach(it => { let x = datasQuando(it.quando || '', ref, per); if (x.semData && it.cat) { const y = datasQuando(it.cat, ref, per); if (!y.semData) x = y; } r.itens[it.id] = x; });
+  C.dv.set(o, r); return r; }
+// Quanto de um item sai no mês m, e em que dias. O que era para ter saído antes de hoje e não saiu, sai hoje.
+const diaReal = d => { const T = hoje(); return d < T ? T : d; };
+const fracMes = (x, m) => m < ymNow() || !x ? 0 : sum(x.datas.filter(z => diaReal(z.d).slice(0, 7) === m), z => z.p);
+// A viagem que está valendo hoje (do primeiro ao último dia dela, até tocar em "Voltei"): quanto ainda pode e os itens de hoje,
+// com quanto sobra em cada um. Também os itens dos próximos 7 dias, para o lembrete das 8h saber o de cada dia.
+function viagemHoje(T = hoje()) {
+  for (const o of objsAtivos().filter(ehViagem)) { if (o.voltou || !(o.itens || []).length) continue; const DV = diasViagem(o); if (T < DV.per[0] || T > DV.per[1]) continue;
+    const R = objResumo(o), TT = R.TT, its = (o.itens || []).filter(it => TT[it.id] && !TT[it.id].fechado && TT[it.id].teto - TT[it.id].gasto > 0.5);
+    const doDia = d => its.filter(it => (DV.itens[it.id] || DV.sem).datas.some(z => z.d === d)).map(it => ({n:String(it.cat).replace(/\s*\(.*\)\s*$/, ''), v:Math.round(TT[it.id].teto - TT[it.id].gasto), f:(it.meio === 'va' || it.meio === 'vr') ? 'vale' : /^cc:/.test(it.meio || '') ? 'cartão' : 'conta'})).sort((a, b) => b.v - a.v).slice(0, 3);
+    const prox = its.flatMap(it => (DV.itens[it.id] || {datas:[]}).datas.filter(z => z.d > T && (DV.itens[it.id] || {}).modo === 'data').map(z => ({d:z.d, n:String(it.cat).replace(/\s*\(.*\)\s*$/, ''), v:Math.round(TT[it.id].teto - TT[it.id].gasto)}))).sort((a, b) => a.d.localeCompare(b.d))[0] || null;
+    const dias = []; for (let i = 0, d = T; i < 7 && d <= DV.per[1]; i++, d = maisDia(d, 1)) { const x = doDia(d); if (x.length) dias.push({d, its:x}); }
+    return {o, nome:nomeObj(o), pode:Math.round(R.pode), hoje:doDia(T), prox, dias}; }
+  return null;
 }
 // Os gastos de uma viagem no calendário do mês: o que tem dia certo cai no dia (juntando os itens do mesmo dia);
 // o que vai saindo aos poucos fica por semana, no primeiro dia de cada semana. A soma é sempre o que falta da viagem no mês.
 function espalharViagem(o, ls, m) {
-  const its = o.itens || [], per = periodoViagem(o, m), d0 = m === ymNow() ? +hoje().slice(8) : 1, nd = diasNoMes(m), mm = +m.slice(5), nome = nomeObj(o);
+  const DV = diasViagem(o), nd = diasNoMes(m), mm = +m.slice(5), nome = nomeObj(o), its = o.itens || [];
   const dia = {}, sem = {}, nomesDia = {}, nomesSem = {};
-  ls.forEach(l => { const it = l.iid ? its.find(x => x.id === l.iid) : null, r = diasDoItem(it, m, per, d0), n = it ? String(it.cat).replace(/\s*\(.*\)\s*$/, '') : 'gastos da viagem';
-    Object.entries(r.partes).forEach(([d, p]) => { d = +d; const v = l.v * p; if (r.modo === 'data') { dia[d] = (dia[d] || 0) + v; (nomesDia[d] = nomesDia[d] || new Set()).add(n); } else { sem[d] = (sem[d] || 0) + v; (nomesSem[d] = nomesSem[d] || []).push([n, v]); } }); });
+  ls.forEach(l => { const it = l.iid ? its.find(x => x.id === l.iid) : null, x = (it && DV.itens[it.id]) || DV.sem, n = it ? String(it.cat).replace(/\s*\(.*\)\s*$/, '') : 'gastos da viagem';
+    const ps = {}; x.datas.forEach(z => { const d = diaReal(z.d); if (d.slice(0, 7) === m) ps[+d.slice(8)] = (ps[+d.slice(8)] || 0) + z.p; });
+    const tot = sum(Object.values(ps), v => v); if (!(tot > 0)) { ps[m === ymNow() ? +hoje().slice(8) : 1] = 1; }
+    const t2 = sum(Object.values(ps), v => v);
+    Object.entries(ps).forEach(([d, p]) => { d = +d; const v = l.v * p / t2; if (x.modo === 'data') { dia[d] = (dia[d] || 0) + v; (nomesDia[d] = nomesDia[d] || new Set()).add(n); } else { sem[d] = (sem[d] || 0) + v; (nomesSem[d] = nomesSem[d] || []).push([n, v]); } }); });
   const G = Object.keys(dia).map(Number).map(d => ({kind:'objDia', o, tipo:'despesa', valor:dia[d], desc:`${nome}: ${eJunta([...nomesDia[d]].slice(0, 3))}${nomesDia[d].size > 3 ? ' e mais' : ''}`, curto:nome, dia:d, cat:'Viagens', sub:'gasto do plano da viagem (veja o Guia)'}));
   const ds = Object.keys(sem).map(Number).sort((a, b) => a - b);
   for (let i = 0; i < ds.length;) { const ini = ds[i], fim = Math.min(nd, ini + 6); let v = 0; const ns = {};
@@ -1999,7 +2027,7 @@ const corObj = o => CX_COR[Math.max(0, objsAtivos().indexOf(o)) % CX_COR.length]
 function planoGuardar(o) {
   const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), m0 = ymNow();
   const feito = sum((o.movs || []).filter(mv => (mv.d || '').slice(0, 7) === m0 && +mv.v > 0 && movConta(mv)), mv => +mv.v);
-  const falta = Math.max(0, prev - gasto - g - (objRepor(o)?.v || 0));
+  const falta = Math.max(0, objRestante(o) - g - (objRepor(o)?.v || 0));
   const usaCaixinha = o.guardar === true || (o.movs || []).some(mv => mv.em && movConta(mv) && +mv.v > 0);
   if (!usaCaixinha || !o.alvo || o.alvo <= m0) return {falta, porMes:0, resto:0, feito, quando:null};
   const meses = Math.max(1, monthsBetween(m0, o.alvo)), porMes = (falta + feito) / meses;
@@ -2084,7 +2112,8 @@ function resumoWhats() {
   return {m:ymNow(), d:hoje(), pode:Math.round(g.total), fim:g.fim, vale:g.vaHoje == null ? null : Math.round(g.vaHoje), valeProx:g.vaProx ? {d:g.vaProx.d, v:Math.round(g.vaProx.v)} : null, comida:Math.round(g.CM.falta),
     passou:[...g.DD.lista.filter(x => x.passou > 0.5).map(x => ({c:nomeDia(x.c), v:Math.round(x.passou)})), ...g.CM.lista.filter(x => x.passou > 0.5).map(x => ({c:x.c, v:Math.round(x.passou)}))].slice(0, 3),
     aperto:pj.livre1 != null && pj.livre1 < 0 ? `Até ${dCurto(pj.P1)} a conta não fecha: faltam ${brl0(-pj.livre1)}.` : ap ? apertoTxt(ap) : null,
-    falta:g.livre < -0.5 ? `Falta ${brl0(-g.livre)} em ${ymLabel(g.pior)} (tirando tudo).` : null};
+    falta:g.livre < -0.5 ? `Falta ${brl0(-g.livre)} em ${ymLabel(g.pior)} (tirando tudo).` : null,
+    viagem:(() => { const vh = viagemHoje(); return vh ? {nome:vh.nome, pode:vh.pode, dias:vh.dias.map(x => ({d:x.d, its:x.its.map(y => ({n:y.n, v:y.v, f:y.f}))})), fim:diasViagem(vh.o).per[1]} : null; })()};
 }
 function sincResumoWhats() {
   if (soVer() || !window.__casa || !S.cfg) return;
@@ -2306,8 +2335,10 @@ function vPlanos() {
   const temDin = guardavelAgora() >= 1;
   h += objs.length ? objs.map(o => { const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), pct = prev ? (g + gasto) / prev : 0, pg = planoGuardar(o), prox = passosDe(o).find(a => a.d >= T);
     // o que ainda falta da viagem sai nos dias de cada item (no calendário do mês dela)
-    const sais = o.alvo && o.alvo >= ymNow() ? itensMes(o.alvo).G.filter(x => x.kind === 'objDia' && x.o === o) : [], sai = sais.length ? {dia:Math.max(1, Math.min(...sais.map(x => x.dia))), fim:Math.max(...sais.map(x => x.dia)), valor:sum(sais, x => x.valor)} : null;
-    const linha = (sai ? `<span class="small">Sai ${sai.fim > sai.dia ? `de ${dCurto(`${o.alvo}-${pad(sai.dia)}`)} a ${dCurto(`${o.alvo}-${pad(sai.fim)}`)}` : `em ${dCurto(`${o.alvo}-${pad(sai.dia)}`)}`} da conta: <b>${brl0(sai.valor)}</b> (está no calendário de ${ymLabel(o.alvo)})</span>` : '') + (pg.resto >= 1 ? `<span class="small warnc" style="font-weight:600">${temDin ? `guardar ${brl0(pg.resto)} até ${dCurto(pg.quando)}` : `vai guardar ${brl0(pg.resto)} quando o dinheiro cair (até ${dCurto(pg.quando)})`}</span>` : prox ? `<span class="small" style="color:var(--accent);font-weight:600">${dCurto(prox.d)} · ${esc(prox.t.length > 60 ? prox.t.slice(0, 57) + '…' : prox.t)}</span>` : '');
+    const mesesO = ehViagem(o) ? (() => { const DV = diasViagem(o), ult = [DV.per[1], ...Object.values(DV.itens).flatMap(x => x.datas.map(z => z.d))].sort().pop().slice(0, 7), out = []; for (let x = ymNow(); x <= ult && out.length < 14; x = addM(x, 1)) out.push(x); return out; })() : o.alvo && o.alvo >= ymNow() ? [o.alvo] : [];
+    const sais = mesesO.flatMap(mm => itensMes(mm).G.filter(x => x.kind === 'objDia' && x.o === o).map(x => ({v:x.valor, d:`${mm}-${pad(Math.max(1, x.dia))}`}))).sort((a, b) => a.d.localeCompare(b.d));
+    const sai = sais.length ? {ini:sais[0].d, fim:sais[sais.length - 1].d, valor:sum(sais, x => x.v), meses:[...new Set(sais.map(x => x.d.slice(0, 7)))]} : null;
+    const linha = (sai ? `<span class="small">Sai ${sai.fim > sai.ini ? `de ${dCurto(sai.ini)} a ${dCurto(sai.fim)}` : `em ${dCurto(sai.ini)}`} da conta: <b>${brl0(sai.valor)}</b> (no calendário de ${sai.meses.map(ymLabel).join(', ')})</span>` : '') + (pg.resto >= 1 ? `<span class="small warnc" style="font-weight:600">${temDin ? `guardar ${brl0(pg.resto)} até ${dCurto(pg.quando)}` : `vai guardar ${brl0(pg.resto)} quando o dinheiro cair (até ${dCurto(pg.quando)})`}</span>` : prox ? `<span class="small" style="color:var(--accent);font-weight:600">${dCurto(prox.d)} · ${esc(prox.t.length > 60 ? prox.t.slice(0, 57) + '…' : prox.t)}</span>` : '');
     const fal = Math.max(0, prev - g - gasto), tb = Math.max(prev, g + gasto, 1), w = v => (Math.max(0, v) / tb * 100).toFixed(1) + '%';
     return `<section class="sec2 plano"><div class="row" style="justify-content:space-between;gap:10px;align-items:baseline"><b style="min-width:0">${esc(o.nome)}</b><span class="small muted" style="white-space:nowrap">${o.alvo ? ymLabel(o.alvo) + ' · ' : ''}${brl0(prev)}</span></div>
       <div class="pbar" role="img" aria-label="Já pago ${brl0(gasto)}, guardado ${brl0(g)}, falta ${brl0(fal)}"><span style="width:${w(gasto)};background:#94A3B8"></span><span style="width:${w(g)};background:${corObj(o)}"></span></div>
@@ -2979,10 +3010,12 @@ function projMes0(m, hv = histVar(), semObj = false, soCred = false) {
     if (u.m === m && m > ymNow()) usos.push({o, v:+u.v || 0, para:u.para || ''});
     if (u.repor && u.repor === m && u.repor >= ymNow()) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', +u.v || 0, `Repor no guardado ${o.nome}`, 'objetivo'); }));
   if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido').forEach(o => { const rp = objRepor(o); if (rp && rp.mes === m) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', rp.v, `Repor no guardado ${o.nome}`, 'objetivo'); });
-  if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido' && o.alvo === m).forEach(o => { const need = objFalta(o); if (!need) return;
+  // planos: no mês deles. Viagem: nos dias de cada item, em qualquer mês (a passagem de 27/11 sai em novembro, a gasolina de 03/01 em janeiro)
+  if (!passado && !semObj) S.objs.filter(o => o.status !== 'concluido' && (o.alvo === m || (o.alvo && ehViagem(o)))).forEach(o => { const need = objFalta(o); if (!need) return;
     const its = o.itens || [], TT = objTetos(o), rem = its.map(it => { const t = TT[it.id]; return t && !t.fechado ? Math.max(0, t.teto - t.gasto) : 0; }), tr = sum(rem, x => x);
-    if (!tr) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', need, o.nome, 'objetivo', {oid:o.id});
-    else its.forEach((it, i) => add('Objetivo: ' + o.nome, it.meio ? lugarMeio(it.meio) : 'Objetivo (' + o.nome + ')', need * rem[i] / tr, `${o.nome}: ${it.cat}`, 'objetivo', {oid:o.id, iid:it.id})); });
+    const DV = ehViagem(o) ? diasViagem(o) : null, fr = x => DV ? fracMes(x, m) : 1;
+    if (!tr) { const f = fr(DV && DV.sem); if (f > 0) add('Objetivo: ' + o.nome, 'Objetivo (' + o.nome + ')', need * f, o.nome, 'objetivo', {oid:o.id}); }
+    else its.forEach((it, i) => { const f = fr(DV && DV.itens[it.id]); if (f > 0) add('Objetivo: ' + o.nome, it.meio ? lugarMeio(it.meio) : 'Objetivo (' + o.nome + ')', need * rem[i] / tr * f, `${o.nome}: ${it.cat}`, 'objetivo', {oid:o.id, iid:it.id}); }); });
   // Usar parte da caixinha no mesmo mês em que ela é formada (ex.: reserva do carro em jan): guarda menos, não é "entrada".
   // Se a caixinha não recebe nada no mês, o dinheiro volta da caixinha para a conta (entrada "Tirar da caixinha").
   usos.forEach(u => { let rest = u.v; linhas.filter(l => l.tipo === 'objetivo' && l.cat === 'Objetivo: ' + u.o.nome && wl(l.lugar) === 'conta' && !/^Crédito /.test(l.lugar)).forEach(l => { if (rest <= 0) return; const c = Math.min(l.v, rest); l.v -= c; W.conta.s -= c; cats[l.cat] -= c; lug[l.lugar] -= c; rest -= c; l.desc += ` (guarda ${brl0(l.v)}: ${brl0(c)} já vão ${u.para ? 'para ' + u.para : 'ser usados'})`; });
@@ -4525,11 +4558,12 @@ function objTetos0(o) {
   const desp = l => l.tipo !== 'receita', doItem = l => l.objItem && ids.has(l.objItem);
   its.forEach(it => { const e = r2(sum(G.filter(l => !desp(l) && l.objItem === it.id)));
     res[it.id] = {nome:it.cat, prev:+it.prev || 0, entrou:e, teto:(+it.prev || 0) + e, gasto:r2(sum(G.filter(l => desp(l) && l.objItem === it.id))), ajuste:0}; });
-  const fonte = it => (it.meio === 'va' || it.meio === 'vr') ? it.meio : 'conta', grupos = {};
-  const fonteL = l => { const w = l.tipo === 'receita' ? walletRec(l) : isVA(l) ? (l.meio === 'vr' ? 'vr' : 'va') : 'conta'; return w === 'va' || w === 'vr' ? w : 'conta'; };
+  const fonte = it => (it.meio === 'va' || it.meio === 'vr') ? it.meio : /^cc:/.test(it.meio || '') ? it.meio : 'conta', grupos = {};
+  const fonteL = l => { if (l.tipo !== 'receita' && l.cartaoId) return 'cc:' + l.cartaoId; const w = l.tipo === 'receita' ? walletRec(l) : isVA(l) ? (l.meio === 'vr' ? 'vr' : 'va') : 'conta'; return w === 'va' || w === 'vr' ? w : 'conta'; };
   its.forEach(it => (grupos[fonte(it)] = grupos[fonte(it)] || []).push(it));
   // sem item: sai (ou entra) nos itens da mesma fonte; se o plano não tem item dessa fonte, nos itens da conta
   const solto = {}; G.filter(l => !doItem(l)).forEach(l => { const k0 = fonteL(l), k = grupos[k0] ? k0 : grupos.conta ? 'conta' : Object.keys(grupos)[0]; if (!k) return; solto[k] = (solto[k] || 0) + (desp(l) ? -1 : 1) * (+l.valor || 0); });
+  let semCaber = 0;
   Object.entries(grupos).forEach(([k, gr]) => {
     let saldo = solto[k] || 0; const abertos = [];
     gr.forEach(it => { const r0 = res[it.id];
@@ -4538,19 +4572,21 @@ function objTetos0(o) {
       else abertos.push(it); });
     // a mesma regra do dia a dia: proporcional ao que falta em cada item
     const folgas = {}; abertos.forEach(it => { const r0 = res[it.id]; folgas[it.id] = Math.max(0, r0.teto - r0.gasto); });
-    const r = repartir(folgas, saldo);
+    const r = repartir(folgas, saldo); semCaber += r.sem || 0;
     Object.entries(r.d).forEach(([id, d]) => { const r0 = res[id]; r0.ajuste += d; r0.teto += d; });
   });
+  Object.defineProperty(res, '_sem', {value:r2(semCaber), enumerable:false});   // o que passou e não coube nos outros itens da mesma fonte
   return res;
 }
 // O painel da viagem: planejado, o que já saiu, o que ainda pode (no total, por fonte e por item), o que entrou fora do plano,
 // o que ficou a menos (itens terminados gastando menos), o que passou e o gasto sem item.
 function objResumo(o) {
   const its = o.itens || [], TT = objTetos(o), G = objLancs(o), ids = new Set(its.map(it => it.id));
-  const prev = r2(objPrevisto(o)), saiu = objSaiu(o), entrou = objEntrou(o), pode = r2(prev + entrou - saiu);
-  const fonteN = it => (it.meio === 'va' || it.meio === 'vr') ? 'do vale' : /^cc:/.test(it.meio || '') ? 'no cartão' : 'da conta', porFonte = {};
+  const prev = r2(objPrevisto(o)), saiu = objSaiu(o), entrou = objEntrou(o), aberto = it => TT[it.id] && !TT[it.id].fechado;
+  const pode = its.length ? r2(sum(its.filter(aberto), it => Math.max(0, TT[it.id].teto - TT[it.id].gasto))) : r2(Math.max(0, prev + entrou - saiu)), sobra = r2(prev + entrou - saiu);
+  const fonteN = it => (it.meio === 'va' || it.meio === 'vr') ? 'do vale' : /^cc:/.test(it.meio || '') ? `no ${((S.cartoes.find(c => c.id === it.meio.slice(3)) || {}).nome) || 'cartão'}` : 'da conta', porFonte = {};
   its.forEach(it => { const t = TT[it.id]; if (!t || t.fechado) return; const k = fonteN(it); porFonte[k] = r2((porFonte[k] || 0) + Math.max(0, t.teto - t.gasto)); });
-  return {prev, saiu, entrou, pode, porFonte, TT,
+  return {prev, saiu, entrou, pode, sobra, naoCoube:TT._sem || 0, voltou:o.voltou || null, porFonte, TT,
     menos:its.filter(it => TT[it.id] && TT[it.id].sobrou > 0.5).map(it => ({it, v:TT[it.id].sobrou})),
     passou:its.filter(it => TT[it.id] && TT[it.id].estourou > 0.5).map(it => ({it, v:TT[it.id].estourou})),
     semItem:G.filter(l => l.tipo !== 'receita' && !(l.objItem && ids.has(l.objItem))),
@@ -4562,13 +4598,15 @@ function objGuiaHTML(o) {
   const L = (txt, v, cls = '') => `<div class="row small vg-l"><span style="flex:1;min-width:0">${txt}</span><b class="num ${cls}" style="white-space:nowrap">${v}</b></div>`;
   const curto = it => esc(String(it.cat || '').replace(/\s*\(.*\)\s*$/, ''));
   // painel: o que já saiu e o que ainda pode, no total e por item; o que entrou fora do plano, o que ficou a menos, o que passou e o gasto sem item
-  const painel = `<section class="vg"><div class="vg3"><div><small>Planejado</small><b class="num">${brl0(R.prev)}</b></div><div><small>Já saiu</small><b class="num">${brl0(R.saiu)}</b></div><div><small>${R.pode >= -0.5 ? 'Ainda pode' : 'Passou'}</small><b class="num ${R.pode < -0.5 ? 'neg' : 'pos'}">${brl0(Math.abs(R.pode))}</b></div></div>
+  const painel = `<section class="vg"><div class="vg3"><div><small>Planejado</small><b class="num">${brl0(R.prev)}</b></div><div><small>Já saiu</small><b class="num">${brl0(R.saiu)}</b></div><div><small>${R.voltou ? 'Sobrou' : 'Ainda pode'}</small><b class="num ${R.voltou ? '' : 'pos'}">${brl0(R.voltou ? Math.max(0, R.sobra) : R.pode)}</b></div></div>
+    ${R.voltou ? `<p class="small" style="margin:8px 0 0">Voltou em ${dCurto(R.voltou.d)}: o que sobrou não sai mais e saiu do calendário.${ro ? '' : ` <button class="lnk small" data-a="reabrirViagem" data-id="${o.id}">Reabrir a viagem</button>`}</p>` : ''}
     ${Object.keys(R.porFonte).length > 1 ? `<p class="small muted" style="margin:8px 0 0">Ainda pode: ${Object.entries(R.porFonte).map(([k, v]) => `${k} <b>${brl0(v)}</b>`).join(' · ')}</p>` : ''}
     ${R.entrou > 0.5 ? L(`<b>Entrou fora do plano</b> (${R.entradas.map(l => esc(l.desc || 'entrada')).slice(0, 3).join(', ')}${R.entradas.length > 3 ? '…' : ''}): somou no que ainda pode`, `+ ${brl0(R.entrou)}`, 'pos') : ''}
-    ${R.menos.length ? L(`<b>Ficou a menos</b> (${R.menos.map(x => curto(x.it)).join(', ')}): foi para os outros itens`, brl0(sum(R.menos, x => x.v))) : ''}
+    ${R.menos.length && !R.voltou ? L(`<b>Ficou a menos</b> (${R.menos.map(x => curto(x.it)).join(', ')}): foi para os outros itens`, brl0(sum(R.menos, x => x.v))) : ''}
+    ${R.naoCoube > 0.5 ? L('<b>Passou e não coube nos outros itens da mesma fonte</b>: a viagem fica mais cara que o planejado', brl0(R.naoCoube), 'neg') : ''}
     ${R.passou.length ? L(`<b>Passou do planejado</b> (${R.passou.map(x => curto(x.it)).join(', ')}): saiu dos outros itens`, brl0(sum(R.passou, x => x.v)), 'neg') : ''}
     ${R.semItem.length ? L(`<b>Sem item</b> (${R.semItem.map(l => esc(l.desc || 'gasto')).slice(0, 3).join(', ')}${R.semItem.length > 3 ? '…' : ''}): saiu dos itens, proporcional ao que faltava. Para escolher o item, toque no gasto em Lançamentos.`, brl0(sum(R.semItem))) : ''}
-    ${ro || o.status === 'concluido' ? '' : `<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn sm pri" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button><button class="btn sm" data-a="entrouObj" data-id="${o.id}">Lançar o que entrou</button></div>`}</section>`;
+    ${ro || o.status === 'concluido' ? '' : `<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn sm pri" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button><button class="btn sm" data-a="entrouObj" data-id="${o.id}">Lançar o que entrou</button>${ehViagem(o) && !R.voltou && T >= diasViagem(o).per[0] ? `<button class="btn sm" data-a="voltei" data-id="${o.id}">Voltei</button>` : ''}</div>`}</section>`;
   const itemHTML = it => { const t = TT[it.id] || {teto:+it.prev || 0, gasto:0, ajuste:0, entrou:0}, g = t.gasto, resta = r2(t.teto - g), passou = t.estourou > 0.5;
     const dir = passou ? `<span class="gi-v"><small>passou</small><b class="num neg">${brl0(t.estourou)}</b></span>` : t.fechado ? '<span class="pill ok">terminado</span>' : `<span class="gi-v"><small>ainda pode</small><b class="num ${resta < 0.5 ? '' : 'pos'}">${brl0(Math.max(0, resta))}</b></span>`;
     const nota = passou ? 'o excesso saiu dos outros itens' : t.sobrou ? `sobraram ${brl0(t.sobrou)} para os outros` : t.ajuste < -0.5 ? `${brl0(-t.ajuste)} foram cobrir outros itens` : t.ajuste > 0.5 ? `recebeu ${brl0(t.ajuste)} de sobras` : '';
@@ -4733,6 +4771,14 @@ A.guardarObj = el => { const o = S.objs.find(x => x.id === el.dataset.id);
 F.guardarObj = async fm => { const d = Object.fromEntries(new FormData(fm)); const o = S.objs.find(x => x.id === d.id); const v = parseValor(d.v); if (!v) return toast('Informe o valor.');
   try { await put(COLS.objs, o.id, {...strip(o), movs:[...(o.movs || []), {d:d.d, v:r2(v)}]}); toast('Guardado'); closeSheet(); } catch (_) {} };
 A.gastoObj = el => formLanc({objId:el.dataset.id, cat:'Viagens'}, {});
+// "Voltei": a viagem acabou. Os itens abertos terminam: o que sobrou não sai mais (sai do calendário e do que ainda pode). Reabrir desfaz só esses.
+A.voltei = async el => { const o = S.objs.find(x => x.id === el.dataset.id); if (!o) return;
+  if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Toque de novo: terminar a viagem'; return; }
+  const R = objResumo(o), abertos = (o.itens || []).filter(it => !it.fechado).map(it => it.id), itens = (o.itens || []).map(it => abertos.includes(it.id) ? {...it, fechado:true} : it);
+  try { await put(COLS.objs, o.id, {...strip(o), itens, voltou:{d:hoje(), fechou:abertos}}); _flx = null; toast(`Viagem terminada.${R.pode > 0.5 ? ` Os ${brl0(R.pode)} que ainda podia não saem mais: saíram do calendário.` : ''}`);
+    setTimeout(() => { const o2 = S.objs.find(x => x.id === o.id); if (o2) openSheet(o2.nome, objGuiaHTML(o2)); }, 250); } catch (_) {} };
+A.reabrirViagem = async el => { const o = S.objs.find(x => x.id === el.dataset.id); if (!o || !o.voltou) return; const f = new Set(o.voltou.fechou || []), n = {...strip(o), itens:(o.itens || []).map(it => f.has(it.id) ? {...it, fechado:false} : it)}; delete n.voltou;
+  try { await put(COLS.objs, o.id, n); _flx = null; toast('Viagem reaberta'); setTimeout(() => { const o2 = S.objs.find(x => x.id === o.id); if (o2) openSheet(o2.nome, objGuiaHTML(o2)); }, 250); } catch (_) {} };
 // o que entrou fora do plano (reembolso, devolução): volta para o plano e aumenta o que ainda pode
 A.entrouObj = el => formLanc({tipo:'receita', objId:el.dataset.id, cat:'Reembolso'}, {});
 

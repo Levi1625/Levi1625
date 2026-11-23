@@ -103,6 +103,12 @@ export function montar(dados, HOJE) {
     if (rw.falta) topo.push(`🔴 ${rw.falta}`);
     if (rw.d && rw.d < addDia(HOJE, -3)) topo.push(`(números de ${rw.d.slice(8)}/${rw.d.slice(5, 7)}: abra o app para atualizar)`);
   }
+  // viagem valendo: quanto ainda pode e quanto sobra nos itens de hoje (o app guarda os próximos 7 dias; vale mesmo na virada do mês)
+  const rv = cfg.resumoWhats && cfg.resumoWhats.viagem;
+  if (rv && rv.fim >= HOJE && (cfg.resumoWhats.d || "") >= addDia(HOJE, -7)) {
+    const dH = (rv.dias || []).find((x) => x.d === HOJE), its = dH ? dH.its || [] : [];
+    topo.splice(rw ? 1 : 0, 0, `✈️ ${rv.nome}: ainda pode ${brl(rv.pode)}${its.length ? ` · hoje: ${its.map((x) => `${x.n} ${brl(x.v)}${x.f && x.f !== "conta" ? ` (${x.f})` : ""}`).join(", ")}` : ""}`);
+  }
   if (!topo.length && !contas.length && !caiHoje.length && !hoje.length && !amanha.length && !guardar.length && !semana.length) return null;
 
   const L = [...topo];
