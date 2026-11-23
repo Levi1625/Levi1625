@@ -36,7 +36,7 @@
       <input id="bl-e" type="email" placeholder="E-mail" autocomplete="email"><input id="bl-s" type="password" placeholder="Senha" autocomplete="current-password">
       <div class="msg" id="bl-m"></div>
       <button class="pri" id="bl-ok">Entrar</button><button class="sec" id="bl-troca">Primeiro acesso: criar minha senha</button>
-      <div class="dica">Esqueceu a senha? Peça para outra pessoa da casa, em Ajustes, tirar e colocar seu e-mail de novo. Depois toque em "Primeiro acesso".</div></div>`;
+      <div class="dica">Esqueceu a senha? Peça para o dono do controle tocar em <b>Nova senha</b> ao lado do seu e-mail (Ajustes › Quem usa este controle; cliente: Ajustes › Clientes). Depois toque em "Primeiro acesso" e crie outra. Seus dados continuam.</div></div>`;
     document.body.appendChild(d);
     const $ = id => document.getElementById(id); let criar = false;
     const msg = (t, ok) => { $('bl-m').style.color = ok ? '#14804a' : '#C0392B'; $('bl-m').textContent = t || ''; };
@@ -137,6 +137,8 @@
         await api('POST', '/api/sair');
         apagarCopia(opc.tirar); location.reload(); return true; },
       sairOutros: () => api('POST', '/api/sair', {outros:true}),
+      trocarSenha: (atual, nova) => api('POST', '/api/senha', {atual, nova}),
+      novaSenhaMembro: e => api('POST', '/api/casa', {acao:'novaSenha', email:e}),
       verLembrete: () => api('GET', '/api/lembretes?ver=1'),
       ia: () => !casa || casa.ia !== false,
       setIA: async v => { await api('POST', '/api/casa', {acao:'ia', valor:!!v}); location.reload(); },

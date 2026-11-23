@@ -76,4 +76,15 @@ r = await post(ap1, '/api/admin', {acao:'novaSenha', id:idAna}); ok(r.s === 200 
 r = await post(cl2, '/api/criar', {email:'cliente@teste.com', senha:'outra-senha-9', nome:'Ana'});
 ok(r.s === 200 && paths(await cl2('/api/sync?since=0')).includes('lanc/da-ana'), 'o cliente cria outra senha em Primeiro acesso e os dados dele continuam');
 ok((await post(par3, '/api/admin', {acao:'novaSenha', id:idAna})).s === 403, 'só quem administra libera nova senha');
+// trocar a senha sabendo a atual: este aparelho continua, os outros saem
+const cl3 = cli(); await post(cl3, '/api/entrar', {email:'cliente@teste.com', senha:'outra-senha-9'});
+ok((await post(cl2, '/api/senha', {atual:'errada-123', nova:'senha-nova-77'})).s === 401, 'trocar senha com a atual errada é recusado');
+ok((await post(cl2, '/api/senha', {atual:'outra-senha-9', nova:'curta'})).s === 400, 'senha nova com menos de 8 é recusada');
+r = await post(cl2, '/api/senha', {atual:'outra-senha-9', nova:'senha-nova-77'});
+ok(r.s === 200 && (await cl2('/api/eu')).s === 200 && (await cl3('/api/eu')).s === 401, 'troca a senha: este aparelho continua e o outro pede a senha nova');
+ok((await post(cli(), '/api/entrar', {email:'cliente@teste.com', senha:'senha-nova-77'})).s === 200 && (await post(cli(), '/api/entrar', {email:'cliente@teste.com', senha:'outra-senha-9'})).s === 401, 'entra com a senha nova; a antiga não vale mais');
+// o dono do controle dá nova senha para quem esqueceu (dados continuam; ela cria outra em Primeiro acesso)
+ok((await post(cl2, '/api/casa', {acao:'novaSenha', email:'parceira@teste.com'})).s === 400, 'só para quem é do controle');
+const dono2 = cli(); await post(dono2, '/api/entrar', {email:'dono@teste.com', senha:'senha-do-dono'}); r = await post(dono2, '/api/casa', {acao:'novaSenha', email:'parceira@teste.com'});
+const par4 = cli(); ok(r.s === 200 && (await post(par4, '/api/criar', {email:'parceira@teste.com', senha:'senha-nova-parc', nome:'Parceira'})).s === 200 && (await par4('/api/eu')).s === 200 && (await par3('/api/eu')).s === 401, 'o dono dá nova senha: os aparelhos dela saem e ela cria outra em Primeiro acesso');
 console.log(R.join('\n')); console.log(R.some(x => x.startsWith('ERRO')) ? '❌ falhou' : '✅ tudo certo'); process.exit(R.some(x => x.startsWith('ERRO')) ? 1 : 0);

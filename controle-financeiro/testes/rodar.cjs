@@ -694,6 +694,19 @@ async function viagemAvisos(b) {
   ok(!erros.length, `avisos da viagem: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
+// 3r) Trocar minha senha: confere as duas senhas novas e chama o servidor com a atual e a nova
+async function trocarSenha(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  const r = await p.evaluate(async () => { const chamadas = []; window.__casa = {...(window.__casa || {}), trocarSenha:async (a, n) => { chamadas.push([a, n]); return {ok:true, aparelhos:2}; }};
+    const abre = () => { const b = document.createElement('button'); b.dataset.a = 'trocarSenha'; document.body.appendChild(b); b.click(); b.remove(); };
+    const envia = async (a, n, n2) => { const f = document.querySelector('#sheet form[data-f="trocarSenha"]'); f.atual.value = a; f.nova.value = n; f.nova2.value = n2; f.requestSubmit(); await new Promise(r => setTimeout(r, 200)); };
+    abre(); await envia('senha-velha-1', 'senha-nova-123', 'senha-outra-123'); const t1 = (document.querySelector('.toast, #toast') || {}).textContent || '';
+    await envia('senha-velha-1', 'senha-nova-123', 'senha-nova-123'); const t2 = (document.querySelector('.toast, #toast') || {}).textContent || '';
+    return {chamadas, t1, t2, fechou:document.getElementById('sheet').hidden}; });
+  ok(r.chamadas.length === 1 && r.chamadas[0][1] === 'senha-nova-123' && /não são iguais/.test(r.t1) && /Senha trocada\. 2 outros aparelhos vão pedir/.test(r.t2) && r.fechou, `trocar minha senha: confere as duas e avisa os outros aparelhos (${r.t2})`);
+  ok(!erros.length, `trocar senha: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
 // 4) Datas escritas no chat
 async function datasChat(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 1500);
@@ -919,6 +932,7 @@ async function telas(b) {
     secao('Mês e Ano: o mesmo dinheiro a mais'); await mesmoDinheiro(b);
     secao('Controle da viagem e calendário por dia'); await viagemControle(b);
     secao('Viagem no Mês, uma semana antes, Ajuda e resultado'); await viagemAvisos(b);
+    secao('Trocar minha senha'); await trocarSenha(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);

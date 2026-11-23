@@ -1,4 +1,4 @@
-// POST /api/casa {acao: "add" | "remove" | "papel" | "ia" | "whats" | "testarWhats", email?, valor?}
+// POST /api/casa {acao: "add" | "remove" | "novaSenha" | "papel" | "ia" | "whats" | "testarWhats", email?, valor?}
 // Só o dono da casa (quem criou) pode mexer nas pessoas e nos ajustes. Ninguém tira o dono.
 import { json, banco, sessao, lerCasa, normEmail, mesmaOrigem, enviarWhats, PAPEIS, casasDoEmail } from "../../lib/server.js";
 export async function onRequestPost({ request, env }) {
@@ -26,6 +26,11 @@ export async function onRequestPost({ request, env }) {
     const outra = (await casasDoEmail(db, e)).find((x) => x.id !== s.casa);   // tem outro controle: continua com a conta, só sai deste
     if (outra) await db.batch([db.prepare("DELETE FROM sessoes WHERE email = ? AND casa = ?").bind(e, s.casa), db.prepare("UPDATE usuarios SET casa = ? WHERE email = ? AND casa = ?").bind(outra.id, e, s.casa)]);
     else await db.batch([db.prepare("DELETE FROM sessoes WHERE email = ?").bind(e), db.prepare("DELETE FROM usuarios WHERE email = ?").bind(e)]);
+  } else if (b.acao === "novaSenha") {
+    // esqueceu a senha: o dono apaga só a senha e os acessos abertos dela; os dados continuam e ela cria outra em "Primeiro acesso"
+    const e = normEmail(b.email); if (!membros.includes(e) || e === normEmail(c.dono)) return json({ erro: "Pessoa inválida." }, 400);
+    await db.batch([db.prepare("UPDATE usuarios SET hash = NULL, falhas = 0, bloqueio = 0 WHERE email = ?").bind(e), db.prepare("DELETE FROM sessoes WHERE email = ?").bind(e)]);
+    return json({ ok: true, casa: await lerCasa(db, s.casa) });
   } else if (b.acao === "ia") {
     await db.prepare("UPDATE casas SET ia = ?, upd = ? WHERE id = ?").bind(b.valor ? 1 : 0, Date.now(), s.casa).run();
     return json({ ok: true, casa: await lerCasa(db, s.casa) });

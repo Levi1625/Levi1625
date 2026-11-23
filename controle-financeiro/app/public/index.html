@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '23/11 17:09';</script>
+<script>window.__versao = '23/11 17:29';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -4195,11 +4195,11 @@ document.addEventListener('click', e => {
   if (soVer() && !OK_VER.has(el.dataset.a)) { toast(AVISO_VER); return; }
   fn(el, e);
 });
-document.addEventListener('submit', e => { const f = e.target; const h = F[f.dataset.f]; if (h) { e.preventDefault(); if (soVer() && f.dataset.f !== 'chat') { toast(AVISO_VER); return; } h(f); } });
+document.addEventListener('submit', e => { const f = e.target; const h = F[f.dataset.f]; if (h) { e.preventDefault(); if (soVer() && f.dataset.f !== 'chat' && f.dataset.f !== 'trocarSenha') { toast(AVISO_VER); return; } h(f); } });
 // Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
 const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
 const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
-const OK_VER = new Set(["trocarCasa", "pinToggle", "pinNao", "sairOutros", "verLembrete", "extVer", "contasPagos", "prevCat", "objGuia", "irEmp", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "aiDicas"]);
+const OK_VER = new Set(["trocarCasa", "pinToggle", "pinNao", "sairOutros", "trocarSenha", "verLembrete", "extVer", "contasPagos", "prevCat", "objGuia", "irEmp", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "aiDicas"]);
 const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
@@ -4915,13 +4915,13 @@ function casaHTML() {
   const NOMEPAPEL = {dono:'dono', edita:'pode lançar', ve:'só ver'};
   const linha = e => { const p = e === donoEmail ? 'dono' : c.papelDe(e);
     return `<div class="li" style="cursor:default;flex-wrap:wrap"><span class="tx"><span class="t1">${esc(e)}${e === eu ? ' <span class="pill">você</span>' : ''}</span><span class="t2">${p === 'dono' ? 'Dono: manda em tudo e ninguém pode tirar' : p === 'edita' ? 'Pode ver, lançar e corrigir' : 'Só vê e faz perguntas para a IA'}</span></span>
-      ${p === 'dono' ? '<span class="pill ok">dono</span>' : dono ? `<span class="row" style="gap:6px"><button class="btn sm" data-a="casaPapel" data-e="${esc(e)}" data-v="${p === 've' ? 'edita' : 've'}">${p === 've' ? 'Deixar lançar' : 'Deixar só ver'}</button><button class="lnk small" data-a="casaTirar" data-e="${esc(e)}">Tirar</button></span>` : `<span class="pill">${NOMEPAPEL[p]}</span>`}</div>`; };
+      ${p === 'dono' ? '<span class="pill ok">dono</span>' : dono ? `<span class="row" style="gap:6px"><button class="btn sm" data-a="casaPapel" data-e="${esc(e)}" data-v="${p === 've' ? 'edita' : 've'}">${p === 've' ? 'Deixar lançar' : 'Deixar só ver'}</button><button class="lnk small" data-a="casaNovaSenha" data-e="${esc(e)}">Nova senha</button><button class="lnk small" data-a="casaTirar" data-e="${esc(e)}">Tirar</button></span>` : `<span class="pill">${NOMEPAPEL[p]}</span>`}</div>`; };
   return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Quem usa este controle</h2><p>${dono ? 'Você é o dono: só você coloca e tira pessoas, escolhe o que cada uma pode fazer e mexe nos ajustes. Ninguém pode tirar você.' : `Quem manda neste controle é ${esc(donoEmail)}. Seu acesso: <b>${NOMEPAPEL[papel()]}</b>.`}</p></div></div>
     <div class="list">${c.membros().sort((a, b) => (b === donoEmail) - (a === donoEmail)).map(linha).join('')}</div>
     ${dono ? `<form class="form" data-f="casaAdd" style="margin-top:10px;gap:8px"><div class="f2"><label class="fld"><span>E-mail da pessoa</span><input name="e" type="email" placeholder="email@exemplo.com" required></label>
       <label class="fld"><span>O que ela pode fazer</span><select name="papel"><option value="ve">Só ver e perguntar para a IA</option><option value="edita">Ver, lançar e corrigir</option></select></label></div>
       <div class="row"><button class="btn pri" type="submit">Dar acesso</button></div></form>` : ''}
-    <div class="row" style="margin-top:8px;gap:14px;flex-wrap:wrap"><span class="sp"></span><button class="lnk small" data-a="sairOutros">Sair dos outros aparelhos</button><button class="lnk small" data-a="sair">Sair desta conta</button></div></section>
+    <div class="row" style="margin-top:8px;gap:14px;flex-wrap:wrap"><span class="sp"></span><button class="lnk small" data-a="trocarSenha">Trocar minha senha</button><button class="lnk small" data-a="sairOutros">Sair dos outros aparelhos</button><button class="lnk small" data-a="sair">Sair desta conta</button></div></section>
   <section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>IA do Claude</h2><p>${c.ia() ? 'Ligada: lê cada mensagem que você escreve ou fala, para entender do seu jeito, responde perguntas como “posso comprar?” e lê fotos de contracheque ou extrato. Se a IA falhar ou o crédito acabar, as regras grátis assumem.' : 'Desligada: tudo funciona com as regras grátis (o quê + valor + como pagou). Perguntas e leitura de fotos ficam indisponíveis.'}</p></div></div>
     ${(() => { const u = c.usoIA(); return `<p class="small">Gasto com a IA neste mês: <b>US$ ${u.usd.toFixed(2).replace('.', ',')}</b> (~${brl(u.usd * 5.5)}) em ${u.n} uso${u.n === 1 ? '' : 's'}${u.limite != null ? ` · limite do mês: US$ ${(+u.limite).toFixed(2).replace('.', ',')}` : ''}. ${u.limite != null && u.usd >= u.limite ? '<b class="neg">O limite acabou: até o mês que vem, tudo funciona pelas regras grátis.</b>' : ''}</p>`; })()}
     <div id="iaCred">${credBoxHTML()}</div>
@@ -5012,6 +5012,19 @@ A.cliLimite = async el => { const v = prompt('Limite de IA por mês, em dólares
 A.cliNovaSenha = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Toque de novo: liberar nova senha'; return; } try { await window.__admin.novaSenha(el.dataset.id); toast('Pronto: a pessoa entra em "Primeiro acesso" com o mesmo e-mail e cria outra senha. Os dados continuam.'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 A.cliRemover = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Toque de novo: apaga tudo'; return; } try { await window.__admin.remover(el.dataset.id); toast('Cliente removido'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 F.casaAdd = async fm => { try { await window.__casa.add(fm.e.value, fm.papel.value); toast('Acesso liberado. A pessoa entra com esse e-mail em Primeiro acesso.'); render(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
+// Trocar a senha sabendo a atual (este aparelho continua; os outros pedem a nova)
+A.trocarSenha = () => openSheet('Trocar minha senha', `<form class="form" data-f="trocarSenha"><label class="fld"><span>Senha atual</span><input name="atual" type="password" autocomplete="current-password" required></label>
+  <label class="fld"><span>Senha nova (8 ou mais letras ou números)</span><input name="nova" type="password" autocomplete="new-password" minlength="8" required></label>
+  <label class="fld"><span>Repita a senha nova</span><input name="nova2" type="password" autocomplete="new-password" required></label>
+  <p class="hint">Este aparelho continua entrando. Os outros aparelhos vão pedir a senha nova. Esqueceu a atual? Peça ao dono do controle uma <b>Nova senha</b>.</p>
+  <div class="form-actions"><button class="btn pri" type="submit">Trocar a senha</button></div></form>`);
+F.trocarSenha = async f => { if (!window.__casa || !window.__casa.trocarSenha) return toast('Só funciona no app publicado, com internet.');
+  if (f.nova.value.length < 8) return toast('A senha nova precisa de pelo menos 8 letras ou números.'); if (f.nova.value !== f.nova2.value) return toast('As duas senhas novas não são iguais.');
+  try { const r = await window.__casa.trocarSenha(f.atual.value, f.nova.value); closeSheet(); toast(`Senha trocada.${r && r.aparelhos ? ` ${r.aparelhos} outro${r.aparelhos > 1 ? 's' : ''} aparelho${r.aparelhos > 1 ? 's vão' : ' vai'} pedir a senha nova.` : ''}`); }
+  catch (e) { toast(e && e.status ? e.message : 'Sem internet agora. Tente de novo.'); } };
+// O dono dá uma senha nova para quem esqueceu: os dados continuam e a pessoa cria outra em "Primeiro acesso"
+A.casaNovaSenha = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar nova senha'; return; }
+  try { await window.__casa.novaSenhaMembro(el.dataset.e); toast(`Pronto: ${el.dataset.e} entra em "Primeiro acesso" com o mesmo e-mail e cria outra senha. Os dados continuam.`, 7000); render(); } catch (e) { toast(e?.message || 'Não consegui agora.'); } };
 A.casaTirar = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar'; return; } try { await window.__casa.remove(el.dataset.e); toast('Acesso removido'); render(); } catch (e) { toast(e?.message || 'Não consegui tirar.'); } };
 A.casaPapel = async el => { try { await window.__casa.setPapel(el.dataset.e, el.dataset.v); toast(el.dataset.v === 've' ? 'Agora essa pessoa só vê e pergunta' : 'Agora essa pessoa pode lançar'); render(); } catch (e) { toast(e?.message || 'Não consegui mudar.'); } };
 A.sair = async () => { if (!window.__casa) return; try { await window.__casa.sair(); } catch (_) { toast('Sem internet: não consegui sair. Tente de novo com internet.'); } };
