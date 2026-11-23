@@ -866,7 +866,7 @@ ICON.contas = '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h1
 ICON.ajuda = '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5M12 16.5h.01"/>';
 const VIEWS = [
   ['inicio','Hoje'], ['contas','Mês'], ['planos','Ano'], ['ajuda','Ajuda'],
-  ['extrato','Lançamentos'], ['guardado','Guardado'], ['mes','Análise do mês'], ['fixos','Contas e limites'], ['cartoes','Cartões'], ['emprestimos','Empréstimos'], ['investimentos','Investimentos'], ['anual','Visão anual'], ['ajustes','Ajustes'],
+  ['extrato','Lançamentos'], ['guardado','Guardado'], ['fixos','Contas e limites'], ['cartoes','Cartões'], ['emprestimos','Empréstimos'], ['investimentos','Investimentos'], ['anual','Visão anual'], ['ajustes','Ajustes'],
 ];
 function renderNav() {
   const usa = S.db ? temSecao() : {guardado:true, cartoes:true, emprestimos:true, investimentos:true};
@@ -1097,6 +1097,8 @@ function vHoje() {
     h += `<section class="hz s-${st}">${pg ? top : `<div class="hero-top">${top}</div>`}${linhas ? `<div class="hero-l">${linhas}</div>` : ''}
       ${pg ? '' : `<div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div>`}</section>`;
   }
+  // quem ainda não sabe quanto gastar por mês: o app calcula pelo que entra e sai
+  { const pgT = sh != null ? podeGastar() : null; if (pgT && !soVer() && tetoDia() == null && pgT.DD.proj < 0.5) h += `<section class="sec2" id="tetoConvite"><b>Quanto dá para gastar por mês?</b><p class="small" style="margin:4px 0 8px">O app calcula pelo que entra, menos as contas fixas, as parcelas, a comida e o que você quer guardar. Cadastre as contas fixas antes.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm pri" data-a="tetoCalc">Calcular quanto posso gastar</button><button class="btn sm" data-a="onbFixos">Contas fixas</button></div></section>`; }
   // primeira vez no app instalado: oferece a senha de 4 números para este aparelho (uma vez)
   if (window.__casa && sh != null && !pinGet() && !pinRecusado()) h += `<section class="sec2" id="pinOferta" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span class="cic" style="background:var(--hero);color:var(--mint)">${svgI('cofre', 18)}</span><span style="flex:1 1 180px" class="small"><b>Proteger o app neste aparelho?</b> Uma senha de 4 números para abrir (os seus números ficam no celular).</span><span class="row" style="gap:6px;margin-left:auto"><button class="btn sm" data-a="pinNao">Agora não</button><button class="btn sm pri" data-a="pinToggle">Criar senha</button></span></section>`;
   // um aviso só, logo abaixo do topo (o mais importante); os outros num toque. Guardar para os planos fica na tela Planos.
@@ -1146,6 +1148,22 @@ function vHoje() {
   if (mostrarInstalar()) h += instalarHTML(false);
   return h;
 }
+// Para onde vai o dinheiro a mais (férias, 13º, PLR) que entra no mês m: na ordem, os planos que ainda saem neste mês,
+// o que o mês seguinte precisa até o dinheiro entrar (já inclui as contas e os planos dele, como a viagem do dia 1º) e o resto
+// para a caixinha. Cada destino leva só o que cabe no que entrou; o que não cabe fica de fora. A soma é sempre o total.
+const nomeObj = o => String(o.nome || '').replace(/\s*\(.*\)\s*$/, '');
+function destinoExtras(m, total, desdeDia = 1) {
+  const out = []; let resta = r2(total);
+  // planos do próprio mês: o que sai para a viagem/compra e o que vai para as caixinhas (reserva, guardar para um plano)
+  linhaMes(m).G.filter(g => ['objDia', 'reservaObj', 'guardar'].includes(g.kind) && g.o && !g.pago && Math.max(1, g.dia) >= desdeDia && g.valor >= 1).sort((a, b) => a.dia - b.dia).forEach(g => { if (resta < 1) return; const v = r2(Math.min(resta, g.valor));
+    out.push({t:`${g.kind === 'objDia' ? '' : 'guardar na caixinha '}${esc(nomeObj(g.o))} no dia ${Math.max(1, g.dia)}`, v, de:r2(g.valor)}); resta = r2(resta - v); });
+  const fi = folgaInfo(m), fg = colchao(m);
+  if (resta >= 1 && fg > 0.5) { const v = r2(Math.min(resta, fg)), top = fi.itens.slice().sort((a, b) => b.v - a.v).slice(0, 2).sort((a, b) => a.dia - b.dia).map(x => `${esc(x.desc.replace(/\s*\(.*\)\s*$/, ''))} no dia ${x.dia}`);
+    out.push({t:`o que ${ymLabel(fi.m)} precisa até o dinheiro entrar${fi.ate ? ` no dia ${fi.ate}` : ''}${top.length ? ` (${eJunta(top)})` : ''}`, v, de:fg}); resta = r2(resta - v); }
+  if (resta >= 1) out.push({t:`a caixinha ${NOME_SOBRAS}`, v:resta, de:resta, cx:true});
+  return out;
+}
+const destinoTxt = ds => eJunta(ds.map(d => d.cx ? `o resto (${brl0(d.v)}) para ${d.t}` : `${d.t}: ${brl0(d.v)}${d.de > d.v + 0.5 ? ` dos ${brl0(d.de)}` : ''}`));
 // A frase do próximo aperto junta o que sai antes de a conta zerar (ex.: a viagem no dia 1º e o cartão no dia 10)
 function apertoTxt(ap) {
   const its = folgaInfo(addM(ap.m, -1)).itens.filter(x => x.dia <= ap.dia).sort((a, b) => b.v - a.v).slice(0, 2).sort((a, b) => a.dia - b.dia);
@@ -1169,11 +1187,11 @@ function onbHTML() {
   if (p === 1) return barra + `<form class="form" data-f="onb"><label class="fld big"><span>Quanto tem na conta hoje?</span><input name="v" inputmode="decimal" value="${fv(saldoHoje())}" placeholder="0,00" autocomplete="off"></label>${campo('E no vale (alimentação ou refeição)? Se não tem, deixe em branco.', 'va', '0,00')}<p class="hint">Olhe no app do banco. Daqui para frente o app ajusta sozinho com o que você lançar.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button></div></form>`;
   if (p === 2) return barra + `<form class="form" data-f="onb">${campo('Quanto cai na conta por mês (salário)?', 'v', '0,00', ' big')}${campo('Em que dia cai?', 'dia', 'ex.: 5')}<p class="hint">Tem outra entrada fixa (adiantamento, aluguel que recebe)? Dá para pôr depois em Contas fixas e rendas.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button>${pular}</div></form>`;
   if (p === 3) return barra + `<form class="form" data-f="onb">${campo('Recebe vale alimentação ou refeição? Quanto por mês?', 'v', 'deixe em branco se não recebe', ' big')}${campo('Em que dia cai o vale?', 'dia', 'ex.: 26')}<p class="hint">O vale paga a comida (mercado, restaurante, delivery). O app usa ele primeiro.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button>${pular}</div></form>`;
-  if (p === 4) return barra + `<form class="form" data-f="onb">${campo('Quanto quer gastar por mês no dia a dia, fora as contas fixas e a comida?', 'v', 'ex.: 800', ' big')}<p class="hint">Transporte, lazer, compras, farmácia… É o teto do seu "pode gastar" no mês. Quando tiver gastos lançados, o app divide esse teto entre as categorias pela média delas, e mostra a média ao lado para você decidir.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button>${pular}</div></form>`;
-  const g = podeGastar();
-  return `<div style="display:flex;flex-direction:column;gap:12px"><p style="margin:0;font-size:1.05rem"><b>Pronto!</b> ${g ? `Você pode gastar <b>${brl0(g.total)}</b> até ${dCurto(g.fim)} (${brl0(g.porDia)} por dia).` : 'O app já sabe o básico. Cadastre o salário em Contas fixas e rendas para ver quanto pode gastar.'}</p>
+  if (p === 4) return barra + `<form class="form" data-f="onb">${campo('Quanto quer gastar por mês no dia a dia, fora as contas fixas e a comida?', 'v', 'ex.: 800', ' big')}<p class="hint">Transporte, lazer, compras, farmácia… É o teto do seu "pode gastar" no mês. <b>Não sabe?</b> Toque em "Não sei ainda": depois de cadastrar as contas fixas, o app calcula para você pelo que entra e sai.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button><button type="button" class="btn" data-a="onbPular">Não sei ainda</button></div></form>`;
+  const g = podeGastar(), semTeto = g && g.total < 0.5 && tetoDia() == null;
+  return `<div style="display:flex;flex-direction:column;gap:12px"><p style="margin:0;font-size:1.05rem"><b>Pronto!</b> ${!g ? 'O app já sabe o básico. Cadastre o salário em Contas fixas e rendas para ver quanto pode gastar.' : semTeto ? 'Falta saber quanto dá para gastar por mês. Cadastre as contas fixas e toque em <b>Calcular quanto posso gastar</b> (na tela Hoje): o app faz a conta pelo que entra e sai.' : `Você pode gastar <b>${brl0(g.total)}</b> até ${dCurto(g.fim)} (${brl0(g.porDia)} por dia).`}</p>
     <div class="sec2" style="margin:0;background:var(--surface-2);box-shadow:none"><b>Próximos passos</b><ol class="small" style="margin:6px 0 0;padding-left:18px;line-height:1.6"><li>Lance um gasto: escreva <i>mercado 80</i> ou toque no <b>+</b>.</li><li>Cadastre as contas fixas (aluguel, luz, internet) em <b>Contas fixas e rendas</b>.</li>${window.__casa ? '<li>Vai dividir com alguém da casa? Convide em <b>Ajustes › Quem usa este controle</b>.</li>' : ''}</ol></div>
-    <div class="form-actions"><button class="btn pri" type="button" data-a="onbLancar">Lançar um gasto</button><button class="btn" type="button" data-a="onbFixos">Contas fixas</button></div></div>`;
+    <div class="form-actions"><button class="btn pri" type="button" data-a="onbLancar">Lançar um gasto</button><button class="btn" type="button" data-a="onbFixos">Contas fixas</button>${semTeto ? '<button class="btn" type="button" data-a="tetoCalc" data-onb="1">Calcular agora</button>' : ''}</div></div>`;
 }
 const onbAbrir = (p = 1) => { S.onb = {p}; openSheet('Começar', `<div id="onb">${onbHTML()}</div>`); const i = $('#onb input'); if (i) setTimeout(() => i.focus(), 60); };
 const onbIr = p => { S.onb = {p}; const el = $('#onb'); if (!el) return onbAbrir(p); el.innerHTML = onbHTML(); const i = el.querySelector('input'); if (i) i.focus(); };
@@ -1291,27 +1309,32 @@ function vContasHoje() {
   const liP = ([c, o]) => `<div class="li" data-a="prevCat" data-c="${esc(c)}" data-m="${m}" role="button" tabindex="0">${catIco(c, 'despesa')}<span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">${itensTxt(c, o.vi) || Object.keys(o.lug).map(esc).join(' · ')}</span></span><span class="am">${brl0(o.vi)}</span><span class="chev">›</span></div>`;
   // ---- o salário do mês em três blocos: o que não dá para cortar, o que dá, e o dinheiro a mais (com destino) ----
   const mesAb = MESL[+m.slice(5) - 1].toLowerCase();
-  const deve = [...L, ...pagos].filter(x => x.tipo !== 'receita').sort((a, b) => a.dia - b.dia), totDeve = sum(deve, x => x.valor) + sum(G3.out, x => x[1].v), jaPago = sum(deve.filter(x => x.pago), x => x.valor);
+  const deve = [...L, ...pagos].filter(x => x.tipo !== 'receita').sort((a, b) => a.dia - b.dia), pend = deve.filter(x => !x.pago && !x.noSaldo), feitos = deve.filter(x => x.pago || x.noSaldo);
+  const totPend = sum(pend, x => x.valor) + sum(G3.out, x => x[1].v), jaPago = sum(feitos, x => x.valor), nxM = addM(m, 1), deveNx = sum(itensMes(nxM).L.filter(x => x.tipo !== 'receita'), x => x.valor);
   const linD = x => `<div class="ri"><span class="tx"><span class="t1">${esc(x.desc)}</span><span class="t2">${x.pago ? 'pago' : x.noSaldo ? 'já está no saldo' : `dia ${Math.max(1, x.dia)}`}</span></span><span class="v num${x.pago ? ' muted' : ''}">${brl0(x.valor)}</span></div>`;
-  const blocoNao = `<section class="sec2" id="naoCortar"><div class="sec2-h"><h2 style="text-transform:none">Não dá para cortar</h2><b class="num">${brl0(totDeve)}</b></div><p class="small muted" style="margin:-4px 0 6px">O que o salário já deve em ${mesAb}: contas, faturas, financiamento, parcelas${jaPago > 0.5 ? ` (já pago ${brl0(jaPago)})` : ''}.</p>${deve.map(linD).join('') || '<p class="small muted">Nada neste mês.</p>'}${G3.out.map(([c, o]) => `<div class="ri" data-g="out"><span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">previsto pela média dos últimos meses</span></span><span class="v num">${brl0(o.vi)}</span></div>`).join('')}</section>`;
+  const blocoNao = `<section class="sec2" id="naoCortar"><div class="sec2-h"><h2 style="text-transform:none">Não dá para cortar</h2><span class="small" style="text-align:right">falta pagar <b class="num">${brl0(totPend)}</b></span></div><p class="small muted" style="margin:-4px 0 6px">O que o salário ainda deve em ${mesAb}: contas, faturas, financiamento, parcelas.</p>${pend.map(linD).join('')}${G3.out.map(([c, o]) => `<div class="ri" data-g="out"><span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">previsto pela média dos últimos meses</span></span><span class="v num">${brl0(o.vi)}</span></div>`).join('')}${!pend.length && !G3.out.length ? `<p class="small muted" style="margin:4px 0">Tudo pago em ${mesAb}.</p>` : ''}
+    ${feitos.length ? `<details style="margin-top:6px"><summary class="small muted" style="cursor:pointer">Já pago em ${mesAb}: ${brl0(jaPago)} (${feitos.length} conta${feitos.length > 1 ? 's' : ''})</summary>${feitos.map(linD).join('')}</details>` : ''}
+    ${deveNx > 0.5 ? `<button class="lnk small" data-a="calMes" data-d="1" style="display:block;margin-top:8px">Em ${ymLabel(nxM)} o salário já deve ${brl0(deveNx)} ›</button>` : ''}</section>`;
   // dá para cortar: o dia a dia (sai do salário) e a comida (sai do vale); a média ao lado do que já foi
   const atualM = m === hojeM, FIm = atualM ? faltaInt() : {}, hvM = histVar();
-  const cortar = atualM ? [...diaDiaBase().lista.map(x => ({c:x.c, nome:nomeDia(x.c), g:x.gasto, md:x.media, falta:FIm[x.c] || 0, passou:x.passou, com:false})), ...comidaMes(m).lista.map(x => ({c:x.c, nome:x.c, g:x.gasto, md:hvM[x.c] ? hvM[x.c].tot : 0, falta:Math.round(x.falta), passou:x.passou, com:true}))]
-    : [...G3.dia.map(([c, o]) => ({c, nome:nomeDia(c), g:0, md:mediaPool(m)[c] || 0, falta:o.vi, passou:0, com:false})), ...G3.com.map(([c, o]) => ({c, nome:c, g:0, md:hvM[c] ? hvM[c].tot : 0, falta:o.vi, passou:0, com:true}))];
-  cortar.sort((a, b) => (b.passou > 0.5) - (a.passou > 0.5) || (atualM ? (b.g - b.md) - (a.g - a.md) : b.falta - a.falta));
-  const blocoSim = cortar.length ? `<section class="sec2" id="cortar"><div class="sec2-h"><h2 style="text-transform:none">Dá para cortar</h2><b class="num">${brl0(sum(cortar, x => x.falta))}</b></div><p class="small muted" style="margin:-4px 0 6px">O dia a dia e a comida: é aqui que o salário e o vale vazam. ${atualM ? 'A média fica ao lado do que já foi: onde passou da média, cabe gastar menos.' : 'O que está previsto, pela média.'}</p>
-    ${cortar.map(x => `<div class="li" data-a="prevCat" data-c="${esc(x.c)}" data-m="${m}" data-g="${x.com ? 'com' : 'dia'}" role="button" tabindex="0">${catIco(x.c, 'despesa')}<span class="tx"><span class="t1">${esc(x.nome)}${x.com ? ' <span class="tag">comida</span>' : ''}</span><span class="t2">${atualM ? `já foi ${brl0(x.g)} · média ${brl0(x.md)}${x.g > x.md + 0.5 ? ` · <span class="neg">${brl0(x.g - x.md)} acima</span>` : ''}` : `média ${brl0(x.md)}`}</span></span><span class="am">${x.passou > 0.5 ? '<span class="neg">passou</span>' : brl0(x.falta)}</span><span class="chev">›</span></div>`).join('')}</section>` : '';
+  // referência = o previsto da categoria (o seu valor, a parte do teto ou a média); a média aparece ao lado só quando existe
+  const cortar = atualM ? [...diaDiaBase().lista.map(x => ({c:x.c, nome:nomeDia(x.c), g:x.gasto, pv:x.proj, md:x.media, falta:FIm[x.c] || 0, passou:x.passou, com:false})), ...comidaMes(m).lista.map(x => ({c:x.c, nome:x.c, g:x.gasto, pv:x.base, md:hvM[x.c] ? hvM[x.c].tot : 0, falta:Math.round(x.falta), passou:x.passou, com:true}))]
+    : [...G3.dia.map(([c, o]) => ({c, nome:nomeDia(c), g:0, pv:o.v, md:mediaPool(m)[c] || 0, falta:o.vi, passou:0, com:false})), ...G3.com.map(([c, o]) => ({c, nome:c, g:0, pv:o.v, md:hvM[c] ? hvM[c].tot : 0, falta:o.vi, passou:0, com:true}))];
+  cortar.forEach(x => { x.acima = r2(Math.max(0, x.g - x.pv)); });
+  cortar.sort((a, b) => b.acima - a.acima || b.falta - a.falta);
+  const totAcima = sum(cortar, x => x.acima), totFalta = sum(cortar, x => x.falta);
+  const blocoSim = cortar.length ? `<section class="sec2" id="cortar"><div class="sec2-h"><h2 style="text-transform:none">Dá para cortar</h2><span class="small" style="text-align:right">${atualM && totAcima > 0.5 ? `<b class="num neg">${brl0(totAcima)}</b> acima do previsto` : `falta gastar <b class="num">${brl0(totFalta)}</b>`}</span></div><p class="small muted" style="margin:-4px 0 6px">O dia a dia e a comida: é aqui que o salário e o vale vazam. ${atualM ? 'Cada linha mostra o que já foi e o previsto; onde passou, é onde dá para gastar menos.' : 'O que está previsto para o mês.'}</p>
+    ${cortar.map(x => `<div class="li" data-a="prevCat" data-c="${esc(x.c)}" data-m="${m}" data-g="${x.com ? 'com' : 'dia'}" role="button" tabindex="0">${catIco(x.c, 'despesa')}<span class="tx"><span class="t1">${esc(x.nome)}${x.com ? ' <span class="tag">comida</span>' : ''}</span><span class="t2" style="white-space:normal">${atualM ? `já foi ${brl0(x.g)} · previsto ${brl0(x.pv)}` : `previsto ${brl0(x.pv)}`}${x.md > 0.5 && Math.abs(x.md - x.pv) > 0.5 ? ` · média ${brl0(x.md)}` : ''}${x.acima > 0.5 ? ` · <span class="neg">${brl0(x.acima)} acima</span>` : ''}</span></span><span class="am">${x.passou > 0.5 ? '<span class="neg">passou</span>' : brl0(x.falta)}</span><span class="chev">›</span></div>`).join('')}</section>` : '';
   // entrou a mais: férias, 13º, PLR… já com destino, antes de parecer sobra
   const NAO_EXTRA = ['Salário', 'Vale alimentação', 'Vale refeição'];
   const extras = [...fixosAtivos(m).filter(f => f.tipo === 'receita' && !NAO_EXTRA.includes(f.cat) && !pagoFixo(f, m) && valorFixo(f, m) >= 300).map(f => ({desc:f.desc, v:valorFixo(f, m), dia:diaFixo(f, m)})),
     ...S.lanc.filter(l => l.mes === m && l.tipo === 'receita' && !isRep(l) && !isVARec(l) && !NAO_EXTRA.includes(l.cat) && (+l.valor || 0) >= 300).map(l => ({desc:l.desc, v:+l.valor || 0, dia:l.data ? +l.data.slice(8) : 1, ja:true}))].sort((a, b) => a.dia - b.dia);
   let blocoMais = '';
-  if (extras.length) { const fxm = fxs[ix], nx = addM(m, 1), folgaM = colchao(m), guarda = fxm ? Math.max(0, fxm.cxMov || 0) : 0;
-    const planosM = objsAtivos().filter(o => o.alvo && o.alvo >= m && o.alvo <= nx && objFalta(o) > 1).map(o => { const it = itensMes(o.alvo).G.find(g => g.kind === 'objDia' && g.o === o); return `${esc(o.nome.replace(/\s*\(.*\)\s*$/, ''))} (${brl0(objFalta(o))}${it ? `, dia ${it.dia} de ${MESL[+o.alvo.slice(5) - 1].toLowerCase().slice(0, 3)}` : ''})`; });
-    const partes = [...planosM, folgaM > 0.5 ? `${brl0(folgaM)} para ${ymLabel(nx)} não usar o cartão até o dinheiro entrar` : '', guarda > 0.5 ? `o resto (${brl0(guarda)}) pode ir para a caixinha ${NOME_SOBRAS}` : ''].filter(Boolean);
+  if (extras.length) { const fxm = fxs[ix], totE = sum(extras, x => x.v), ds = destinoExtras(m, totE, m === hojeM ? +hoje().slice(8) : 1);
+    const partes = ds.length ? [destinoTxt(ds)] : [];
     blocoMais = `<section class="sec2" id="aMais"><div class="sec2-h"><h2 style="text-transform:none">Entrou a mais</h2><b class="num pos">+ ${brl0(sum(extras, x => x.v))}</b></div>
       <p class="small" style="margin:0;line-height:1.55">${extras.map(x => `${x.ja ? 'Entrou' : `No dia ${x.dia} entra`} <b>${esc(x.desc)}</b> (${brl0(x.v)})`).join('; ')}. ${partes.length ? `Já está combinado: ${eJunta(partes)}.` : ''}</p>
-      ${fxm ? `<p class="small" style="margin:6px 0 0">Sobra de verdade, depois disso: <b>${brl0(Math.max(0, fxm.livreReal))}</b>, que é o que segura ${ymLabel(fxm.paraM)}. Veja em <a href="#planos">Ano</a>.</p>` : ''}</section>`; }
+      ${fxm ? `<p class="small" style="margin:6px 0 0">${fxm.livreReal >= -0.5 ? `Depois de tudo até o fim da projeção, sobra de verdade <b>${brl0(Math.max(0, fxm.livreReal))}</b> (o que segura ${ymLabel(fxm.paraM)}).` : `<span class="neg">Mesmo com esse dinheiro, ${ymLabel(fxm.paraM)} fica faltando ${brl0(-fxm.livreReal)}.</span>`} Veja em <a href="#planos">Ano</a>.</p>` : ''}</section>`; }
   h += blocoNao + blocoSim + blocoMais;
   // lista dia a dia
   const DS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'], [y, mo] = m.split('-').map(Number);
@@ -1369,9 +1392,44 @@ function abrirProj(c, m) {
     ${its.length > 1 || (its.length === 1 && norm(its[0].n) !== norm(c)) ? `<h3 style="margin-top:14px">O que ainda está previsto</h3>${its.map(x => `<div class="row small" style="justify-content:space-between;padding:7px 0;border-top:1px solid var(--line)"><span>${esc(x.n)}</span><b class="num">${brl0(x.v)}</b></div>`).join('')}` : ''}
     <div class="form-actions" style="margin-top:14px;flex-wrap:wrap">${soVer() || c === CSD ? '' : `<button class="btn" data-a="limCat" data-c="${esc(c)}" data-m="${m}">Itens</button>`}${m === ymNow() && !soVer() && proj > 0.5 ? `<button class="btn" data-a="fecharCat" data-cat="${esc(c)}" data-m="${m}">${(((S.cfg.orcFech || {})[m]) || []).includes(c) ? 'Reabrir este gasto' : 'Terminei este gasto'}</button>` : ''}<button class="btn" data-a="catDet" data-cat="${esc(c)}" data-m="${m}">Ver o que já gastei</button></div>`);
 }
+// Quanto dá para gastar por mês no dia a dia, pelo que foi cadastrado: o que entra na conta (sem 13º, férias e PLR),
+// menos as contas fixas, as parcelas e dívidas, a comida que o vale não cobre, o que os planos pedem e o que a pessoa quer guardar.
+// Usa um mês inteiro (o próximo). Para quem não sabe responder "quanto quer gastar".
+function calcTeto(comida = null, guardar = null) {
+  const M = addM(ymNow(), 1), EXTRA = /plr|prd|13|f[eé]rias|abono|b[oô]nus/i;
+  const rendas = fixosAtivos(M).filter(f => f.tipo === 'receita' && walletRec(f) === 'conta' && !EXTRA.test(`${f.cat || ''} ${f.desc || ''}`) && !(f.fim && f.fim === f.inicio)), entra = r2(sum(rendas, f => valorFixo(f, M)));
+  const contas = fixosAtivos(M).filter(f => f.tipo !== 'receita' && !f.repasse), fixas = r2(sum(contas, f => valorFixo(f, M)));
+  const parc = r2(sum(S.lanc.filter(l => l.mes === M && l.grupo && l.tipo !== 'receita'), l => +l.valor || 0) + sum(empsAtivos(M).filter(e => e.direcao !== 'receber'), e => +e.parcela || 0));
+  const vale = r2(sum(fixosAtivos(M).filter(f => f.tipo === 'receita' && walletRec(f) !== 'conta'), f => valorFixo(f, M)));
+  const hv = histVar(), comMed = r2(sum(vaCats(), c => hv[c] ? hv[c].tot : 0)), comidaSug = r2(Math.max(0, comMed - vale)), com = comida != null ? comida : comidaSug;
+  // planos: o que ainda falta para eles, espalhado pelo ano (perto da data de cada um o mês aperta: isso aparece no Ano)
+  const planos = r2(sum(objsAtivos(), o => objFalta(o)) / 12), g = guardar != null ? guardar : r2(Math.max(0, Math.round((entra * 0.1 - planos) / 10) * 10));
+  const sobra = entra - fixas - parc - com - planos - g;
+  return {M, entra, rendas:rendas.length, fixas, nContas:contas.length, parc, vale, com, comMed, planos, g, teto:Math.max(0, Math.floor(sobra / 10) * 10), falta:sobra < 0};
+}
+function tetoCalcHTML(c) {
+  const L = (a, b, sub = '') => `<div class="row small" style="gap:8px;padding:7px 0;border-top:1px solid var(--line);align-items:flex-start"><span style="flex:1">${a}${sub ? `<span class="muted" style="display:block;font-size:.8rem">${sub}</span>` : ''}</span><b class="num">${b}</b></div>`;
+  return `<p class="small" style="margin-top:0">Pelo que você cadastrou, num mês inteiro (${ymLabel(c.M)}):</p>
+    ${L('Entra na conta', `+ ${brl0(c.entra)}`, c.rendas ? `${c.rendas} entrada${c.rendas > 1 ? 's' : ''} fixa${c.rendas > 1 ? 's' : ''}, sem 13º, férias e PLR` : '<span class="warnc">cadastre o salário</span>')}
+    ${L('− Contas fixas', brl0(c.fixas), c.nContas ? `${c.nContas} conta${c.nContas > 1 ? 's' : ''}: aluguel, luz, internet, academia…` : '<span class="warnc">nenhuma cadastrada ainda</span>')}
+    ${c.parc > 0.5 ? L('− Parcelas e dívidas', brl0(c.parc)) : ''}${c.planos > 0.5 ? L('− Guardar para os planos', brl0(c.planos), 'o que falta para as viagens e compras, dividido pelo ano') : ''}
+    <form class="form" data-f="tetoCalc" style="gap:10px;margin-top:10px">
+      <label class="fld"><span>− Comida que sai da conta por mês (mercado, restaurante, delivery)${c.vale > 0.5 ? `, além do vale de ${brl0(c.vale)}` : ''}</span><input name="com" id="tc-com" inputmode="decimal" value="${fv(c.com)}"></label>
+      <label class="fld"><span>− Quanto quer guardar por mês (reserva)</span><input name="g" id="tc-g" inputmode="decimal" value="${fv(c.g)}"></label>
+      <div class="r3" style="border-top:2px solid var(--line)"><span>Dá para gastar no dia a dia</span><b class="num ${c.falta ? 'neg' : 'pos'}" id="tc-v">${brl0(c.teto)}</b><small id="tc-sub">${c.falta ? 'não sobra: diminua o guardar ou reveja as contas' : 'por mês: transporte, lazer, compras, farmácia…'}</small></div>
+      ${c.nContas ? '' : `<p class="small warnc" style="margin:0">Cadastre as contas fixas primeiro (aluguel, luz, internet…): sem elas o cálculo sobra demais.</p><button type="button" class="btn" data-a="onbFixos">Cadastrar contas fixas</button>`}
+      <div class="form-actions"><button class="btn pri" type="submit">Usar como teto do mês</button></div></form>`;
+}
+A.tetoCalc = el => { S.tetoOnb = !!(el && el.dataset && el.dataset.onb === '1');
+  openSheet('Quanto dá para gastar por mês', tetoCalcHTML(calcTeto()), () => { const fm = $('#sheet form[data-f="tetoCalc"]'); if (!fm) return;
+    fm.addEventListener('input', () => { const r = calcTeto(parseValor(fm.com.value) || 0, parseValor(fm.g.value) || 0), v = $('#tc-v'), sb = $('#tc-sub'); if (v) { v.textContent = brl0(r.teto); v.className = 'num ' + (r.falta ? 'neg' : 'pos'); } if (sb) sb.textContent = r.falta ? 'não sobra: diminua o guardar ou reveja as contas' : 'por mês: transporte, lazer, compras, farmácia…'; }); }); };
+F.tetoCalc = async fm => { const r = calcTeto(parseValor(fm.com.value) || 0, parseValor(fm.g.value) || 0); if (!(r.teto > 0)) return toast('Com essas contas não sobra para o dia a dia. Diminua o guardar ou reveja as contas.');
+  const a = podeGastar(); try { await saveCfg({tetoDia:r.teto}); _flx = null; } catch (_) { return; }
+  const d = podeGastar(); toast(`Teto do dia a dia: ${brl0(r.teto)} por mês. Pode gastar: ${brl0(a ? a.total : 0)} → ${brl0(d ? d.total : 0)}`);
+  if (S.tetoOnb) { S.tetoOnb = false; onbAbrir(5); } else closeSheet(); };
 // Teto do dia a dia (de quem começou do zero): mostra, muda ou troca pela média
 const tetoBox = () => { const t = tetoDia(); if (t == null) return ''; const md = sum(Object.values(mediaPool(ymNow())), v => v);
-  return `<div class="small" id="tetoBox" style="margin:10px 0 0;padding:10px 12px;border-radius:12px;background:var(--surface-2)"><b>Teto do dia a dia: ${brl0(t)} por mês.</b> ${md > 0.5 ? `Dividido entre as categorias na proporção da média delas (a média soma ${brl0(md)}).` : 'Enquanto não há média, fica todo em Outros.'}${soVer() ? '' : `<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><button class="btn sm" type="button" data-a="tetoMudar">Mudar o teto</button>${md > 0.5 ? `<button class="btn sm" type="button" data-a="tetoMedia">Usar a média (${brl0(md)})</button>` : ''}</div>`}</div>`; };
+  return `<div class="small" id="tetoBox" style="margin:10px 0 0;padding:10px 12px;border-radius:12px;background:var(--surface-2)"><b>Teto do dia a dia: ${brl0(t)} por mês.</b> ${md > 0.5 ? `Dividido entre as categorias na proporção da média delas (a média soma ${brl0(md)}).` : 'Enquanto não há média, fica todo em Outros.'}${soVer() ? '' : `<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><button class="btn sm" type="button" data-a="tetoMudar">Mudar o teto</button><button class="btn sm" type="button" data-a="tetoCalc">Recalcular pelas contas</button>${md > 0.5 ? `<button class="btn sm" type="button" data-a="tetoMedia">Usar a média (${brl0(md)})</button>` : ''}</div>`}</div>`; };
 A.tetoMedia = async () => { const a = podeGastar(); try { await saveCfg({tetoDia:null}); _flx = null; const d = podeGastar(); toast(`Agora vale a média de cada categoria. Pode gastar: ${brl0(a ? a.total : 0)} → ${brl0(d ? d.total : 0)}`); closeSheet(); } catch (_) {} };
 A.tetoMudar = () => openSheet('Teto do dia a dia', `<form class="form" data-f="teto"><label class="fld big"><span>Quanto quer gastar por mês no dia a dia, fora as contas e a comida?</span><input name="v" inputmode="decimal" value="${fv(tetoDia())}"></label><p class="hint">É o total do mês. O app divide entre as categorias pela média delas. Deixe 0 para usar só a média.</p><div class="form-actions"><button class="btn pri" type="submit">Salvar</button></div></form>`);
 F.teto = async f => { const v = parseValor(f.v.value); if (!(v >= 0)) return toast('Informe o valor.'); const a = podeGastar(); try { await saveCfg({tetoDia:v > 0 ? r2(v) : null}); _flx = null; const d = podeGastar(); toast(`Pode gastar: ${brl0(a ? a.total : 0)} → ${brl0(d ? d.total : 0)}`); closeSheet(); } catch (_) {} };
@@ -1810,6 +1868,21 @@ function ajusteCartao2611() {
 }
 // Deixa pronto para o lembrete do WhatsApp (o servidor não calcula a projeção): mês atual e o próximo.
 let _pmT = null;
+// Resumo do dia para o lembrete do WhatsApp (o servidor não calcula a projeção): pode gastar e vale, o que passou do previsto,
+// o próximo aperto e o vale acabando. Guardado em config (só o que mudou), quando o app abre ou os dados mudam.
+let _rwT = null;
+function resumoWhats() {
+  const g = podeGastar(); if (!g) return null; const pj = g.pj, ap = g.aperto;
+  return {m:ymNow(), d:hoje(), pode:Math.round(g.total), fim:g.fim, vale:g.vaHoje == null ? null : Math.round(g.vaHoje), valeProx:g.vaProx ? {d:g.vaProx.d, v:Math.round(g.vaProx.v)} : null, comida:Math.round(g.CM.falta),
+    passou:[...g.DD.lista.filter(x => x.passou > 0.5).map(x => ({c:nomeDia(x.c), v:Math.round(x.passou)})), ...g.CM.lista.filter(x => x.passou > 0.5).map(x => ({c:x.c, v:Math.round(x.passou)}))].slice(0, 3),
+    aperto:pj.livre1 != null && pj.livre1 < 0 ? `Até ${dCurto(pj.P1)} a conta não fecha: faltam ${brl0(-pj.livre1)}.` : ap ? apertoTxt(ap) : null,
+    falta:g.livre < -0.5 ? `Falta ${brl0(-g.livre)} em ${ymLabel(g.pior)} (tirando tudo).` : null};
+}
+function sincResumoWhats() {
+  if (soVer() || !window.__casa || !S.cfg) return;
+  clearTimeout(_rwT); _rwT = setTimeout(() => { try { const r = resumoWhats(); if (!r) return; const v = S.cfg.resumoWhats || {}, k = o => JSON.stringify({...o, d:null});
+    if (k(r) === k(v) && v.d === r.d) return; saveCfg({resumoWhats:r}).catch(() => {}); } catch (_) {} }, 5000);
+}
 function sincPlanoMes() {
   if (soVer() || !S.cfg || !S.objs.some(o => (o.passos || []).some(a => RX_PLANO_MES.test(a.t || '')))) return;
   clearTimeout(_pmT); _pmT = setTimeout(() => {
@@ -1998,10 +2071,9 @@ function vPlanos() {
   let h = `<header class="hd2"><span class="tx"><small>os meses se ajudando e os seus planos</small><b style="font-size:1.5rem">Ano</b></span><button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>`;
   // o ano se equilibrando: cada mês com a altura do que fica no fim (conta + caixinha); o mais justo marcado, e de onde vem o alívio
   const pior = fut.reduce((a, b) => b.livre < a.livre ? b : a), mx = Math.max(1, ...fut.map(x => Math.abs(x.livre))), P = ymLabel(pior.m);
-  const ajudam = fut.filter(x => x.m < pior.m && x.sobra > 1).sort((a, b) => b.sobra - a.sobra).slice(0, 2).sort((a, b) => a.m.localeCompare(b.m)).map(x => ymLabel(x.m));
   const frase = pior.livre < -0.5 ? `<b class="neg">Falta tirando tudo: ${brl0(-pior.livre)} em ${P}.</b> Diminua o projetado ou um plano até ficar positivo.`
-    : pior.m === ymNow() ? `<b>O mês mais justo é este (${P})</b>: termina com ${brl0(pior.livre)}. Os meses seguintes fecham com mais, então isso é o que dá para gastar a mais (ou guardar) sem faltar em nenhum mês.`
-    : `<b>O mês mais justo é ${P}</b>: termina com ${brl0(pior.livre)}. ${ajudam.length ? `${eJunta(ajudam)} guarda${ajudam.length > 1 ? 'm' : ''} o que ${P} precisa: gastar essa sobra antes faz ${P} faltar.` : `Gastar essa sobra antes faz ${P} faltar.`}`;
+    : pior.m === ymNow() ? `<b>O mês mais justo é este (${P})</b>: termina com ${brl0(pior.livre)}. Os meses seguintes fecham com mais.`
+    : `<b>O mês mais justo é ${P}</b>: termina com ${brl0(pior.livre)} depois de todas as contas, planos e caixinhas até lá. Qualquer gasto a mais antes, em qualquer mês, sai daí: passando disso, ${P} falta.`;
   h += `<section class="sec2" id="anoGrafico"><div class="sec2-h"><h2>Fim de cada mês</h2><span class="small muted">conta + caixinha · toque num mês</span></div>
     <div class="pl-rola"><div style="min-width:${fut.length * 58}px">
     <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:4px;align-items:end;height:150px;margin-top:8px">${fut.map(x => { const eh = x === pior, hg = Math.max(4, Math.round(Math.abs(x.livre) / mx * 118)), cor = x.livre < 0 ? 'var(--neg)' : eh ? '#F59F00' : x.livre < colchao(x.m) - 0.5 ? '#FCD34D' : '#10B981';
@@ -2014,8 +2086,9 @@ function vPlanos() {
   // dinheiro a mais no ano (férias, 13º, PLR…): o destino já aparece no dia em que cai
   const NAO_EXTRA = ['Salário', 'Vale alimentação', 'Vale refeição'];
   const extA = fut.flatMap(x => fixosAtivos(x.m).filter(f => f.tipo === 'receita' && !NAO_EXTRA.includes(f.cat) && !pagoFixo(f, x.m) && valorFixo(f, x.m) >= 300).map(f => ({m:x.m, desc:f.desc, v:valorFixo(f, x.m), dia:diaFixo(f, x.m)})));
-  if (extA.length) h += `<section class="sec2" id="aMaisAno"><div class="sec2-h"><h2>Dinheiro a mais no ano</h2></div><p class="small muted" style="margin:-4px 0 6px">Já com destino, antes de parecer sobra. Guardar só aparece quando o dinheiro estiver na conta; antes disso é plano.</p>${extA.map(e => { const nx = addM(e.m, 1), dest = objsAtivos().filter(o => o.alvo && o.alvo >= e.m && o.alvo <= nx && objFalta(o) > 1).map(o => `${esc(o.nome.replace(/\s*\(.*\)\s*$/, ''))} ${brl0(objFalta(o))}`);
-    return `<div class="ri">${dtBox(`${e.m}-${pad(Math.min(e.dia, diasNoMes(e.m)))}`)}<span class="tx"><span class="t1">${esc(e.desc)} <span class="muted">· ${ymLabel(e.m)}</span></span><span class="t2" style="white-space:normal">${(() => { const ps = [...dest, ...(colchao(e.m) > 0.5 ? [`o que ${ymLabel(nx)} precisa (${brl0(colchao(e.m))})`] : [])]; return ps.length ? `vai para: ${eJunta(ps)}; o resto, para a caixinha` : 'vai para a caixinha'; })()}</span></span><span class="v num pos">+ ${brl0(e.v)}</span></div>`; }).join('')}</section>`;
+  const porMesE = [...new Set(extA.map(e => e.m))].map(mm => { const es = extA.filter(e => e.m === mm).sort((a, b) => a.dia - b.dia); return {m:mm, es, v:sum(es, e => e.v), dia:es[0].dia}; });
+  if (porMesE.length) h += `<section class="sec2" id="aMaisAno"><div class="sec2-h"><h2>Dinheiro a mais no ano</h2></div><p class="small muted" style="margin:-4px 0 6px">Já com destino, antes de parecer sobra. Cada destino leva só o que cabe no que entra. Guardar só aparece quando o dinheiro estiver na conta; antes disso é plano.</p>${porMesE.map(g => { const ds = destinoExtras(g.m, g.v, g.m === ymNow() ? +hoje().slice(8) : 1);
+    return `<div class="ri">${dtBox(`${g.m}-${pad(Math.min(g.dia, diasNoMes(g.m)))}`)}<span class="tx"><span class="t1">${g.es.map(e => esc(e.desc)).join(' + ')} <span class="muted">· ${ymLabel(g.m)}</span></span><span class="t2" style="white-space:normal">vai para: ${destinoTxt(ds)}</span></span><span class="v num pos">+ ${brl0(g.v)}</span></div>`; }).join('')}</section>`;
   // meses no vermelho: o plano
   fut.filter(x => x.livre < 0).slice(0, 3).forEach(x => { const pc = planoCobertura(x.m); h += `<button class="sec2" data-a="projIr2" data-m="${x.m}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:2px solid var(--neg);cursor:pointer;font:inherit;color:inherit"><span class="cic" style="background:var(--neg-soft);color:var(--neg)">${svgI('M12 8v5M12 16h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</span><span class="tx" style="flex:1"><b>${ymLong(x.m)}: vai faltar ${brl0(-x.livre)}</b><span class="small muted" style="display:block">Plano: ${esc(resumoCobertura(pc))}${pc && pc.passos.length > 1 ? ' e mais' : ''}</span></span><span class="muted">›</span></button>`; });
   // objetivos
@@ -2032,7 +2105,6 @@ function vPlanos() {
       <div class="small pleg"><span><em class="lg" style="background:#94A3B8"></em>já pago ${brl0(gasto)}</span><span><em class="lg" style="background:${corObj(o)}"></em>guardado ${brl0(g)}</span><span><em class="lg" style="background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)"></em>falta ${brl0(fal)}</span></div>
       <div style="display:flex;flex-direction:column;gap:2px">${linha}<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>${ro ? '' : `${temDin ? `<button class="btn sm" data-a="guardMov" data-op="guardar" data-id="${o.id}">Guardar</button>` : ''}<button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>`}</div></div></section>`; }).join('') : '<p class="muted">Nenhum plano ainda.</p>';
   h += `<details style="margin:14px 0 0"><summary class="lk-lbl" style="cursor:pointer">MÊS A MÊS, EM DETALHE ›</summary>${mesAMesHTML(fut)}</details>`;
-  h += `<p style="margin-top:12px"><a class="lnk" href="#mes">Ver a análise do mês</a></p>`;
   return h;
 }
 const PERGUNTAS = ['Quanto posso gastar hoje?', 'Posso comprar algo de R$ 300?', 'Quanto ainda falta pagar este mês?', 'Quanto sobra na conta depois de pagar tudo do mês?', 'Onde estou gastando mais este mês?', 'Vou conseguir pagar tudo até o salário?', 'Como estão os meus planos de viagem?', 'Quanto tenho guardado?'];
@@ -2040,13 +2112,12 @@ A.perguntaPronta = el => { const q = el.dataset.q; if (/algo de/.test(q)) { cons
 function vAjuda() {
   let h = header('Ajuda', 'Pergunte qualquer coisa sobre o seu dinheiro', '');
   h += `<details class="sec2" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">Como o app funciona</summary><ul class="small" style="margin:8px 0 0;padding-left:18px;line-height:1.6">
-    <li><b>Pode gastar</b> (tela Hoje): o que falta do projetado do dia a dia deste mês, fora comida. O projetado de cada categoria é a média dos últimos meses (sem viagem) ou o valor que você mudou. Cada gasto desconta na hora. <b>Por dia</b> = pode gastar ÷ os dias que faltam, contando hoje.</li>
-    <li><b>Na conta, Comprometido e Sobra</b> (os quadrinhos do topo): o que tem hoje; o que ainda sai até o fim do mês (contas, faturas, planos); e o que sobra tirando tudo até o fim da projeção. Sobra positiva = dá para gastar mais ou guardar; <b>Falta</b> = diminua o projetado ou um plano.</li>
+    <li><b>Hoje</b>: <b>Pode gastar</b> é o que ainda sai do salário no dia a dia deste mês, fora comida (o previsto de cada categoria é a média dos últimos meses, sem viagem, ou o valor que você pôs). <b>Vale</b> é o que ainda tem para comida. <b>Por dia</b> = pode gastar ÷ os dias que faltam, contando hoje. A frase embaixo é o aperto mais perto; a lista mostra o que falta em cada categoria.</li>
+    <li><b>Mês</b>: o que não dá para cortar (contas, faturas, financiamento), o que dá (dia a dia e comida, com o previsto ao lado) e o dinheiro a mais (férias, 13º, PLR) com destino. Embaixo, o calendário com Paguei e Recebi.</li>
+    <li><b>Ano</b>: quanto fica no fim de cada mês. O mais justo é marcado: o que sobra nele é o que dá para gastar a mais (ou guardar) sem faltar em nenhum mês. Os planos ficam aqui.</li>
     <li><b>Passou numa categoria?</b> O excesso sai das outras, proporcional ao que faltava em cada uma. "Terminei este gasto" faz o contrário: o que sobrou vai para as outras.</li>
-    <li><b>Fim do mês e "tirando tudo"</b>: seguindo o projetado, quanto fica na conta e na caixinha, e quanto sobra (ou falta) depois de contas, planos e do que os próximos meses precisam. Negativo = diminua o projetado.</li>
     <li><b>Comida</b>: limite próprio, sai do vale. Vale só paga comida.</li>
-    <li><b>Contas</b>: cada mês, dia a dia, o que paga, recebe e guarda. A conta nunca fica negativa: o app mostra de onde tirar.</li>
-    <li><b>Planos</b>: os próximos meses, viagens e reservas. Mês que fica negativo aparece com aviso; nada é descontado sozinho do "pode gastar".</li>
+    <li><b>A conta nunca fica negativa</b>: se for faltar, o app mostra de onde tirar (caixinha, cartão). Mês que fica negativo aparece no Ano; nada é descontado sozinho do "pode gastar".</li>
     <li><b>Guardado</b>: cada caixinha mês a mês. No fim do mês fica na conta só o que o mês seguinte precisa até o dinheiro entrar; o resto vai para a caixinha Sobras.</li>
     <li><b>Lançar</b>: escreva, fale ou toque no +. Data no futuro fica agendada e só sai da conta no dia.</li>
     <li><b>Mudar</b>: toque no item (projetado, conta, lançamento) ou escreva: “lazer 300 por mês”, “compras 400 só em dezembro”, “volta lazer para a média”, “salário de dezembro 3500”, “internet 110 a partir de janeiro”, “não tem academia em janeiro”, “cancelei a netflix”, “corrige o último para 50”, “apaga o último”. Sempre mostra o efeito e tem Desfazer.</li></ul></details>`;
@@ -2901,7 +2972,7 @@ let _raf = 0;
 function render() { _flx = null; _base = null; _pmC = null; cancelAnimationFrame(_raf); _raf = requestAnimationFrame(doRender); }
 function doRender() {
   document.body.classList.toggle('sover', soVer());
-  try { sincPlanoMes(); guardarFoto(); ajusteLimites2611(); ajusteDias2611(); ajustePago2611(); ajusteMedia2611(); ajusteCartao2611(); } catch (_) {}
+  try { sincPlanoMes(); sincResumoWhats(); guardarFoto(); ajusteLimites2611(); ajusteDias2611(); ajustePago2611(); ajusteMedia2611(); ajusteCartao2611(); } catch (_) {}
   renderNav();
   const main = $('#main');
   if (S.blocked) { main.innerHTML = `<div class="loading"><h2>Este controle financeiro é privado</h2><p style="margin-top:8px">Só o dono consegue ver e editar os dados.</p></div>`; return; }
@@ -3945,7 +4016,7 @@ A.menu = () => {
   const cs = window.__casa && window.__casa.casas ? window.__casa.casas() : [], at = window.__casa && window.__casa.casaAtual ? window.__casa.casaAtual() : null, aberto = c => c.ativa || (at && at.id === c.id);
   const ctl = cs.length > 1 ? `<p class="lk-lbl">CONTROLES</p><div class="sec2" style="background:var(--surface-2);box-shadow:none;padding:2px 14px;margin-bottom:16px">${cs.map(c => `<div class="ri"><span class="tx"><span class="t1">${esc(c.nome)}${aberto(c) ? ' <span class="pill acc">aberto</span>' : ''}</span><span class="t2">${c.papel === 'dono' ? 'você controla' : c.papel === 'edita' ? 'você lança e corrige' : 'só ver'}</span></span>${aberto(c) ? '' : `<button class="btn sm" data-a="trocarCasa" data-id="${esc(c.id)}">Abrir</button>`}</div>`).join('')}</div>` : '';
   // menu que cresce: aparece o que a casa já usa; o resto fica em "Mais" (com o caminho para começar)
-  const usa = temSecao(), mais = [['#mes', 'Análise do mês'], ['#anual', 'Ano e relatórios'], ...(!usa.guardado ? [['#guardado', 'Caixinhas: guardar para um plano']] : []), ...(!usa.cartoes ? [['#cartoes', 'Cartões de crédito']] : []), ...(!usa.emprestimos ? [['#emprestimos', 'Dívidas e empréstimos']] : []), ...(!usa.investimentos ? [['#investimentos', 'Reservas e investimentos']] : [])];
+  const usa = temSecao(), mais = [['#anual', 'Relatórios do ano (tabelas)'], ...(!usa.guardado ? [['#guardado', 'Caixinhas: guardar para um plano']] : []), ...(!usa.cartoes ? [['#cartoes', 'Cartões de crédito']] : []), ...(!usa.emprestimos ? [['#emprestimos', 'Dívidas e empréstimos']] : []), ...(!usa.investimentos ? [['#investimentos', 'Reservas e investimentos']] : [])];
   openSheet('Menu', `${ctl}<div class="mgrid">${it('#ajuda', 'Ajuda e perguntas', 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5M12 16.5h.01', 'azul')}${it('#extrato', 'Lançamentos', 'M4 6h16M4 12h16M4 18h10', 'teal')}${it('#fixos', 'Contas fixas e rendas', 'doc', 'verde')}${usa.guardado ? it('#guardado', 'Guardado', 'cofre', 'azul') : ''}${usa.cartoes ? it('#cartoes', 'Cartões e parcelas', 'cartao', 'roxo') : ''}${usa.emprestimos ? it('#emprestimos', 'Dívidas', 'M12 3v18M7 7h7a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8', 'vermelho') : ''}${usa.investimentos ? it('#investimentos', 'Reservas', 'M4 20V10M10 20V4M16 20v-7M22 20H2', 'azul') : ''}${soVer() ? '' : `<button data-a="importarExtrato"><span class="cic" style="background:${CORES.cinza[0]};color:${CORES.cinza[1]}">${svgI('entra', 22)}</span>Importar extrato</button>`}</div>
     <details class="menu-mais" style="margin-top:14px"><summary class="lk-lbl" style="cursor:pointer;margin:0">MAIS ›</summary><div class="sec2" style="background:var(--surface-2);box-shadow:none;padding:2px 14px;margin:8px 0 0">${mais.map(([h, t]) => `<a class="ri" href="${h}" style="text-decoration:none;color:inherit"><span class="tx"><span class="t1">${t}</span></span><span class="chev">›</span></a>`).join('')}</div></details>
     <p class="lk-lbl" style="margin-top:18px">AJUSTES RÁPIDOS</p>
@@ -4614,7 +4685,7 @@ A.iaGastos = async () => {
 A.iaToggle = () => window.__casa?.setIA(!window.__casa.ia());
 function whatsHTML() {
   const w = window.__casa.whats();
-  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Lembretes no WhatsApp</h2><p>Toda manhã: contas que vencem, dinheiro que cai e a agenda das viagens e do plano. Dias sem nada não mandam mensagem.</p></div>${w.numero && w.temChave ? `<span class="pill ${w.ligado ? 'ok' : ''}">${w.ligado ? 'ligado' : 'desligado'}</span>` : ''}</div>
+  return `<section class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Lembretes no WhatsApp</h2><p>Toda manhã às 8h, sozinho: quanto ainda pode gastar e o vale, o que passou do previsto, o próximo aperto, as contas que vencem, o dinheiro que cai, quando guardar para os planos e, aos domingos, o resumo da semana. Você não cria nenhum aviso: ele sai dos seus dados.</p></div>${w.numero && w.temChave ? `<span class="pill ${w.ligado ? 'ok' : ''}">${w.ligado ? 'ligado' : 'desligado'}</span>` : ''}</div>
     <details${w.numero ? '' : ' open'}><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Como ativar (uma vez só)</summary><ol class="small" style="margin:8px 0;padding-left:18px">
       <li>Abra <b>callmebot.com</b> → "WhatsApp" e salve nos contatos o número do CallMeBot que aparece lá.</li>
       <li>Mande para ele, no WhatsApp: <i>I allow callmebot to send me messages</i>.</li>

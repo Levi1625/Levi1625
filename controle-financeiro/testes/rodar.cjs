@@ -263,7 +263,7 @@ async function contasPlanos(b) {
   ok(c.r3.length === 3 && c.larg <= 1, 'o resumo do Mês fica em linhas e nada passa da largura do celular');
   const dia = c.cort.filter(x => x.g === 'dia'), com = c.cort.filter(x => x.g === 'com'), soma = dia.reduce((t, x) => t + x.v, 0);
   ok(/Não dá para cortar/.test(c.nao) && /Aluguel|Financiamento|Energia|Academia/.test(c.nao), `Mês › "Não dá para cortar" lista o que o salário já deve`);
-  ok(soma === c.pode && c.cort.every(x => /já foi R\$\s*[\d.]+ · média R\$\s*[\d.]+/.test(x.s)), `Mês › "Dá para cortar": o dia a dia soma o pode gastar e cada linha mostra já foi × média (${soma} × ${c.pode})`);
+  ok(soma === c.pode && c.cort.every(x => /já foi R\$\s*[\d.]+ · previsto R\$\s*[\d.]+/.test(x.s)), `Mês › "Dá para cortar": o dia a dia soma o pode gastar e cada linha mostra já foi × previsto (${soma} × ${c.pode})`);
   ok(!c.cort.some(x => /Impostos/.test(x.t)) && /Impostos/.test(c.nao), 'imposto da média fica em "Não dá para cortar", fora do dia a dia');
   ok(com.length > 0 && com.reduce((t, x) => t + x.v, 0) === c.com, 'a comida está em "Dá para cortar", com a sua etiqueta');
   ok(/O "conta ≈" de cada dia vale se o dia a dia que falta sair aos poucos/.test(c.txt), 'Mês diz a hipótese dos saldos de cada dia');
@@ -364,7 +364,7 @@ async function comecarZero(b) {
   ok(/Pode gastar até[\s\S]*R\$\s*900[\s\S]*Vale \(comida\)/.test(await p.evaluate(() => (document.querySelector('.hz') || {}).innerText || '')), 'depois de responder, o topo já mostra o pode gastar (R$ 900) e o vale');
   await p.click('#tabbar ~ * [data-a="menu"], header [data-a="menu"]').catch(() => p.evaluate(() => document.querySelector('[data-a="menu"]').click())); await p.waitForTimeout(350);
   const m = await p.evaluate(() => ({grade:[...document.querySelectorAll('.mgrid a, .mgrid button')].map(e => e.innerText.trim()), mais:[...document.querySelectorAll('.menu-mais a')].map(e => e.textContent.trim())}));
-  ok(!m.grade.some(t => /Guardado|Cartões|Dívidas|Reservas/.test(t)) && m.grade.some(t => /Lançamentos/.test(t)) && m.mais.some(t => /Cartões/.test(t)) && m.mais.some(t => /Análise do mês/.test(t)), `menu de quem está começando: só o que usa; o resto em "Mais" (${m.grade.join(', ')} | ${m.mais.length} em Mais)`);
+  ok(!m.grade.some(t => /Guardado|Cartões|Dívidas|Reservas/.test(t)) && m.grade.some(t => /Lançamentos/.test(t)) && m.mais.some(t => /Cartões/.test(t)) && m.mais.some(t => /Relatórios do ano/.test(t)) && !m.mais.some(t => /Análise do mês/.test(t)), `menu de quem está começando: só o que usa; o resto em "Mais" (${m.grade.join(', ')} | ${m.mais.length} em Mais)`);
   await ir(p, '#contas'); ok(!(await p.evaluate(() => !!document.querySelector('[data-a="contasAba"]'))), 'sem cartão, Contas não mostra a aba Cartões');
   ok(!erros.length, `começar do zero: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
   // com a família (tem cartões e caixinhas), o menu mostra os dois
@@ -435,12 +435,13 @@ async function telasNovas(b) {
   // Mês de janeiro: o bônus entra com destino, antes de parecer sobra
   await ir(p, '#contas'); for (let i = 0; i < 2; i++) { await p.click('[data-a="calMes"][data-d="1"]'); await p.waitForTimeout(250); }
   const jan = await p.evaluate(() => ({mais:(document.getElementById('aMais') || {}).innerText || '', nao:!!document.getElementById('naoCortar'), cort:!!document.getElementById('cortar')}));
-  ok(jan.nao && jan.cort && /No dia 13 entra Bônus anual \(R\$\s*9\.000\)/.test(jan.mais) && /Já está combinado: .*Reserva do carro/.test(jan.mais) && /Sobra de verdade, depois disso: R\$\s*[\d.]+, que é o que segura [a-z]{3}\/\d\d/.test(jan.mais), `Mês de jan/27: o bônus aparece com destino (${jan.mais.replace(/\s+/g, ' ').slice(0, 160)}…)`);
+  const dj = await p.evaluate(() => window.__T.destinoExtras('2027-01', 9000, 1).reduce((t, d) => t + d.v, 0));
+  ok(jan.nao && jan.cort && /No dia 13 entra Bônus anual \(R\$\s*9\.000\)/.test(jan.mais) && /Já está combinado: /.test(jan.mais) && Math.abs(dj - 9000) < 1 && /sobra de verdade R\$\s*[\d.]+ \(o que segura [a-z]{3}\/\d\d\)/.test(jan.mais), `Mês de jan/27: o bônus tem destino que soma o que entrou (${Math.round(dj)}; ${jan.mais.replace(/\s+/g, ' ').slice(0, 140)}…)`);
   // Ano: dinheiro a mais com destino, e "Guardar" só com o dinheiro na conta
   await ir(p, '#planos');
   const ano = await p.evaluate(() => { const T = window.__T; return {txt:(document.getElementById('aMaisAno') || {}).innerText || '', guardar:document.querySelectorAll('.plano [data-a="guardMov"]').length, planos:document.querySelectorAll('.plano').length, tem:T.S.objs.length}; });
   const din = await p.evaluate(() => { const s = window.__T.S, T = window.__T; return T.saldoHoje(); });
-  ok(/Bônus anual · jan\/27[\s\S]*vai para: Reserva do carro/.test(ano.txt), `Ano › Dinheiro a mais: o bônus de janeiro já mostra o destino (${ano.txt.replace(/\s+/g, ' ').slice(0, 120)})`);
+  ok(/Bônus anual · jan\/27[\s\S]*vai para: /.test(ano.txt), `Ano › Dinheiro a mais: o bônus de janeiro já mostra o destino (${ano.txt.replace(/\s+/g, ' ').slice(0, 120)})`);
   await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:-5000}}); }); await p.waitForTimeout(300); await ir(p, '#contas'); await ir(p, '#planos');
   ok(await p.evaluate(() => document.querySelectorAll('.plano [data-a="guardMov"]').length === 0 && /vai guardar R\$\s*[\d.]+ quando o dinheiro cair/.test(document.querySelector('main').innerText)), 'sem dinheiro livre na conta, guardar é plano (texto), não botão');
   await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:2200}}); }); await p.waitForTimeout(300);
@@ -460,6 +461,63 @@ async function telasNovas(b) {
   const mm = conf.h.match(/o mês mais justo, cai de R\$\s*([\d.]+) para R\$\s*([\d.]+)/);
   ok(!!mm && Math.abs(+mm[1].replace(/\./g, '') - Math.round(conf.livre)) <= 1 && Math.abs(+mm[1].replace(/\./g, '') - +mm[2].replace(/\./g, '') - 200) <= 1, `passou do pode gastar: "o mês mais justo cai de… para…" (${mm ? mm[0] : conf.h.slice(0, 80)})`);
   ok(!erros.length, `telas novas: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 3n) O que ainda enganava (outra IA) + teto calculado + resumo do WhatsApp
+async function auditoria3(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  // dinheiro a mais: o destino cabe no que entrou (férias pequenas perto de uma viagem grande)
+  await p.evaluate(async () => { const S = window.__T.S; await S.db.doc('fixos/ferias-teste').set({ativo:true, inicio:'2026-12', fim:'2026-12', tipo:'receita', desc:'Férias', valor:2000, cat:'Férias', dia:5, meio:'pix'}); }); await p.waitForTimeout(400);
+  const dz = await p.evaluate(() => { const T = window.__T, d = T.destinoExtras('2026-12', 2000, 1); return {soma:d.reduce((t, x) => t + x.v, 0), parcial:d.some(x => x.de > x.v + 0.5), n:d.length}; });
+  ok(Math.abs(dz.soma - 2000) < 1 && dz.n >= 1, `o destino das férias soma o que entrou, nunca mais (${Math.round(dz.soma)} de 2.000${dz.parcial ? ', com parte de um destino maior' : ''})`);
+  await ir(p, '#contas'); await p.click('[data-a="calMes"][data-d="1"]'); await p.waitForTimeout(300);
+  const dez = await p.evaluate(() => (document.getElementById('aMais') || {}).innerText || '');
+  ok(/Já está combinado: /.test(dez) && !/[\d.]+ para dez\/26 não usar o cartão/.test(dez), `Mês de dez/26: a frase do dinheiro a mais (${dez.replace(/\s+/g, ' ').slice(0, 150)}…)`);
+  await p.click('[data-a="calMes"][data-d="-1"]'); await p.waitForTimeout(300);
+  // Mês: não dá para cortar = o que falta pagar; o já pago fica recolhido; atalho para o mês seguinte
+  const nao = await p.evaluate(() => { const s = document.getElementById('naoCortar'); return {txt:s.innerText, det:!!s.querySelector('details'), prox:!!s.querySelector('[data-a="calMes"][data-d="1"]')}; });
+  ok(/falta pagar R\$\s*[\d.]+/.test(nao.txt) && nao.det && /Já pago em novembro: R\$\s*[\d.]+ \(\d+ contas?\)/.test(nao.txt) && nao.prox && /Em dez\/26 o salário já deve R\$\s*[\d.]+/.test(nao.txt), 'Não dá para cortar mostra o que falta pagar; o já pago fica recolhido, com o mês seguinte num toque');
+  // Mês: dá para cortar = o que passou do previsto; cada linha com o previsto (a média só se existir)
+  const cor = await p.evaluate(() => { const s = document.getElementById('cortar'); return {h:s.querySelector('.sec2-h').innerText, linhas:[...s.querySelectorAll('.li .t2')].map(e => e.innerText)}; });
+  ok(/R\$\s*[\d.]+\s*acima do previsto/.test(cor.h) && cor.linhas.every(t => /previsto R\$\s*[\d.]+/.test(t)) && !cor.linhas.some(t => /média R\$\s*0\b/.test(t)), `Dá para cortar: o número é o que passou do previsto e nenhuma linha usa média zero (${cor.h.replace(/\s+/g, ' ')})`);
+  // Ano: a frase do mês mais justo não aponta meses que já têm destino
+  await ir(p, '#planos'); const fr = await p.evaluate(() => (document.getElementById('anoGrafico') || {}).innerText || '');
+  ok(!/ guarda(m)? o que /.test(fr) && /O mês mais justo é/.test(fr), 'Ano: a frase do mês mais justo não diz que outros meses o seguram');
+  // Ajuda e menu: o desenho novo
+  await ir(p, '#ajuda'); const aj = await p.evaluate(() => document.querySelector('main').textContent);
+  ok(!/Comprometido|quadrinhos/.test(aj) && /Mês/.test(aj) && /Ano/.test(aj), 'a Ajuda explica Hoje, Mês e Ano (sem os quadrinhos velhos)');
+  await ir(p, '#inicio'); await p.evaluate(() => document.querySelector('[data-a="menu"]').click()); await p.waitForTimeout(300);
+  ok(!(await p.evaluate(() => /Análise do mês/.test(document.querySelector('#sheet').textContent) || [...document.querySelectorAll('#sidenav a')].some(a => a.getAttribute('href') === '#mes'))), 'a tela velha "Análise do mês" sai do menu');
+  await p.evaluate(() => { const x = document.querySelector('[data-a="closeSheet"], .sh-x'); if (x) x.click(); }); await p.waitForTimeout(200);
+  // teto calculado pelo que entra e sai
+  const ct = await p.evaluate(() => window.__T.calcTeto());
+  await p.evaluate(() => { const el = document.createElement('button'); el.dataset.a = 'tetoCalc'; document.body.appendChild(el); el.click(); el.remove(); }); await p.waitForTimeout(300);
+  const v0 = await p.evaluate(() => (document.getElementById('tc-v') || {}).textContent || '');
+  await p.fill('#tc-g', String(ct.g + 100)); await p.waitForTimeout(200); const v1 = await p.evaluate(() => (document.getElementById('tc-v') || {}).textContent || '');
+  const num = t => +String(t).replace(/\D/g, '');
+  ok(ct.entra > 0 && ct.fixas > 0 && num(v0) === ct.teto && num(v1) === Math.max(0, ct.teto - 100), `calcula o teto: entra ${Math.round(ct.entra)} − contas ${Math.round(ct.fixas)} − parcelas ${Math.round(ct.parc)} − comida ${Math.round(ct.com)} − planos ${Math.round(ct.planos)} − guardar ${Math.round(ct.g)} = ${ct.teto} (guardando 100 a mais: ${num(v1)})`);
+  await p.click('#sheet form[data-f="tetoCalc"] button[type=submit]'); await p.waitForTimeout(400);
+  ok(await p.evaluate(t => window.__T.S.cfg.tetoDia === t, Math.max(0, ct.teto - 100)), '"Usar como teto do mês" grava o valor calculado');
+  ok(!erros.length, `o que enganava: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+  // quem começa do zero e não sabe quanto gastar: "Não sei ainda" e o convite para calcular depois das contas
+  const z = await abrir(b, '2026-11-22', 2500);
+  await z.p.evaluate(async () => { const S = window.__T.S; for (const k of Object.keys(window.__store)) await S.db.doc(k).delete(); }); await z.p.waitForTimeout(400); await ir(z.p, '#inicio');
+  await z.p.click('#comecar [data-a="onb"]'); await z.p.waitForTimeout(300);
+  const passo = async vals => { for (const [n, v] of Object.entries(vals)) await z.p.fill(`#onb input[name="${n}"]`, v); await z.p.click('#onb button[type=submit]'); await z.p.waitForTimeout(450); };
+  await passo({v:'1500'}); await passo({v:'4000', dia:'5'}); await z.p.click('#onb [data-a="onbPular"]'); await z.p.waitForTimeout(300); await z.p.click('#onb [data-a="onbPular"]'); await z.p.waitForTimeout(500);
+  const fim = await z.p.evaluate(() => ({txt:document.querySelector('#onb').innerText, calc:!!document.querySelector('#onb [data-a="tetoCalc"]')}));
+  await z.p.evaluate(() => { const x = document.querySelector('[data-a="closeSheet"], .sh-x'); if (x) x.click(); }); await z.p.waitForTimeout(300); await ir(z.p, '#inicio');
+  ok(/Falta saber quanto dá para gastar por mês/.test(fim.txt) && fim.calc && await z.p.evaluate(() => !!document.querySelector('#tetoConvite [data-a="tetoCalc"]')), '"Não sei ainda": o fim explica e a tela Hoje convida a calcular depois das contas fixas');
+  ok(!z.erros.length, `começar sem saber o teto: sem erro na página${z.erros.length ? ' → ' + z.erros[0] : ''}`); await z.p.close();
+  // resumo do dia para o WhatsApp: o app guarda; o lembrete começa por ele
+  const w = await b.newPage({viewport:{width:390, height:844}}); const ew = []; w.on('pageerror', e => ew.push(e.message));
+  await w.clock.setFixedTime(new Date('2026-11-22T10:00:00')); await w.addInitScript(() => { window.__casa = {papel:() => 'dono', email:() => 'dono@teste.com', dono:() => 'dono@teste.com', whats:() => ({numero:'5511912345678', temChave:true, ligado:true}), casas:() => []}; });
+  await w.goto(ARQ); await w.waitForTimeout(2500); await w.clock.fastForward(7000); await w.waitForTimeout(600);
+  const rw = await w.evaluate(() => { const T = window.__T; return {r:T.S.cfg.resumoWhats, pode:Math.round(T.podeGastar().total)}; });
+  const { pathToFileURL } = require('url'), L = await import(pathToFileURL(require('path').join(__dirname, '..', 'app', 'functions', 'api', 'lembretes.js')).href);
+  const txt = rw.r ? L.montar({lanc:[], fixos:[], cartoes:[], objetivos:[], config:{resumoWhats:rw.r}}, '2026-11-23') : '';
+  ok(rw.r && rw.r.m === '2026-11' && rw.r.pode === rw.pode && /💰 Pode gastar até 30\/11: R\$\s*[\d.,]+ \(R\$\s*[\d.,]+ por dia\) · Vale: R\$/.test(txt || '') && (!rw.r.passou.length || /passou R\$/.test(txt)), `o lembrete do WhatsApp começa com o pode gastar e o vale do dia (${(txt || '').split('\n')[0]})`);
+  ok(!ew.length, `resumo do WhatsApp: sem erro na página${ew.length ? ' → ' + ew[0] : ''}`); await w.close();
 }
 
 // 4) Datas escritas no chat
@@ -683,6 +741,7 @@ async function telas(b) {
     secao('Começar do zero e menu que cresce'); await comecarZero(b);
     secao('Auditoria: teto, frases, só ver e ajustes por caminho'); await auditoria2(b);
     secao('Hoje, Mês e Ano'); await telasNovas(b);
+    secao('O que ainda enganava, teto calculado e WhatsApp'); await auditoria3(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);

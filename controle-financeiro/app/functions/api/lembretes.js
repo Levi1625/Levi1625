@@ -92,9 +92,20 @@ export function montar(dados, HOJE) {
     if (prox.length) semana.push(`• Contas nos próximos 7 dias: ${prox.map((x) => `${x.desc} ${brl(x.v)} dia ${+x.d.slice(8)}`).join(" · ")}`);
     if (guard > 0) semana.push(`• Guardado nas caixinhas: ${brl(guard)}`);
   }
-  if (!contas.length && !caiHoje.length && !hoje.length && !amanha.length && !guardar.length && !semana.length) return null;
+  // resumo do dia calculado pelo app (pode gastar, vale, o que passou, o próximo aperto); só se for deste mês
+  const rw = cfg.resumoWhats && cfg.resumoWhats.m === M ? cfg.resumoWhats : null, topo = [];
+  if (rw) {
+    const fimD = rw.fim && rw.fim >= HOJE ? rw.fim : null, dias = fimD ? Math.max(1, Math.round((new Date(fimD + "T12:00:00Z") - new Date(HOJE + "T12:00:00Z")) / 864e5) + 1) : null;
+    topo.push(`💰 Pode gastar${fimD ? ` até ${fimD.slice(8)}/${fimD.slice(5, 7)}` : ""}: ${brl(rw.pode)}${dias ? ` (${brl(rw.pode / dias)} por dia)` : ""}${rw.vale != null ? ` · Vale: ${brl(rw.vale)}` : ""}`);
+    if (rw.vale != null && rw.vale < 20 && rw.comida > 0) topo.push(`🍽️ O vale acabou: a comida sai da conta${rw.valeProx ? ` até o dia ${rw.valeProx.d}` : ""}.`);
+    for (const p of rw.passou || []) topo.push(`⚠️ ${p.c} passou ${brl(p.v)} do previsto.`);
+    if (rw.aperto) topo.push(`⏳ ${rw.aperto}`);
+    if (rw.falta) topo.push(`🔴 ${rw.falta}`);
+    if (rw.d && rw.d < addDia(HOJE, -3)) topo.push(`(números de ${rw.d.slice(8)}/${rw.d.slice(5, 7)}: abra o app para atualizar)`);
+  }
+  if (!topo.length && !contas.length && !caiHoje.length && !hoje.length && !amanha.length && !guardar.length && !semana.length) return null;
 
-  const L = [];
+  const L = [...topo];
   if (hoje.length) L.push(`📅 Hoje (${ddmm})`, ...hoje.map((t) => "• " + t));
   if (amanha.length) L.push("⏭️ Amanhã", ...amanha.map((t) => "• " + t));
   if (caiHoje.length) L.push("💰 Deve cair hoje", ...caiHoje.map((f) => `• ${f.desc} ${brl(valor(f))} → quando cair, escreva no app: recebi ${f.desc.split(/[:(–-]/)[0].trim().toLowerCase()} ${valor(f).toFixed(2).replace(".", ",")}`));
