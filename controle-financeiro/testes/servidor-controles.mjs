@@ -45,6 +45,18 @@ const antes = (await ap1('/api/sync?since=0')).j.agora; await campos(ap1, {k0:'n
 ok(((await ap2('/api/sync?since=' + antes)).j.docs || []).some(d => d.path === 'config/geral' && d.data.k0 === 'novo'), 'o outro aparelho recebe a mudança na próxima sincronização');
 ok((await campos(ap1, {'a"b':1})).s === 400 && (await campos(ap1, {})).s === 400, 'campo com nome inválido ou vazio é recusado');
 r = await par3('/api/doc', {method:'PUT', body:JSON.stringify({path:'config/geral', patch:{x:1}})}); ok(r.s === 403, 'quem só vê não grava ajustes');
+// Mudanças por caminho: duas pessoas mudando categorias diferentes do mesmo ajuste ao mesmo tempo não se atropelam
+const ops = (f, o) => f('/api/doc', {method:'PUT', body:JSON.stringify({path:'config/geral', ops:o})});
+await put(ap1, 'config/geral', {orc:{Mercado:500, Compras:100, Lazer:100}, saldo:{v:1000}});
+const [o1, o2] = await Promise.all([ops(ap1, [{p:['orc', 'Compras'], v:195}]), ops(ap2, [{p:['orc', 'Lazer'], v:300}])]);
+cfg = await cfgDe(ap1);
+ok(o1.s === 200 && o2.s === 200 && cfg.orc.Compras === 195 && cfg.orc.Lazer === 300 && cfg.orc.Mercado === 500 && cfg.saldo.v === 1000, `Compras num aparelho e Lazer no outro, ao mesmo tempo: os dois ficam (${JSON.stringify(cfg.orc)})`);
+await Promise.all(Array.from({length:8}, (_, i) => ops(i % 2 ? ap1 : ap2, [{p:['orcMes', '2026-12', 'Cat' + i], v:i}])));
+cfg = await cfgDe(ap2);
+ok(Array.from({length:8}, (_, i) => cfg.orcMes && cfg.orcMes['2026-12'] && cfg.orcMes['2026-12']['Cat' + i] === i).every(Boolean), '8 mudanças no mesmo mês, ao mesmo tempo, nenhuma se perde (e o mês é criado)');
+r = await ops(ap1, [{p:['orc', 'Lazer'], del:true}]); cfg = await cfgDe(ap1); ok(r.s === 200 && !('Lazer' in cfg.orc) && cfg.orc.Compras === 195, 'tirar uma categoria (voltar para a média) apaga só ela');
+ok((await ops(ap1, [{p:['__proto__', 'x'], v:1}])).s === 400 && (await ops(ap1, [{p:[], v:1}])).s === 400 && (await ops(ap1, [])).s === 400, 'mudança com caminho inválido é recusada');
+r = await par3('/api/doc', {method:'PUT', body:JSON.stringify({path:'config/geral', ops:[{p:['x'], v:1}]})}); ok(r.s === 403, 'quem só vê não muda ajustes por caminho');
 // Lembretes: a chave do agendador nunca mostra o texto; quem entrou no app vê o do controle aberto
 r = await dono('/api/lembretes?chave=chave-teste&hoje=2026-11-22'); ok(r.s === 200 && !('texto' in (r.j || {})) && 'casasComWhats' in (r.j || {}), 'o endereço com a chave só diz se está tudo certo, sem o texto do lembrete');
 r = await cli()('/api/lembretes?ver=1'); ok(r.s === 401, 'ver o lembrete sem entrar no app é recusado');
@@ -53,4 +65,15 @@ r = await ap1('/api/lembretes?ver=1&hoje=2026-11-22'); ok(r.s === 200 && 'texto'
 r = await post(ap1, '/api/sair', {outros:true}); ok(r.s === 200 && r.j.aparelhos >= 2, `sair dos outros aparelhos desconecta os outros (${r.j && r.j.aparelhos})`);
 ok((await ap1('/api/eu')).s === 200 && (await ap2('/api/eu')).s === 401 && (await dono('/api/eu')).s === 401, 'este aparelho continua; os outros pedem a senha de novo');
 ok((await par3('/api/eu')).s === 200, 'os aparelhos de outra pessoa não são afetados');
+// Cliente que esqueceu a senha: quem administra libera uma nova; os dados dele continuam
+const cl1 = cli(), cl2 = cli();
+r = await post(ap1, '/api/admin', {acao:'add', email:'cliente@teste.com', nome:'Casa da Ana'}); ok(r.s === 200, 'quem administra libera um cliente novo');
+r = await post(cl1, '/api/criar', {email:'cliente@teste.com', senha:'senha-da-ana-1', nome:'Ana'}); ok(r.s === 200, 'o cliente cria a senha em Primeiro acesso');
+await put(cl1, 'lanc/da-ana', {desc:'Mercado da Ana', valor:80});
+ok((await post(cl2, '/api/criar', {email:'cliente@teste.com', senha:'outra-senha-9', nome:'Ana'})).s === 409, 'sem liberar, ninguém troca a senha de quem já tem');
+const idAna = (await ap1('/api/admin')).j.casas.find(c => c.cliente === 'Casa da Ana').id;
+r = await post(ap1, '/api/admin', {acao:'novaSenha', id:idAna}); ok(r.s === 200 && (await cl1('/api/eu')).s === 401, 'quem administra libera nova senha: os aparelhos do cliente saem');
+r = await post(cl2, '/api/criar', {email:'cliente@teste.com', senha:'outra-senha-9', nome:'Ana'});
+ok(r.s === 200 && paths(await cl2('/api/sync?since=0')).includes('lanc/da-ana'), 'o cliente cria outra senha em Primeiro acesso e os dados dele continuam');
+ok((await post(par3, '/api/admin', {acao:'novaSenha', id:idAna})).s === 403, 'só quem administra libera nova senha');
 console.log(R.join('\n')); console.log(R.some(x => x.startsWith('ERRO')) ? '❌ falhou' : '✅ tudo certo'); process.exit(R.some(x => x.startsWith('ERRO')) ? 1 : 0);

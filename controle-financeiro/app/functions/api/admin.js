@@ -31,6 +31,11 @@ export async function onRequestPost({ request, env }) {
   if (c.id === s.casa && b.acao !== "limite") return json({ erro: "Esse é o seu próprio controle." }, 400);
   if (b.acao === "pausar") await db.prepare("UPDATE casas SET pausado = ? WHERE id = ?").bind(b.valor ? 1 : 0, c.id).run();
   else if (b.acao === "limite") await db.prepare("UPDATE casas SET ia_limite = ? WHERE id = ?").bind(b.valor === null || b.valor === "" ? null : Math.max(0, +b.valor || 0), c.id).run();
+  else if (b.acao === "novaSenha") {
+    // esqueceu a senha: apaga só a senha e os acessos abertos; os dados continuam e a pessoa cria outra em "Primeiro acesso"
+    const e = normEmail(c.dono);
+    await db.batch([db.prepare("UPDATE usuarios SET hash = NULL, falhas = 0, bloqueio = 0 WHERE email = ?").bind(e), db.prepare("DELETE FROM sessoes WHERE email = ?").bind(e)]);
+  }
   else if (b.acao === "remover") {
     // quem participa de outro controle continua com a conta (vai para o outro); quem só tinha este perde o acesso
     const cc = await db.prepare("SELECT dono, membros FROM casas WHERE id = ?").bind(c.id).first(), ativos = ((await db.prepare("SELECT email FROM usuarios WHERE casa = ?").bind(c.id).all()).results || []).map((x) => x.email);

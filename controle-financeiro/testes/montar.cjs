@@ -17,7 +17,7 @@ function montar() {
   // funções que os testes usam direto
   const nomes = ['S', 'render', 'fluxo', 'projMes', 'podeGastar', 'saldoHoje', 'saldoVAHoje', 'ajusteMes', 'partesMes', 'linhaMes', 'guardadoMesAMes', 'objGuardado', 'objFalta',
     'fixoPagoPor', 'pagoFixo', 'criarLanc', 'movObj', 'lancDePendente', 'parseRapido', 'lancarTexto', 'resHTML', 'efeitoTxt', 'diaDiaBase', 'eventosFuturos', 'ymNow', 'hoje', 'colchao', 'isVARec', 'valorFixo', 'folgaInfo', 'itensMes', 'mediaPool', 'ehPool', 'cartaoPrincipal', 'enviarChat', 'alertasMes',
-    'comidaMes', 'proxAperto', 'inteiros', 'repartir', 'avisosHoje', 'objTetos'];
+    'comidaMes', 'proxAperto', 'inteiros', 'repartir', 'avisosHoje', 'objTetos', 'saveCfg', 'difCfg', 'projPool', 'tetoDia'];
   const i = app.lastIndexOf('})();'); if (i < 0) throw new Error('não achei o fim do app');
   const comT = app.slice(0, i) + `window.__T = {${nomes.join(', ')}};\n` + app.slice(i);
   const html = `<!doctype html><html><head><meta charset=utf8></head><body><script>window.__SEED=${seed}</script><script>${mock}</script>${comT}`;

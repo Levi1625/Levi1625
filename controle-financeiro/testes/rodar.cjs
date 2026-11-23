@@ -86,7 +86,7 @@ async function agendado(b) {
   ok(Math.abs(d.nov - a.nov + 300) < 0.6 && Math.abs(d.jan - a.jan + 2800) < 0.6, `cada um entra no mês da data (nov ${Math.round(d.nov - a.nov)}, jan acumulado ${Math.round(d.jan - a.jan)})`);
   ok(Math.abs(d.fimJan - d.contaFimJan) < 2, 'Contas de janeiro fecha igual à projeção');
   await ir(p, '#contas'); ok(/28 NOV[\s\S]{0,200}Conserto do portão[\s\S]{0,40}agendado/i.test(await texto(p)), 'Contas de novembro: conserto no dia 28, "agendado"');
-  await ir(p, '#inicio'); ok(/Conserto do portão \(agendado\)/.test(await texto(p)), 'Hoje › Próximos 7 dias mostra o agendado');
+  await ir(p, '#inicio'); { const t = await texto(p); ok(/Próxima entrada: /.test(t) && /Próxima conta: /.test(t), 'Hoje › Próximos dias mostra a próxima entrada e a próxima conta (o calendário inteiro fica em Mês)'); }
   await p.clock.setFixedTime(new Date('2027-01-31T10:00:00')); const z = await p.evaluate(() => { window.__T.render(); return window.__T.saldoHoje(); });
   ok(Math.abs(d.conta - z - 2800) < 0.6, `quando a data chega, sai da conta (${Math.round(d.conta - z)})`);
   ok(!erros.length, `agendado: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
@@ -102,7 +102,7 @@ async function futuroNaoMexe(b) {
   ok(d.falta > 0, `o gasto de março deixa um mês negativo (${d.pior})`);
   ok(Math.abs(d.pode - a.pode) < 0.6, `mesmo assim o "pode gastar" de hoje não muda (${Math.round(a.pode)} → ${Math.round(d.pode)})`);
   ok(d.livre < 0 && Math.abs(d.livre + d.falta) < 1, `"tirando tudo" fica negativo e mostra quanto falta (${Math.round(d.livre)})`);
-  await ir(p, '#inicio'); ok(/Falta tirando tudo: .* em mar\/27/.test(await texto(p)), 'Hoje mostra "Falta tirando tudo … em mar/27"');
+  await ir(p, '#planos'); ok(/Falta tirando tudo: .* em mar\/27/.test(await texto(p)), 'Ano mostra "Falta tirando tudo … em mar/27"');
   ok(!erros.length, `mês futuro: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
@@ -159,7 +159,8 @@ async function regrasPode(b) {
   await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:-9000}}); }); await p.waitForTimeout(300);
   const h = await g();
   ok(Math.abs(h.total - f.total) < 0.6 && h.livre < 0, `com pouco dinheiro, o pode gastar não some: o "tirando tudo" fica negativo para ajustar (${Math.round(h.total)} · ${Math.round(h.livre)})`);
-  await ir(p, '#inicio'); ok(/Falta tirando tudo/.test(await texto(p)), 'Hoje mostra "Falta tirando tudo"');
+  await ir(p, '#planos'); ok(/Falta tirando tudo/.test(await texto(p)), 'Ano mostra "Falta tirando tudo"');
+  await ir(p, '#inicio'); ok(/a conta não fecha: faltam R\$/.test(await texto(p)), 'Hoje mostra a frase mais urgente: a conta não fecha até o salário');
   ok(!erros.length, `regras: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
@@ -168,10 +169,11 @@ async function regrasPode(b) {
 // comida aparece (também com o vale vazio); um aviso só; próximo aperto no topo; Como calculei cabe no celular.
 async function hojeClara(b) {
   const {p, erros} = await abrir(b, '2026-11-22'); await ir(p, '#inicio');
-  const le = () => p.evaluate(() => { const T = window.__T; T.render(); const sec = document.getElementById('faltaGastar'), DD = T.diaDiaBase(), n = DD.lista.length, g = T.podeGastar();
-    const rows = sec ? [...sec.querySelectorAll('.li')].map(li => ({t:li.querySelector('.t1').textContent, s:li.querySelector('.t2').textContent, v:+li.querySelector('.am').textContent.replace(/\D/g, '')})) : [];
-    return {dd:rows.slice(0, n), com:rows.slice(n), txt:sec ? sec.innerText : '', hero:(document.querySelector('.hz') || {}).innerText || '', main:document.querySelector('main').innerText,
-      total:g.total, porDia:g.porDia, dias:g.dias, livre:g.livre, lim:g.limCaixa, pdc:g.porDiaCaixa, livre1:g.pj.livre1, DD, CM:T.comidaMes(T.ymNow()), aj:T.ajusteMes(T.ymNow()),
+  const le = () => p.evaluate(() => { const T = window.__T; T.render(); const sec = document.getElementById('faltaGastar'), DD = T.diaDiaBase(), g = T.podeGastar();
+    const rows = sec ? [...sec.querySelectorAll('.lw')].map(w => ({g:w.dataset.g, t:w.querySelector('.t1').textContent, s:w.querySelector('.t2').textContent, v:+w.querySelector('.am').textContent.replace(/\D/g, ''), manter:!!w.querySelector('[data-a="projManter"]')})) : [];
+    const n2 = [...document.querySelectorAll('.hz .num2 b')].map(b => getComputedStyle(b).fontSize);
+    return {dd:rows.filter(r => r.g === 'dia'), com:rows.filter(r => r.g === 'com'), rows, txt:sec ? sec.innerText : '', hero:(document.querySelector('.hz') || {}).innerText || '', main:document.querySelector('main').innerText, n2,
+      total:g.total, porDia:g.porDia, dias:g.dias, livre:g.livre, pior:g.pior, lim:g.limCaixa, pdc:g.porDiaCaixa, livre1:g.pj.livre1, DD, CM:T.comidaMes(T.ymNow()), aj:T.ajusteMes(T.ymNow()),
       nAv:document.querySelectorAll('#aviso1 .av1').length, mais:!!document.querySelector('[data-a="avisosTodos"]'), av:T.avisosHoje(T.ymNow()).map(a => ({h:a.h, ap:!!a.ap})), ap:T.proxAperto()}; });
   const soma = a => a.reduce((t, x) => t + x.v, 0), gasta = (o, data) => p.evaluate(async ([o, data]) => { const T = window.__T; await T.criarLanc({tipo:'despesa', data:data || T.hoje(), meio:'pix', nparc:1, ...o}); }, [o, data || null]);
   const cfg = o => p.evaluate(o => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, ...o}); }, o);
@@ -181,8 +183,9 @@ async function hojeClara(b) {
   ok(soma(a.dd) === Math.round(a.total), `os valores da lista somam o pode gastar (${soma(a.dd)} × ${Math.round(a.total)})`);
   ok(soma(a.com) === Math.round(a.CM.falta) && a.com.length === a.CM.lista.length, `a comida da lista soma o "Comida à parte" (${soma(a.com)} × ${Math.round(a.CM.falta)})`);
   ok(/Pode gastar até/.test(a.hero) && !/Segure/.test(a.hero), 'o topo mostra o pode gastar como número grande');
-  ok(a.livre >= 0 ? /Sobra\s*\+ R\$\s*[\d.]+\s*tirando tudo · mais justo: [a-z]{3}\/\d\d/.test(a.hero) : /Falta tirando tudo/.test(a.hero), `o "tirando tudo" diz o mês mais justo (${(a.hero.match(/(Sobra|Falta)\s*[+−] R\$[^\n]*\n[^\n]*/) || [''])[0].replace(/\n/g, ' ')})`);
-  ok(/Na conta[\s\S]*Comprometido[\s\S]*(Sobra|Falta)/.test(a.hero) && /Pode gastar até/.test(a.hero), 'a primeira tela usa as 4 palavras: Pode gastar, Na conta, Comprometido e Sobra');
+  ok(a.n2.length === 2 && a.n2[0] === a.n2[1] && /Pode gastar até[\s\S]*Vale \(comida\)/.test(a.hero) && !/tirando tudo|Comprometido/.test(a.hero), `a decisão de agora: pode gastar (salário) e vale (comida), do mesmo tamanho (${a.n2.join(' × ')})`);
+  await ir(p, '#planos'); const ano = await p.evaluate(() => document.querySelector('main').innerText); await ir(p, '#inicio');
+  ok(a.livre >= 0 ? new RegExp(`O que segura ${a.pior.slice(5) === '11' ? 'nov' : '[a-z]{3}'}\\/\\d\\d\\s*R\\$\\s*[\\d.]+`).test(ano) && /O mês mais justo é (este \()?[a-z]{3}\/\d\d/.test(ano) : /Falta tirando tudo/.test(ano), `a sobra tem o nome do mês, na tela Ano (${(ano.match(/O que segura[^\n]*\n[^\n]*/) || [''])[0].replace(/\n/g, ' ')})`);
   // quem passou vem primeiro e o resto cobre proporcional ao que faltava em cada uma
   const lz = a.DD.lista.find(x => x.c === 'Lazer');
   if (!(lz.passou > 0.5)) { await gasta({valor:Math.round(lz.falta + 50), desc:'Show', cat:'Lazer'}); await p.waitForTimeout(250); a = await le(); }
@@ -195,7 +198,8 @@ async function hojeClara(b) {
   ok(a.DD.lista.every(x => Math.abs(a.aj.lim[x.c] - (x.gasto + x.falta)) < 0.02), 'a conta do mês (ajusteMes) usa o mesmo projetado do pode gastar');
   const al = (await p.evaluate(() => window.__T.alertasMes(window.__T.ymNow()).map(x => x.h).join(' | '))).replace(/<[^>]+>/g, '');
   ok(/Lazer passou R\$\s*[\d.,]+ do projetado/.test(al) && /proporcional ao que faltava/.test(al) && !/igualmente| cada \(/.test(al), 'o aviso diz "passou do projetado" e que saiu das outras proporcional');
-  ok(a.nAv === 1 && a.mais === (a.av.length > 1) && !/Meta do mês/.test(a.main), `um aviso só no topo (${a.nAv} de ${a.av.length}); guardar para planos fica em Planos`);
+  ok(a.nAv === Math.min(1, a.av.length) && a.mais === (a.av.length > 1) && !/Meta do mês/.test(a.main) && !a.av.some(x => /passou .* do projetado/.test(x.h)), `no máximo um aviso no topo (${a.nAv} de ${a.av.length}); o estouro fica na lista, com o botão`);
+  ok(a.rows.filter(r => / passou R\$/.test(r.s)).every(r => r.manter) && a.rows.some(r => r.manter), 'quem passou tem o botão "manter este valor só neste mês"');
   const conf = await p.evaluate(async () => { const T = window.__T; window.__AI = {acao:'lancar', itens:[{data:T.hoje(), meio:'pix', tipo:'despesa', valor:20, desc:'Cinema', cat:'Lazer'}]}; const r = await T.lancarTexto('cinema 20 pix'); return T.resHTML(r).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '); });
   ok(/passou R\$\s*[\d.,]+ do projetado do mês\. Saiu das outras categorias, proporcional/.test(conf) && !/igualmente/.test(conf), 'a confirmação do lançamento usa a mesma regra proporcional');
   // "Terminei este gasto": o que sobrou vai para as outras, o total não muda
@@ -214,7 +218,7 @@ async function hojeClara(b) {
   ok(soma(c.com) === Math.round(c.CM.falta), 'a comida da lista ainda soma o total de comida');
   await cfg({saldoVA:{v:5, d:'2026-11-22', em:new Date('2026-11-22T12:00:00').toISOString()}}); await p.waitForTimeout(250);
   const v = await le();
-  ok(/Vale acabou: até o dia 26 a comida sai da conta/.test(v.hero) && /o vale acabou/.test(v.txt), 'com o vale vazio, o topo e a lista dizem que a comida sai da conta até o vale cair');
+  ok(/comida agora sai da conta e come o salário até o dia 26/.test(v.hero) && /o vale acabou: sai da conta até o dia 26/.test(v.txt) && v.com.every(r => /sai da conta/.test(r.s)), 'com o vale vazio, o número do vale avisa e a comida da lista vem com "sai da conta"');
   // a conta até o dinheiro cair: vira frase, não muda o número
   await cfg({saldo:{...(await p.evaluate(() => window.__T.S.cfg.saldo)), v:(await p.evaluate(() => window.__T.S.cfg.saldo.v)) - (v.livre1 - 60)}}); await p.waitForTimeout(250);
   const l = await le();
@@ -229,7 +233,7 @@ async function hojeClara(b) {
   const z = await le(), cv = await p.evaluate(() => { const T = window.__T; return {livre:T.fluxo()[0].livre, f:T.folgaInfo(T.ymNow())}; });
   ok(z.ap && z.ap.m === '2026-12' && Math.abs(z.ap.falta - (cv.f.v - cv.livre)) < 0.6 && z.ap.falta > 250, `próximo aperto em dez: faltam ${z.ap ? Math.round(z.ap.falta) : '?'} até o dinheiro entrar`);
   ok(z.ap && cv.livre + cv.f.curva[z.ap.dia - 1] < 0 && (z.ap.dia === 1 || cv.livre + cv.f.curva[z.ap.dia - 2] >= -0.5), `o dia do aperto é o dia em que a conta zera (${z.ap && z.ap.dia})`);
-  ok(/Próximo aperto: \d+ de dez\. Faltam R\$\s*[\d.]+ na conta até o dinheiro entrar/.test(z.hero) && !z.av.some(x => x.ap), 'o topo mostra o próximo aperto e o aviso igual não se repete');
+  ok(/Próximo aperto, \d+ de dez(: saem [^.]+)?\. Faltam R\$\s*[\d.]+ na conta até o dinheiro entrar/.test(z.hero) && !z.av.some(x => x.ap), `a frase do topo é o próximo aperto, com o que sai antes (${(z.hero.match(/Próximo aperto[^\n]*/) || [''])[0]})`);
   // Como calculei em cartões (cabe no celular)
   await p.locator('[data-a="porDiaDet"]').first().click(); await p.waitForTimeout(300);
   const det = await p.evaluate(() => ({t:document.body.innerText, n:document.querySelectorAll('.cc-row').length, larg:Math.max(...[...document.querySelectorAll('.cc-row')].map(e => e.scrollWidth - e.clientWidth))}));
@@ -251,21 +255,22 @@ async function contasPlanos(b) {
   // imposto que aparece todo mês na média (ex.: IPVA parcelado): não pode entrar no "Previsto no dia a dia"
   await p.evaluate(async () => { const T = window.__T; for (const m of ['2026-07', '2026-08', '2026-09', '2026-10']) await T.criarLanc({tipo:'despesa', valor:60, desc:'IPVA parcela', cat:'Impostos & taxas', data:m + '-10', meio:'pix', nparc:1}); });
   await p.waitForTimeout(300); await ir(p, '#contas');
-  const c = await p.evaluate(() => { const T = window.__T, sec = document.getElementById('previstoMes'), txt = document.querySelector('main').innerText, r3 = [...document.querySelectorAll('.r3')].map(e => e.innerText.replace(/\s+/g, ' '));
-    const grupos = {}; let g = 'dia'; [...sec.children].forEach(e => { if (e.tagName === 'H3') g = /Comida/.test(e.textContent) ? 'com' : 'out'; if (e.classList.contains('li')) (grupos[g] = grupos[g] || []).push({t:e.querySelector('.t1').textContent, v:+e.querySelector('.am').textContent.replace(/\D/g, '')}); });
-    const main = document.querySelector('main'); return {txt, r3, grupos, h2:sec.querySelector('h2').textContent, pode:Math.round(T.podeGastar().total), larg:main.scrollWidth - main.clientWidth}; });
+  const c = await p.evaluate(() => { const T = window.__T, txt = document.querySelector('main').innerText, r3 = [...document.querySelectorAll('.res3 .r3')].map(e => e.innerText.replace(/\s+/g, ' ')), g = T.podeGastar();
+    const cort = [...document.querySelectorAll('#cortar .li')].map(e => ({g:e.dataset.g, t:e.querySelector('.t1').textContent, s:e.querySelector('.t2').textContent, v:+e.querySelector('.am').textContent.replace(/\D/g, '')}));
+    const main = document.querySelector('main'); return {txt, r3, cort, nao:(document.getElementById('naoCortar') || {}).innerText || '', h2:(document.querySelector('#cortar h2') || {}).textContent || '', pode:Math.round(g.total), com:Math.round(g.CM.falta), larg:main.scrollWidth - main.clientWidth}; });
   const rec = c.r3.find(x => /^Falta receber/.test(x)) || '', nums = (rec.match(/R\$\s*[\d.]+/g) || []).map(x => +x.replace(/\D/g, ''));
-  ok(/na conta R\$\s*[\d.]+ · no vale R\$\s*[\d.]+/.test(rec) && nums.length === 3 && nums[0] === nums[1] + nums[2], `"Falta receber" separa conta e vale (${rec})`);
-  ok(c.r3.length === 3 && c.larg <= 1, 'o resumo de Contas fica em linhas e nada passa da largura do celular');
-  const dia = c.grupos.dia || [], soma = dia.reduce((t, x) => t + x.v, 0);
-  ok(+c.h2.replace(/\D/g, '') === c.pode && soma === c.pode, `"Previsto no dia a dia" é o pode gastar e as linhas somam ele (${c.h2} · ${soma})`);
-  ok(!dia.some(x => /Impostos/.test(x.t)) && (c.grupos.out || []).some(x => /Impostos/.test(x.t)), 'imposto da média fica em "Outros previstos", fora do dia a dia');
-  ok((c.grupos.com || []).length > 0 && !(c.grupos.com || []).some(x => dia.some(y => y.t === x.t)), 'comida tem a sua parte, separada do dia a dia');
-  ok(/O "conta ≈" de cada dia vale se o dia a dia que falta sair aos poucos/.test(c.txt), 'Contas diz a hipótese dos saldos de cada dia');
+  ok(/^Falta receber na conta R\$\s*3\.000 e mais R\$\s*1\.800 no vale \(só para comida\)/.test(rec) && nums.length === 2, `"Falta receber" mostra grande só o que cai na conta; o vale vem à parte (${rec})`);
+  ok(c.r3.length === 3 && c.larg <= 1, 'o resumo do Mês fica em linhas e nada passa da largura do celular');
+  const dia = c.cort.filter(x => x.g === 'dia'), com = c.cort.filter(x => x.g === 'com'), soma = dia.reduce((t, x) => t + x.v, 0);
+  ok(/Não dá para cortar/.test(c.nao) && /Aluguel|Financiamento|Energia|Academia/.test(c.nao), `Mês › "Não dá para cortar" lista o que o salário já deve`);
+  ok(soma === c.pode && c.cort.every(x => /já foi R\$\s*[\d.]+ · média R\$\s*[\d.]+/.test(x.s)), `Mês › "Dá para cortar": o dia a dia soma o pode gastar e cada linha mostra já foi × média (${soma} × ${c.pode})`);
+  ok(!c.cort.some(x => /Impostos/.test(x.t)) && /Impostos/.test(c.nao), 'imposto da média fica em "Não dá para cortar", fora do dia a dia');
+  ok(com.length > 0 && com.reduce((t, x) => t + x.v, 0) === c.com, 'a comida está em "Dá para cortar", com a sua etiqueta');
+  ok(/O "conta ≈" de cada dia vale se o dia a dia que falta sair aos poucos/.test(c.txt), 'Mês diz a hipótese dos saldos de cada dia');
   await ir(p, '#planos');
   const pl = await p.evaluate(() => { const main = document.querySelector('main'), T = window.__T; return {txt:main.innerText, larg:main.scrollWidth - main.clientWidth, rola:!!document.querySelector('.pl-rola'),
     planos:[...document.querySelectorAll('.plano')].map(e => ({t:e.innerText.replace(/\s+/g, ' '), barras:e.querySelectorAll('.pbar span').length})), prev:T.S.objs.filter(o => o.status !== 'concluido').map(o => (o.itens || []).reduce((t, i) => t + (+i.prev || 0), 0))}; });
-  ok(!/R\$ mil|2,5 = R\$/.test(pl.txt) && /R\$\s*[\d.]+\s*\n?\s*nov\/26/.test(pl.txt) && pl.rola && pl.larg <= 1, 'gráfico de Planos em reais, rolando para o lado sem estourar a tela');
+  ok(!/R\$ mil|2,5 = R\$/.test(pl.txt) && /R\$\s*[\d.]+\s*\n?\s*nov\/26/.test(pl.txt) && pl.rola && pl.larg <= 1 && /▼/.test(pl.txt), 'Ano: o fim de cada mês em reais, o mais justo marcado, rolando para o lado sem estourar a tela');
   ok(pl.planos.length > 0 && pl.planos.every(x => { const v = ['já pago', 'guardado', 'falta'].map(k => +((x.t.match(new RegExp(k + ' R\\$\\s*([\\d.]+)')) || [])[1] || 'NaN').replace(/\./g, '')), tot = +((x.t.match(/· R\$\s*([\d.]+)/) || [])[1] || 'NaN').replace(/\./g, ''); return x.barras === 2 && v.every(n => !isNaN(n)) && v[0] + v[1] + v[2] === tot; }), `cada plano numa barra só: já pago + guardado + falta = total (${pl.planos.map(x => x.t.slice(0, 60)).join(' | ')})`);
   ok(!erros.length, `Contas e Planos: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
@@ -352,11 +357,11 @@ async function comecarZero(b) {
   await p.click('#comecar [data-a="onb"]'); await p.waitForTimeout(300);
   const passo = async (vals, botao = 'button[type=submit]') => { for (const [n, v] of Object.entries(vals)) await p.fill(`#onb input[name="${n}"]`, v); await p.click(`#onb ${botao}`); await p.waitForTimeout(450); };
   await passo({v:'1.500', va:'300'}); await passo({v:'4000', dia:'5'}); await passo({v:'600', dia:'1'}); await passo({v:'900'});
-  const r = await p.evaluate(() => { const T = window.__T, S = T.S, g = T.podeGastar(); return {txt:document.querySelector('#onb').innerText, saldo:S.cfg.saldo && S.cfg.saldo.v, va:S.cfg.saldoVA && S.cfg.saldoVA.v, sal:S.fixos.find(f => f.cat === 'Salário'), vale:S.fixos.find(f => f.meio === 'va'), outros:(S.cfg.orc || {}).Outros, pode:g && g.total}; });
-  ok(r.saldo === 1500 && r.va === 300 && r.sal && r.sal.valor === 4000 && r.sal.dia === 5 && r.vale && r.vale.valor === 600 && r.outros === 900, `as respostas viram saldo, salário (dia 5), vale e o projetado (${r.saldo}/${r.va}/${r.sal && r.sal.valor}/${r.vale && r.vale.valor}/${r.outros})`);
+  const r = await p.evaluate(() => { const T = window.__T, S = T.S, g = T.podeGastar(); return {txt:document.querySelector('#onb').innerText, saldo:S.cfg.saldo && S.cfg.saldo.v, va:S.cfg.saldoVA && S.cfg.saldoVA.v, sal:S.fixos.find(f => f.cat === 'Salário'), vale:S.fixos.find(f => f.meio === 'va'), teto:S.cfg.tetoDia, pode:g && g.total}; });
+  ok(r.saldo === 1500 && r.va === 300 && r.sal && r.sal.valor === 4000 && r.sal.dia === 5 && r.vale && r.vale.valor === 600 && r.teto === 900, `as respostas viram saldo, salário (dia 5), vale e o teto do mês (${r.saldo}/${r.va}/${r.sal && r.sal.valor}/${r.vale && r.vale.valor}/${r.teto})`);
   ok(Math.abs(r.pode - 900) < 0.6 && /Pronto! Você pode gastar R\$\s*900/.test(r.txt) && /mercado 80/.test(r.txt), `no fim mostra quanto pode gastar e o próximo passo (${(r.txt.match(/Pronto![^\n]*/) || [''])[0]})`);
   await p.evaluate(() => { document.querySelector('[data-a="closeSheet"], .sh-x') && document.querySelector('[data-a="closeSheet"], .sh-x').click(); }); await p.waitForTimeout(300); await ir(p, '#inicio');
-  ok(/Na conta[\s\S]*Comprometido[\s\S]*(Sobra|Falta)/.test(await p.evaluate(() => (document.querySelector('.hz') || {}).innerText || '')), 'depois de responder, o topo já mostra Na conta, Comprometido e Sobra');
+  ok(/Pode gastar até[\s\S]*R\$\s*900[\s\S]*Vale \(comida\)/.test(await p.evaluate(() => (document.querySelector('.hz') || {}).innerText || '')), 'depois de responder, o topo já mostra o pode gastar (R$ 900) e o vale');
   await p.click('#tabbar ~ * [data-a="menu"], header [data-a="menu"]').catch(() => p.evaluate(() => document.querySelector('[data-a="menu"]').click())); await p.waitForTimeout(350);
   const m = await p.evaluate(() => ({grade:[...document.querySelectorAll('.mgrid a, .mgrid button')].map(e => e.innerText.trim()), mais:[...document.querySelectorAll('.menu-mais a')].map(e => e.textContent.trim())}));
   ok(!m.grade.some(t => /Guardado|Cartões|Dívidas|Reservas/.test(t)) && m.grade.some(t => /Lançamentos/.test(t)) && m.mais.some(t => /Cartões/.test(t)) && m.mais.some(t => /Análise do mês/.test(t)), `menu de quem está começando: só o que usa; o resto em "Mais" (${m.grade.join(', ')} | ${m.mais.length} em Mais)`);
@@ -366,6 +371,95 @@ async function comecarZero(b) {
   const f = await abrir(b, '2026-11-22', 2500); await f.p.evaluate(() => document.querySelector('[data-a="menu"]').click()); await f.p.waitForTimeout(350);
   const g = await f.p.evaluate(() => [...document.querySelectorAll('.mgrid a')].map(e => e.innerText.trim()));
   ok(g.some(t => /Cartões/.test(t)) && g.some(t => /Guardado/.test(t)), `quem já usa cartão e caixinha vê os dois no menu (${g.join(', ')})`); await f.p.close();
+}
+
+// 3l) Auditoria (outra IA): teto de quem começou do zero não soma por cima da média; frase do item de plano; quem só vê
+// não baixa backup; ajustes gravados por caminho (duas categorias ao mesmo tempo não se atropelam)
+async function auditoria2(b) {
+  const {p, erros} = await abrir(b, '2026-11-22', 2500);
+  await p.evaluate(async () => { const S = window.__T.S; for (const k of Object.keys(window.__store)) await S.db.doc(k).delete(); }); await p.waitForTimeout(400); await ir(p, '#inicio');
+  await p.click('#comecar [data-a="onb"]'); await p.waitForTimeout(300);
+  const passo = async vals => { for (const [n, v] of Object.entries(vals)) await p.fill(`#onb input[name="${n}"]`, v); await p.click('#onb button[type=submit]'); await p.waitForTimeout(450); };
+  await passo({v:'1500'}); await passo({v:'4000', dia:'5'}); await passo({v:'600', dia:'1'}); await passo({v:'900'});
+  const pg = () => p.evaluate(() => { const T = window.__T; T.render(); const g = T.podeGastar(), d = T.projPool('2026-12'); return {total:g.total, outros:(T.S.cfg.orc || {}).Outros, teto:T.S.cfg.tetoDia, dez:Object.values(d.proj).reduce((t, v) => t + v, 0), lista:T.diaDiaBase().lista.map(x => [x.c, Math.round(x.proj), x.teto])}; });
+  let a = await pg();
+  ok(a.teto === 900 && a.outros === undefined && Math.abs(a.total - 900) < 0.6, `"quanto quer gastar" vira o teto do mês, não uma categoria (pode gastar ${Math.round(a.total)})`);
+  // nasce a média (um mês de gastos): o teto é dividido pela média e o total continua 900
+  await p.evaluate(async () => { const T = window.__T; for (const [c, v] of [['Transporte', 300], ['Lazer', 100]]) await T.criarLanc({tipo:'despesa', valor:v, desc:c, cat:c, data:'2026-10-15', meio:'pix', nparc:1}); }); await p.waitForTimeout(400);
+  a = await pg(); const tr = a.lista.find(x => x[0] === 'Transporte') || [], lz = a.lista.find(x => x[0] === 'Lazer') || [];
+  ok(Math.abs(a.total - 900) < 0.6 && Math.abs(a.dez - 900) < 0.6 && tr[1] === 675 && lz[1] === 225 && tr[2], `com média, o teto é dividido pela média e não soma por cima (pode gastar ${Math.round(a.total)}, dez ${Math.round(a.dez)}, Transporte ${tr[1]}, Lazer ${lz[1]})`);
+  await p.evaluate(() => { location.hash = '#inicio'; window.__T.render(); }); await p.waitForTimeout(300);
+  await p.evaluate(() => { const el = document.createElement('button'); el.dataset.a = 'porDiaDet'; document.body.appendChild(el); el.click(); el.remove(); }); await p.waitForTimeout(300);
+  ok(/Teto do dia a dia: R\$\s*900 por mês/.test(await p.evaluate(() => document.body.innerText)) && await p.evaluate(() => !!document.querySelector('#tetoBox [data-a="tetoMedia"]')), 'Como calculei mostra o teto, com "Usar a média" ao lado');
+  await p.click('#tetoBox [data-a="tetoMedia"]'); await p.waitForTimeout(400);
+  a = await pg(); ok(!a.teto && Math.abs(a.total - 400) < 0.6, `"Usar a média" tira o teto: o pode gastar vira a média (${Math.round(a.total)})`);
+  await p.close();
+  // frase do item de plano: proporcional, como a conta
+  const f = await abrir(b, '2026-11-22', 2500);
+  const t = await f.p.evaluate(() => { const T = window.__T, o = T.S.objs.find(x => (x.itens || []).length > 1), it = o.itens[0];
+    return T.resHTML({itens:[{tipo:'despesa', valor:(+it.prev || 0) + 500, desc:'Gasto do plano', cat:'Viagens', data:T.hoje(), meio:'pix', nparc:1, objId:o.id, objItem:it.id}], ids:[]}).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '); });
+  ok(/passou R\$\s*[\d.,]+ do teto\. O excesso sai dos outros itens .* proporcional ao que falta em cada um/.test(t) && !/igualmente/.test(t), 'a confirmação de item de plano diz a regra certa (proporcional)');
+  // ajustes por caminho: mudar uma categoria manda só ela
+  const d = await f.p.evaluate(async () => { const T = window.__T, S = T.S; window.__opsLog = [];
+    const u1 = T.difCfg({Mercado:1600, Lazer:100}, {Mercado:1600, Lazer:300, Compras:50}, ['orc']), u2 = T.difCfg({a:1, b:2}, {a:1}, ['orc']), u3 = T.difCfg({'2026-12':{Lazer:1}}, {'2026-12':{Lazer:2}, '2027-01':{Lazer:0}}, ['orcMes']);
+    await T.saveCfg({orc:{...(S.cfg.orc || {}), Lazer:321}}); return {u1, u2, u3, log:window.__opsLog, lazer:(S.cfg.orc || {}).Lazer, merc:(S.cfg.orc || {}).Mercado}; });
+  ok(JSON.stringify(d.u1) === JSON.stringify([{p:['orc', 'Lazer'], v:300}, {p:['orc', 'Compras'], v:50}]) && JSON.stringify(d.u2) === JSON.stringify([{p:['orc', 'b'], del:true}]) && JSON.stringify(d.u3) === JSON.stringify([{p:['orcMes', '2026-12', 'Lazer'], v:2}, {p:['orcMes', '2027-01'], v:{Lazer:0}}]), 'a diferença de um ajuste vira mudanças por caminho (mudar, tirar, mês novo)');
+  ok(d.log.length === 1 && JSON.stringify(d.log[0]) === JSON.stringify([{p:['orc', 'Lazer'], v:321}]) && d.lazer === 321 && d.merc > 0, `mudar o projetado de Lazer manda só "orc › Lazer" (${JSON.stringify(d.log)})`);
+  ok(!erros.length && !f.erros.length, `auditoria: sem erro na página${[...erros, ...f.erros][0] ? ' → ' + [...erros, ...f.erros][0] : ''}`); await f.p.close();
+  // quem só vê não baixa o backup
+  const v = await b.newPage({viewport:{width:390, height:844}}); const ev = []; v.on('pageerror', e => ev.push(e.message));
+  await v.clock.setFixedTime(new Date('2026-11-22T10:00:00')); await v.addInitScript(() => { window.__casa = {papel:() => 've', email:() => 'parceira@teste.com', dono:() => 'dono@teste.com', whats:() => null, casas:() => [], membros:() => [], papelDe:() => 've'}; });
+  await v.goto(ARQ); await v.waitForTimeout(2500); await ir(v, '#ajustes');
+  const r = await v.evaluate(async () => { const bt = [...document.querySelectorAll('[data-a="exportJSON"], [data-a="exportCSV"]')], vis = bt.filter(x => getComputedStyle(x).display !== 'none').length; let baixou = false; const S = window.__T.S;
+    const el = document.createElement('button'); el.dataset.a = 'exportJSON'; document.body.appendChild(el); const t0 = document.querySelector('#toast') ? document.querySelector('#toast').innerText : ''; el.click(); el.remove(); await new Promise(r => setTimeout(r, 300));
+    return {vis, toast:(document.querySelector('#toast') || {}).innerText || ''}; });
+  ok(r.vis === 0 && /só para ver|só ver|só vê/i.test(r.toast), `quem só vê não baixa o backup nem os lançamentos (botões visíveis: ${r.vis}; ${r.toast.slice(0, 50)})`);
+  ok(!ev.length, `só ver: sem erro na página${ev.length ? ' → ' + ev[0] : ''}`); await v.close();
+}
+
+// 3m) Hoje, Mês e Ano (reorganização pedida pelo dono): barra Hoje · Lançar · Mês · Ano; Mês em três blocos; Ano com o mês mais justo
+// e o dinheiro a mais com destino; Lançar mostra o efeito antes de gravar; passou do pode gastar diz quanto cai o mês mais justo
+async function telasNovas(b) {
+  const {p, erros} = await abrir(b, '2026-11-22'); await ir(p, '#inicio');
+  const barra = await p.evaluate(() => [...document.querySelectorAll('#tabbar a, #tabbar button')].map(e => e.getAttribute('aria-label') || e.innerText.trim().split('\n')[0]));
+  ok(barra.join(' · ') === 'Hoje · Lançar um gasto · Mês · Ano', `barra de baixo: ${barra.join(' · ')}`);
+  await p.evaluate(() => document.querySelector('[data-a="menu"]').click()); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => [...document.querySelectorAll('.mgrid a')].some(a => a.getAttribute('href') === '#ajuda') && !!document.querySelector('#sheet a[href="#ajustes"]')), 'Ajuda e ajustes ficam no menu ☰');
+  await p.evaluate(() => { const x = document.querySelector('[data-a="closeSheet"], .sh-x'); if (x) x.click(); }); await p.waitForTimeout(200);
+  // "manter este valor só neste mês": o estouro vira o projetado do mês, sem tirar das outras
+  const a0 = await p.evaluate(() => { const T = window.__T; T.render(); return {total:T.podeGastar().total, lz:T.diaDiaBase().lista.find(x => x.c === 'Lazer')}; });
+  await p.click('[data-a="projManter"][data-c="Lazer"]'); await p.waitForTimeout(500);
+  const a1 = await p.evaluate(() => { const T = window.__T; T.render(); return {total:T.podeGastar().total, lz:T.diaDiaBase().lista.find(x => x.c === 'Lazer'), om:(T.S.cfg.orcMes || {})['2026-11']}; });
+  ok(a0.lz.passou > 0.5 && a1.lz.passou < 0.5 && Math.abs(a1.om.Lazer - a0.lz.gasto) < 0.01 && Math.abs(a1.total - a0.total - a0.lz.passou) < 0.6, `"Manter R$ ${Math.round(a0.lz.gasto)} só em nov": Lazer fica no que gastou e as outras voltam (pode gastar ${Math.round(a0.total)} → ${Math.round(a1.total)})`);
+  await p.evaluate(() => { const x = document.querySelector('[data-a="closeSheet"], .sh-x'); if (x) x.click(); }); await p.waitForTimeout(200);
+  // Mês de janeiro: o bônus entra com destino, antes de parecer sobra
+  await ir(p, '#contas'); for (let i = 0; i < 2; i++) { await p.click('[data-a="calMes"][data-d="1"]'); await p.waitForTimeout(250); }
+  const jan = await p.evaluate(() => ({mais:(document.getElementById('aMais') || {}).innerText || '', nao:!!document.getElementById('naoCortar'), cort:!!document.getElementById('cortar')}));
+  ok(jan.nao && jan.cort && /No dia 13 entra Bônus anual \(R\$\s*9\.000\)/.test(jan.mais) && /Já está combinado: .*Reserva do carro/.test(jan.mais) && /Sobra de verdade, depois disso: R\$\s*[\d.]+, que é o que segura [a-z]{3}\/\d\d/.test(jan.mais), `Mês de jan/27: o bônus aparece com destino (${jan.mais.replace(/\s+/g, ' ').slice(0, 160)}…)`);
+  // Ano: dinheiro a mais com destino, e "Guardar" só com o dinheiro na conta
+  await ir(p, '#planos');
+  const ano = await p.evaluate(() => { const T = window.__T; return {txt:(document.getElementById('aMaisAno') || {}).innerText || '', guardar:document.querySelectorAll('.plano [data-a="guardMov"]').length, planos:document.querySelectorAll('.plano').length, tem:T.S.objs.length}; });
+  const din = await p.evaluate(() => { const s = window.__T.S, T = window.__T; return T.saldoHoje(); });
+  ok(/Bônus anual · jan\/27[\s\S]*vai para: Reserva do carro/.test(ano.txt), `Ano › Dinheiro a mais: o bônus de janeiro já mostra o destino (${ano.txt.replace(/\s+/g, ' ').slice(0, 120)})`);
+  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:-5000}}); }); await p.waitForTimeout(300); await ir(p, '#contas'); await ir(p, '#planos');
+  ok(await p.evaluate(() => document.querySelectorAll('.plano [data-a="guardMov"]').length === 0 && /vai guardar R\$\s*[\d.]+ quando o dinheiro cair/.test(document.querySelector('main').innerText)), 'sem dinheiro livre na conta, guardar é plano (texto), não botão');
+  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, saldo:{...S.cfg.saldo, v:2200}}); }); await p.waitForTimeout(300);
+  // Lançar: o efeito aparece antes de gravar
+  await ir(p, '#inicio'); await p.evaluate(() => document.querySelector('#tabbar [data-a="novo"]').click()); await p.waitForTimeout(300);
+  await p.evaluate(() => { const b = document.querySelector('[data-a="lkModo"][data-v="teclado"]'); if (b) b.click(); }); await p.waitForTimeout(250);
+  for (const k of ['5', '0', '0', '0']) { await p.click(`[data-a="lkTecla"][data-k="${k}"]`); await p.waitForTimeout(40); }
+  await p.click('[data-a="lkCat"][data-c="Lazer"]').catch(() => {}); await p.waitForTimeout(200);
+  const e1 = await p.evaluate(() => (document.getElementById('lk-ef') || {}).innerText || '');
+  await p.evaluate(() => { const b = document.querySelector('[data-a="lkCat"][data-c="Mercado"]'); if (b) b.click(); }); await p.waitForTimeout(150);
+  await p.evaluate(() => { const b = document.querySelector('[data-a="lkMeio"][data-v="pix"]'); if (b) b.click(); }); await p.waitForTimeout(150);
+  const e2 = await p.evaluate(() => (document.getElementById('lk-ef') || {}).innerText || '');
+  ok((/Pode gastar: R\$\s*[\d.]+ → R\$\s*[\d.]+/.test(e1) || !e1) && /Comida na conta: isso sai do salário, não do pode gastar/.test(e2), `Lançar mostra o efeito antes de gravar (${e1} | ${e2.slice(0, 60)})`);
+  await p.evaluate(() => { const x = document.querySelector('[data-a="closeSheet"], .sh-x'); if (x) x.click(); }); await p.waitForTimeout(200);
+  // passou do pode gastar: a confirmação diz quanto cai o mês mais justo
+  const conf = await p.evaluate(async () => { const T = window.__T, g = T.podeGastar(); window.__AI = {acao:'lancar', itens:[{data:T.hoje(), meio:'pix', tipo:'despesa', valor:Math.round(g.total + 200), desc:'Show', cat:'Lazer'}]}; const r = await T.lancarTexto(`show ${Math.round(g.total + 200)} pix`); return {h:T.resHTML(r).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '), livre:g.livre, total:g.total}; });
+  const mm = conf.h.match(/o mês mais justo, cai de R\$\s*([\d.]+) para R\$\s*([\d.]+)/);
+  ok(!!mm && Math.abs(+mm[1].replace(/\./g, '') - Math.round(conf.livre)) <= 1 && Math.abs(+mm[1].replace(/\./g, '') - +mm[2].replace(/\./g, '') - 200) <= 1, `passou do pode gastar: "o mês mais justo cai de… para…" (${mm ? mm[0] : conf.h.slice(0, 80)})`);
+  ok(!erros.length, `telas novas: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
 // 4) Datas escritas no chat
@@ -587,6 +681,8 @@ async function telas(b) {
     secao('Celular'); await celular(b);
     secao('Abrir rápido com internet lenta'); await swRapido();
     secao('Começar do zero e menu que cresce'); await comecarZero(b);
+    secao('Auditoria: teto, frases, só ver e ajustes por caminho'); await auditoria2(b);
+    secao('Hoje, Mês e Ano'); await telasNovas(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);

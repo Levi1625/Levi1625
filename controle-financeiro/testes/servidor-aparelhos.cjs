@@ -34,6 +34,13 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
   await A.p.unroute('**/api/doc'); await sinc(A.p); await sinc(B.p);
   const e = await cfg(B.p);
   ok(e.testeA === 3 && e.testeB === 4, `quando o envio volta, B recebe a mudança de A (${e.testeA}/${e.testeB})`);
+  // mudanças por caminho: A sem internet muda Compras, B muda Lazer; quando A volta, os dois ficam
+  const caminho = (p, o) => p.evaluate(async o => { const db = await window.claude.use('db'); await db.doc('config/geral').campos(o); }, o);
+  await caminho(A.p, [{p:['orc', 'Compras'], v:100}, {p:['orc', 'Lazer'], v:100}]); await A.p.waitForTimeout(1200); await sinc(B.p);
+  await A.ctx.setOffline(true); await caminho(A.p, [{p:['orc', 'Compras'], v:195}]); await caminho(B.p, [{p:['orc', 'Lazer'], v:300}]); await B.p.waitForTimeout(1200);
+  await A.ctx.setOffline(false); await sinc(A.p); await sinc(B.p);
+  const oa = (await cfg(A.p)).orc || {}, ob = (await cfg(B.p)).orc || {};
+  ok(oa.Compras === 195 && oa.Lazer === 300 && ob.Compras === 195 && ob.Lazer === 300, `Compras sem internet num aparelho e Lazer no outro: os dois ficam (A ${oa.Compras}/${oa.Lazer}, B ${ob.Compras}/${ob.Lazer})`);
   // sair: com mudança sem enviar pergunta antes; sem internet não sai; com internet apaga a cópia do aparelho
   const copia = p => p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('bolso:dono@teste.com:') || k === 'bolso:ultimo').length);
   await A.ctx.setOffline(true); await muda(A.p, {testeSair:1});

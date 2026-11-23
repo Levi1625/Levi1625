@@ -1,6 +1,6 @@
 // Guarda o app no celular para abrir rápido e sem internet. Os dados vêm do servidor (/api).
 // A versão muda a cada "npm run build": o celular percebe, baixa a nova e o app recarrega sozinho.
-const VERSAO = '23111239';
+const VERSAO = '23111406';
 const CACHE = 'bolso-' + VERSAO;
 const ARQS = ['./', 'index.html', 'shim.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'fonts/fontes.css', 'fonts/inter-latin.woff2', 'fonts/jakarta-latin.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQS)).then(() => self.skipWaiting())); });

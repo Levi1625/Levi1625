@@ -77,7 +77,7 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .dot.ok{background:var(--pos)} .dot.wait{background:var(--warn)} .dot.err{background:var(--neg)}
 
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(5,1fr);
+  display:grid;grid-template-columns:repeat(4,1fr);
   padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 .tabbar a,.tabbar button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.7rem;color:var(--muted);text-decoration:none;background:none;border:0;padding:4px 0;cursor:pointer}
 .tabbar svg{width:22px;height:22px}
@@ -111,6 +111,17 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .hero-r{display:flex;flex-direction:column;gap:4px;min-width:0}.hero-r small{font-size:.86rem;opacity:.85}
 .hero-r .big{font-family:var(--f-display);font-size:2.1rem;font-weight:800;line-height:1.1}
 .hero-l{display:flex;flex-direction:column;gap:5px;border-top:1px solid rgba(255,255,255,.14);padding-top:12px}
+.dois{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.dois.um{grid-template-columns:1fr}
+.num2{background:rgba(255,255,255,.1);border:0;border-radius:16px;padding:12px;color:#fff;text-align:left;font:inherit;display:flex;flex-direction:column;gap:3px;cursor:pointer;min-width:0}
+.num2 small{font-size:.78rem;opacity:.85}.num2 b{font-family:var(--f-display);font-size:clamp(1.45rem,7vw,2rem);font-weight:800;line-height:1.1;white-space:nowrap}
+.num2 span{font-size:.78rem;opacity:.9;line-height:1.3}.num2 em{font-style:normal;font-size:.72rem;opacity:.75}
+.num2.alerta{background:rgba(252,211,77,.16);box-shadow:inset 0 0 0 2px #FCD34D}.num2.alerta span{color:#FCD34D;font-weight:700;opacity:1}
+.lw{border-top:1px solid var(--surface-2)}.lw:first-of-type{border-top:0}.lw .li{border-top:0}.lw .manter{margin:0 0 10px 52px}
+.tag{display:inline-block;font-size:.68rem;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--surface-2);color:var(--muted);margin-right:2px}.tag.tag-w{background:var(--warn-soft);color:var(--warn)}
+.hero-rows{display:flex;flex-direction:column;margin:2px 0 4px}
+.hero-rows .hr{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;background:none;border:0;border-top:1px solid rgba(255,255,255,.12);padding:9px 2px;color:#fff;font:inherit;text-align:left;cursor:pointer}
+.hero-rows .hr:first-child{border-top:0}.hero-rows .hr span{display:flex;flex-direction:column;min-width:0}.hero-rows .hr b{font-size:.92rem;font-weight:600}
+.hero-rows .hr small{font-size:.75rem;opacity:.75;line-height:1.3}.hero-rows .hr strong{font-size:1.05rem;font-weight:800;white-space:nowrap}
 .hz .mint{color:var(--mint);font-weight:600;font-size:.86rem;line-height:1.35}
 .hz .fim{font-size:.86rem;font-weight:600;line-height:1.35}.hz .fim.pos{color:#86EFAC}.hz .fim.neg{color:#FCA5A5}.hz .fim.warn{color:#FCD34D}
 .hz .nw{white-space:nowrap}.hz .op{opacity:.8;font-weight:500}
@@ -165,7 +176,7 @@ main{min-width:0;padding-block:18px 120px;max-width:1180px;width:100%;margin-inl
 .lk-go{display:flex;gap:10px;margin-top:10px}
 .lk-go .btn.pri{flex:1;min-height:56px;border-radius:18px;font-size:1.05rem}
 .lk-go .rb{width:56px;height:56px;border-radius:18px}
-.lk-res{margin-top:12px}
+.lk-res{margin-top:12px}.lk-ef{margin:10px 2px 0;min-height:1.2em;line-height:1.4}
 .mgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .mgrid a,.mgrid button{background:var(--surface-2);border:0;border-radius:18px;padding:14px 6px;text-decoration:none;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
 .mgrid .cic{width:46px;height:46px;border-radius:15px}
@@ -183,7 +194,7 @@ em.lg{display:inline-block;width:8px;height:8px;border-radius:4px;vertical-align
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .sw[aria-checked="true"]{background:var(--accent)}.sw[aria-checked="true"]::after{left:21px}
 body.sover .tb-add{visibility:hidden} body.sover form[data-f]:not([data-f="chat"]){display:none}
-body.sover .btn[data-a]:not([data-a="instalarApp"]):not([data-a="pinToggle"]):not([data-a="pinNao"]):not([data-a="verLembrete"]):not([data-a="trocarCasa"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projTabelas"]):not([data-a="porDiaDet"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]),body.sover .lnk[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projTabelas"]):not([data-a="porDiaDet"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="exportCSV"]):not([data-a="exportJSON"]):not([data-a="aiDicas"]){display:none}
+body.sover .btn[data-a]:not([data-a="instalarApp"]):not([data-a="pinToggle"]):not([data-a="pinNao"]):not([data-a="verLembrete"]):not([data-a="trocarCasa"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projTabelas"]):not([data-a="porDiaDet"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="aiDicas"]),body.sover .lnk[data-a]:not([data-a="instalarApp"]):not([data-a="instalarDepois"]):not([data-a="menu"]):not([data-a="closeSheet"]):not([data-a="objGuia"]):not([data-a="objRes"]):not([data-a="catDet"]):not([data-a="lugDet"]):not([data-a="fTipo"]):not([data-a="mes"]):not([data-a="mesHoje"]):not([data-a="irMes"]):not([data-a="irMesProj"]):not([data-a="projIr"]):not([data-a="projIr2"]):not([data-a="projTabelas"]):not([data-a="porDiaDet"]):not([data-a="projMes"]):not([data-a="ano"]):not([data-a="toggleMore"]):not([data-a="verHistorico"]):not([data-a="perguntaPronta"]):not([data-a="mic"]):not([data-a="sair"]):not([data-a="iaGastos"]):not([data-a="aiDicas"]){display:none}
 .hj-card{border-radius:22px;padding:20px;color:#fff;display:flex;flex-direction:column;gap:4px;margin-bottom:16px}
 .hj-card.s-ok{background:#14532D}.hj-card.s-pend{background:#92400E}.hj-card.s-bad{background:#991B1B}.hj-card.s-info{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
 .hj-card .hj-l{margin:0;font-size:1rem;opacity:.92}
@@ -599,12 +610,23 @@ async function del(col, id) {
 const strip = o => { const {id, ...rest} = o; return rest; };
 // Ajustes: grava só os campos que mudaram (o servidor junta com o resto). Assim, dois aparelhos mexendo ao mesmo tempo
 // (ou uma conta automática do app, como o texto do plano do mês) nunca apagam a mudança feita no outro.
+// Diferença entre o valor antigo e o novo de um ajuste, em mudanças por caminho (até 3 níveis: orcMes › mês › categoria).
+const ehObjP = x => !!x && typeof x === 'object' && !Array.isArray(x);
+function difCfg(a, b, p, ops = []) {
+  if (p.length >= 3 || !ehObjP(a) || !ehObjP(b)) { if (JSON.stringify(a) !== JSON.stringify(b)) ops.push(b === undefined ? {p, del:true} : {p, v:b}); return ops; }
+  new Set([...Object.keys(a), ...Object.keys(b)]).forEach(k => { if (b[k] === undefined) { if (a[k] !== undefined) ops.push({p:[...p, k], del:true}); } else difCfg(a[k], b[k], [...p, k], ops); });
+  return ops;
+}
 async function saveCfg(patch) {
-  S.cfg = {...S.cfg, ...patch};
+  const antes = S.cfg || {}; S.cfg = {...antes, ...patch};
   const ref = S.db && (S.cfgOk || S.db.mescla) ? S.db.doc(P + 'config/geral') : null;   // mescla: o servidor cria o documento se ainda não existe
   if (!ref || typeof ref.update !== 'function') return put(P + 'config', 'geral', S.cfg);
   if (soVer()) { const e = new Error(AVISO_VER); e.code = 'permission_denied'; throw e; }
-  try { await ref.update(clean(patch)); } catch (e) { dbErr(e); throw e; }
+  try {
+    // por caminho (projetado › Compras): duas pessoas mudando categorias diferentes ao mesmo tempo não se atropelam
+    if (typeof ref.campos === 'function') { const ops = []; Object.keys(patch).forEach(k => difCfg(antes[k], patch[k] === undefined ? undefined : clean(patch[k]), [k], ops)); if (ops.length) await ref.campos(ops); }
+    else await ref.update(clean(patch));
+  } catch (e) { dbErr(e); throw e; }
 }
 
 /* ================= regras de negócio ================= */
@@ -840,10 +862,10 @@ const ICON = {
 };
 const ico = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 ICON.guardado = '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>';
-ICON.contas = ICON.fixos; ICON.planos = ICON.projecao; ICON.mes = ICON.anual;
+ICON.contas = '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'; ICON.planos = '<path d="M5 20V12M10 20V7M15 20v-5M20 20V9"/>'; ICON.mes = ICON.anual;
 ICON.ajuda = '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5M12 16.5h.01"/>';
 const VIEWS = [
-  ['inicio','Hoje'], ['contas','Contas'], ['planos','Planos'], ['ajuda','Ajuda'],
+  ['inicio','Hoje'], ['contas','Mês'], ['planos','Ano'], ['ajuda','Ajuda'],
   ['extrato','Lançamentos'], ['guardado','Guardado'], ['mes','Análise do mês'], ['fixos','Contas e limites'], ['cartoes','Cartões'], ['emprestimos','Empréstimos'], ['investimentos','Investimentos'], ['anual','Visão anual'], ['ajustes','Ajustes'],
 ];
 function renderNav() {
@@ -851,9 +873,10 @@ function renderNav() {
   $('#sidenav').innerHTML = VIEWS.filter(([k]) => !(k in usa) || usa[k] || S.view === k).map(([k, n], i) => `${i === 4 ? '<div class="nav-sep"></div><p class="eyebrow" style="padding:0 10px 4px">Mais</p>' : ''}<a class="nav-a${i >= 4 ? ' sec' : ''}" href="#${k}" ${S.view === k || (k === 'projecao' && S.view === 'objetivos') ? 'aria-current="page"' : ''}>${ico(k)}${n}${k === 'fixos' && S.db && alertasContas().length ? `<span class="pill bad" style="margin-left:auto">${alertasContas().length}</span>` : ''}</a>`).join('');
   const nAl = S.db ? alertasContas().length : 0;
   const tab = ([k, n]) => `<a href="#${k}" ${S.view === k ? 'aria-current="page"' : ''}>${ico(k)}${n}${k === 'contas' && nAl ? `<span class="badge" aria-label="${nAl} contas para pagar">${nAl}</span>` : ''}</a>`;
-  $('#tabbar').innerHTML = [['inicio','Hoje'], ['contas','Contas']].map(tab).join('') +
+  // Hoje (a decisão de agora) · Lançar · Mês (o salário) · Ano (os meses se ajudando e os planos). Ajuda e ajustes ficam no menu ☰.
+  $('#tabbar').innerHTML = tab(['inicio', 'Hoje']) +
     `<button class="tb-add" data-a="novo" aria-label="Lançar um gasto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>` +
-    [['planos','Planos'], ['ajuda','Ajuda']].map(tab).join('');
+    [['contas', 'Mês'], ['planos', 'Ano']].map(tab).join('');
 }
 const mesNav = () => `<div class="mesnav"><button class="ib" data-a="mes" data-d="-1" aria-label="Mês anterior">‹</button><div class="mesnav-l">${ymLong(S.mes)}</div><button class="ib" data-a="mes" data-d="1" aria-label="Próximo mês">›</button>${S.mes !== ymNow() ? '<button class="lnk" data-a="mesHoje">Hoje</button>' : ''}</div>`;
 const header = (titulo, sub, extra = mesNav()) => `<header class="ph"><div><p class="eyebrow">${sub}</p><h1>${titulo}</h1></div>${extra}</header>`;
@@ -923,7 +946,7 @@ function alertasMes(m) {
   const cortesTxt = (aj, gr) => { const cs = Object.entries(aj.cortes).filter(([k, x]) => x > .5 && gr(k)).sort((a, b) => b[1] - a[1]); return cs.length ? `Saiu das outras, proporcional ao que faltava em cada uma: ${cs.slice(0, 4).map(([k, x]) => `${esc(nomeDia(k))} − ${brl0(x)}`).join(', ')}${cs.length > 4 ? '…' : ''}.` : ''; };
   // mês atual: o dia a dia fora comida pelo projetado (o mesmo do "pode gastar")
   if (DD) DD.lista.forEach(x => { const btn = `<button class="btn sm" data-a="prevCat" data-c="${esc(x.c)}" data-m="${m}">Ver</button>`;
-    if (x.passou > 0.5) out.push({t:'bad', h:`<b>${esc(nomeDia(x.c))}</b> passou ${brl(x.passou)} do projetado (${brl(x.gasto)} de ${brl(x.proj)}). ${cortesTxt(ajusteMes(m), ehPool) || 'Não há outra categoria com folga: o pode gastar zerou e o excesso sai da sobra do mês.'}`, btn});
+    if (x.passou > 0.5) out.push({t:'bad', est:true, h:`<b>${esc(nomeDia(x.c))}</b> passou ${brl(x.passou)} do projetado (${brl(x.gasto)} de ${brl(x.proj)}). ${cortesTxt(ajusteMes(m), ehPool) || 'Não há outra categoria com folga: o pode gastar zerou e o excesso sai da sobra do mês.'}`, btn});
     else if (x.proj > 0.5 && x.gasto >= x.proj * .85 && dm - dia >= 5 && !x.fech) out.push({t:'warn', h:`<b>${esc(nomeDia(x.c))}</b>: já usou ${pct(x.gasto / x.proj)} do projetado. Faltam ${brl0(x.falta)} para ${dm - dia + 1} dias.`, btn}); });
   Object.entries(r.porCatVar).forEach(([c, v]) => {
     if (DD && ehPool(c)) return;
@@ -1058,23 +1081,21 @@ function vHoje() {
     const st = pj.livre1 != null && pj.livre1 < 0 ? 'bad' : pg && pg.livre < -0.5 ? 'pend' : 'ok';
     const frac = pg ? (pg.DD.proj > 0.5 ? pg.total / pg.DD.proj : pg.total > 0.5 ? 1 : 0) : 0;
     let top, linhas = '';
-    if (pg) { const lv = pg.livre, mesC = MESL[+m.slice(5) - 1].toLowerCase().slice(0, 3), ap = pg.aperto, L = [];
-      top = `<div class="ring">${anelHTML(frac)}<div class="in"><b class="num">${brl0(pg.porDia)}</b><small>por dia</small></div></div><div class="hero-r"><small>Pode gastar até ${dCurto(pg.fim)}</small><span class="big num">${brl0(pg.total)}</span><small>${pg.dias} dia${pg.dias > 1 ? 's' : ''} · dia a dia fora comida${pg.DD.mudou ? '' : ', pela média'}</small></div>`;
-      // o que pode atrapalhar vem em frases, sem trocar o número
-      if (pj.livre1 != null && pj.livre1 < 0) L.push(`<span class="fim neg">Até ${dCurto(pj.P1)} a conta não fecha: faltam ${brl0(-pj.livre1)}. Veja em Contas o que dá para adiar.</span>`);
-      else if (pg.limCaixa) L.push(`<span class="fim warn">Até o dinheiro cair (${dCurto(pj.P1)}), a conta aguenta ${brl0(pg.porDiaCaixa)} por dia.</span>`);
-      L.push(`<span class="fim">Fim de ${mesC}: ${brl0(pg.cx.conta)} na conta${sobraCx() ? ` + ${brl0(pg.cx.caixinha)} na caixinha` : ''}</span>`);
-      if (lv < -0.5) L.push(`<span class="fim neg">Falta tirando tudo: <span class="nw">${brl0(-lv)}</span> em ${ymLabel(pg.pior)}. Diminua o projetado ou um plano.</span>`);
-      if (ap) L.push(`<span class="fim warn">Próximo aperto: ${dCurto(`${ap.m}-${pad(ap.dia)}`)}. Faltam ${brl0(ap.falta)} na conta até o dinheiro entrar${ap.ate ? ` no dia ${ap.ate}` : ''} (vai no cartão).</span>`);
-      const vazio = pg.vaHoje != null && pg.vaHoje < 20;
-      if (vazio && (pg.CM.falta > 0.5 || pg.vaProx)) L.push(`<span class="mint">🍽️ Vale acabou: ${pg.vaProx ? `até o dia ${pg.vaProx.d}` : 'até o próximo vale'} a comida sai da conta. Não mexe no pode gastar, diminui a sobra do mês.</span>`);
-      else if (pg.CM.falta > 0.5 || pg.vaHoje != null) L.push(`<span class="mint">🍽️ ${pg.CM.falta > 0.5 ? `Comida à parte: falta ${brl0(pg.CM.falta)} no mês` : 'Comida do mês já gasta'}${pg.vaHoje != null ? ` · vale ${brl0(pg.vaHoje)}${pg.vaProx ? ` (+ ${brl0(pg.vaProx.v)} dia ${pg.vaProx.d})` : ''}` : ''}</span>`);
-      if (gd > 0.5) L.push(`<span class="fim op">Guardado nas caixinhas: ${brl0(gd)} · <button class="lk" data-a="abrirGuardado" style="display:inline">ver</button></span>`);
-      linhas = L.join('') + `<button class="lk" data-a="porDiaDet">Como calculei</button>`; }
+    if (pg) { const lv = pg.livre, ap = pg.aperto, CM = pg.CM, temVale = pg.vaHoje != null, vazio = temVale && pg.vaHoje < 20;
+      // pode gastar = o que ainda sai do SALÁRIO no dia a dia (fora comida); vale = o que ainda sai para COMIDA
+      const vp = pg.vaProx ? `cai ${brl0(pg.vaProx.v)} no dia ${pg.vaProx.d}` : '';
+      const n2 = temVale ? `<button class="num2${vazio && CM.falta > 0.5 ? ' alerta' : ''}" data-a="saldoEdit"><small>Vale (comida)</small><b class="num">${brl0(pg.vaHoje)}</b><span>${vazio && CM.falta > 0.5 ? `comida agora sai da conta e come o salário${pg.vaProx ? ` até o dia ${pg.vaProx.d}` : ''}` : CM.falta > 0.5 ? `comida do mês: falta ${brl0(CM.falta)}` : 'comida do mês já gasta'}</span>${vp ? `<em>${vp}</em>` : ''}</button>`
+        : CM.falta > 0.5 ? `<button class="num2" data-a="porDiaDet"><small>Comida</small><b class="num">${brl0(CM.falta)}</b><span>falta no mês · sai da conta</span></button>` : '';
+      top = `<div class="dois${n2 ? '' : ' um'}"><button class="num2" data-a="porDiaDet"><small>Pode gastar até ${dCurto(pg.fim)}</small><b class="num">${brl0(pg.total)}</b><span>do salário, no dia a dia fora comida · ${brl0(pg.porDia)} por dia (${pg.dias} dia${pg.dias > 1 ? 's' : ''})</span>${pg.DD.mudou || pg.DD.teto ? '' : '<em>pela média</em>'}</button>${n2}</div>`;
+      // uma frase só: a mais urgente (a conta não fechar antes do salário; o próximo aperto; o ano faltando)
+      const frase = pj.livre1 != null && pj.livre1 < 0 ? `<span class="fim neg">Até ${dCurto(pj.P1)} a conta não fecha: faltam ${brl0(-pj.livre1)}. Veja em Mês o que dá para adiar.</span>`
+        : ap ? `<span class="fim warn">${apertoTxt(ap)}</span>`
+        : lv < -0.5 ? `<span class="fim neg">Falta tirando tudo: <span class="nw">${brl0(-lv)}</span> em ${ymLabel(pg.pior)}. Diminua o projetado ou um plano (veja em Ano).</span>`
+        : pg.limCaixa ? `<span class="fim warn">Até o dinheiro cair (${dCurto(pj.P1)}), a conta aguenta ${brl0(pg.porDiaCaixa)} por dia.</span>` : '';
+      linhas = frase + `<div class="row" style="gap:6px 18px;flex-wrap:wrap"><button class="lk" data-a="porDiaDet">Como calculei</button><button class="lk" data-a="saldoEdit">Na conta hoje: ${brl0(sh)} · conferir com o banco</button></div>`; }
     else top = `<div class="ring">${anelHTML(0)}<div class="in"><b class="num">${brl0(sh)}</b><small>na conta</small></div></div><div class="hero-r"><small>Falta o salário e quanto quer gastar</small><span style="font-size:.86rem;opacity:.85">para eu dizer quanto pode gastar por dia</span>${soVer() ? '' : '<button class="lk" data-a="onb" data-p="2">Responder (1 minuto)</button>'}</div>`;
-    h += `<section class="hz s-${st}"><div class="hero-top">${top}</div>${linhas ? `<div class="hero-l">${linhas}</div>` : ''}
-      <div class="hero-m">${pg ? `<button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b><em>hoje</em></button><button data-a="porDiaDet"><small>Comprometido</small><b class="num">${brl0(pg.compr)}</b><em>contas e planos até ${dCurto(pg.fim)}</em></button><button data-a="porDiaDet"><small>${pg.livre < -0.5 ? 'Falta' : 'Sobra'}</small><b class="num"${pg.livre < -0.5 ? ' style="color:#FCA5A5"' : ''}>${pg.livre < -0.5 ? '− ' : '+ '}${brl0(Math.abs(pg.livre))}</b><em>tirando tudo · mais justo: ${ymLabel(pg.pior)}</em></button>`
-        : `<button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button>`}</div></section>`;
+    h += `<section class="hz s-${st}">${pg ? top : `<div class="hero-top">${top}</div>`}${linhas ? `<div class="hero-l">${linhas}</div>` : ''}
+      ${pg ? '' : `<div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div>`}</section>`;
   }
   // primeira vez no app instalado: oferece a senha de 4 números para este aparelho (uma vez)
   if (window.__casa && sh != null && !pinGet() && !pinRecusado()) h += `<section class="sec2" id="pinOferta" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span class="cic" style="background:var(--hero);color:var(--mint)">${svgI('cofre', 18)}</span><span style="flex:1 1 180px" class="small"><b>Proteger o app neste aparelho?</b> Uma senha de 4 números para abrir (os seus números ficam no celular).</span><span class="row" style="gap:6px;margin-left:auto"><button class="btn sm" data-a="pinNao">Agora não</button><button class="btn sm pri" data-a="pinToggle">Criar senha</button></span></section>`;
@@ -1082,23 +1103,6 @@ function vHoje() {
   const av = avisosHoje(m);
   S._avisos = av;
   if (av.length) h += `<section class="sec2" id="aviso1">${avisoBtn(av[0], 0)}${av.length > 1 ? `<button class="lnk small" data-a="avisosTodos" style="display:block;margin-top:8px">Ver mais ${av.length - 1} aviso${av.length > 2 ? 's' : ''}</button>` : ''}</section>`;
-  // fazer hoje (só aparece se houver o que fazer)
-  const fz = [];
-  agendaProxima(0).forEach(a => fz.push({o:a.d + 'a', h:`<div class="ri">${dtBox(a.d < T ? T : a.d)}<span class="vbar" style="background:var(--guard)"></span><span class="tx"><span class="t1">${esc(a.t.length > 70 ? a.t.slice(0, 67) + '…' : a.t)}</span><span class="t2">${a.dias < 0 ? 'era para ontem · ' : ''}${esc(a.o.nome)}</span></span><button class="btn sm" data-a="objGuia" data-id="${a.o.id}">Ver</button></div>`}));
-  alertasContas().filter(p => p.falta <= 0).forEach(p => fz.push({o:`${m}-${pad(Math.max(1, p.dia))}b`, h:`<div class="ri">${dtBox(T)}<span class="vbar" style="background:${p.falta < 0 ? 'var(--neg)' : '#E8590C'}"></span><span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${p.noSaldo ? `venceu dia ${p.dia}: o saldo de ${dCurto(S.cfg.saldo.d)} já considera paga. Toque em Paguei para tirar daqui` : `${quandoTxt(p.falta)} · ${comoPagar(p)}`}</span></span><span class="v num">${brl0(p.valor)}</span>${botaoPagar(p, m)}</div>`}));
-  pendentesMes(m).filter(p => p.tipo === 'receita' && p.dia === d && walletRec(p.ref) === 'conta').forEach(p => fz.push({o:T + 'c', h:`<div class="ri">${dtBox(T)}<span class="vbar" style="background:#10B981"></span><span class="tx"><span class="t1">Deve cair hoje: ${esc(p.desc)}</span><span class="t2">quando cair, toque em Recebi</span></span><span class="v num pos">+ ${brl0(p.valor)}</span>${botaoPagar(p, m)}</div>`}));
-  if (fz.length) h += `<section class="sec2"><div class="sec2-h"><h2>Fazer hoje<span class="cnt">${fz.length}</span></h2></div>${fz.sort((a, b) => a.o.localeCompare(b.o)).map(x => x.h).join('')}</section>`;
-  // para revisar (veio de print, extrato ou IA sem certeza)
-  const rev = S.lanc.filter(l => l.revisar).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
-  if (rev.length) h += `<section class="sec2"><div class="sec2-h"><h2>Para revisar<span class="cnt">${rev.length}</span></h2><a class="lnk" href="#extrato">Ver</a></div>${rev.slice(0, 3).map(l => `<div class="ri">${catIco(l.cat, l.tipo)}<span class="tx"><span class="t1">${esc(l.desc)}</span><span class="t2">${esc(l.cat)} · ${esc(lugarDe(l))}</span></span><span class="v num">${brl0(l.valor)}</span><button class="okb" data-a="revOk" data-id="${l.id}" aria-label="Confirmar ${esc(l.desc)}">${svgI('M5 12l5 5 9-10', 16)}</button></div>`).join('')}</section>`;
-  // próximos dias
-  const lim = (() => { const x = new Date(T + 'T12:00'); x.setDate(x.getDate() + 7); return isoDate(x); })();
-  const prox = eventosFuturos(2).filter(e => e.d > T && e.d <= lim).map(e => ({d:e.d, t:e.desc, s:e.tipo === 'receita' ? 'entra na conta' : /^Fatura /.test(e.desc) ? 'pagar a fatura' : 'pagar', v:e.v, rec:e.tipo === 'receita'})).sort((a, b) => a.d.localeCompare(b.d)), proxMais = Math.max(0, prox.length - 8); prox.length = Math.min(prox.length, 8);
-  const agP = agendaProxima(7).filter(a => a.d > T), agO = agP.length ? agP[0].o : null;
-  if (prox.length || agP.length) h += `<section class="sec2"><div class="sec2-h"><h2>Próximos 7 dias</h2><a class="lnk" href="#contas">Contas</a></div>${prox.map(p => `<div class="ri">${dtBox(p.d)}<span class="vbar" style="background:${p.rec ? '#10B981' : '#E8590C'}"></span><span class="tx"><span class="t1">${esc(p.t)}</span><span class="t2">${esc(p.s)}</span></span><span class="v num ${p.rec ? 'pos' : ''}">${p.rec ? '+ ' : ''}${brl0(p.v)}</span></div>`).join('') || '<p class="small muted" style="padding:6px 0">Nenhuma conta para pagar nos próximos 7 dias.</p>'}${proxMais ? `<a class="lnk small" href="#contas" style="display:block;padding:6px 0">+ ${proxMais} em Contas</a>` : ''}${agP.length ? `<div class="li" data-a="objGuia" data-id="${agO.id}" role="button" tabindex="0"><span class="tx"><span class="t1">📋 ${agP.length} lembrete${agP.length > 1 ? 's' : ''} de ${esc(agO.nome.replace(/\s*\(.*\)\s*$/, ''))}${new Set(agP.map(a => a.o.id)).size > 1 ? ' e outros planos' : ''}</span><span class="t2">próximo: ${esc(agP[0].t.length > 50 ? agP[0].t.slice(0, 47) + '…' : agP[0].t)}</span></span><span class="chev">›</span></div>` : ''}</section>`;
-  const esq = esquecidos();
-  if (esq.length) h += `<section class="sec2"><div class="sec2-h"><h2>Esqueceu algo?</h2></div>${esq.map(x => `<div class="ri"><span class="tx"><span class="t1">${x.t}</span><span class="t2">${x.sub}</span></span>${x.btn}</div>`).join('')}</section>`;
-  if (mostrarInstalar()) h += instalarHTML(false);
   // o que ainda falta gastar em cada item até o fim do mês: dia a dia pelo projetado (média ou o que vocês mudaram), igual ao "pode gastar"; comida pelo limite do vale.
   // Quem passou vem primeiro. Os valores inteiros da lista somam o total de cima.
   const DDh = diaDiaBase(), pg0 = podeGastar(), CMh = pg0 ? pg0.CM : comidaMes(m), [y0, m0] = m.split('-').map(Number);
@@ -1113,18 +1117,47 @@ function vHoje() {
       : v > 0 ? [itensTxt(x.c, v) || (base === 'limite' ? 'sai do vale' : 'previsto até o fim do mês'), x.tirado > 0.5 && B.passaram.length && era > v ? `era ${brl0(era)}; ${brl0(era - v)} cobri${era - v === 1 ? 'u' : 'ram'} ${esc(eJunta(B.passaram.map(nome)))}` : x.ganhou > 0.5 && B.fech.length && v > era ? `era ${brl0(era)}; + ${brl0(v - era)} do que sobrou de ${esc(eJunta(B.fech.map(nome)))}` : ''].filter(Boolean).join(' · ')
       : `já gastou o ${base} do mês`; };
   const vazio = pg0 && pg0.vaHoje != null && pg0.vaHoje < 20;
-  if (itensF.length || comL.length) h += `<section class="sec2" id="faltaGastar"><div class="sec2-h"><h2>Falta gastar em ${MESL[m0 - 1].toLowerCase()}</h2><button class="lnk" data-a="porDiaDet">Como calculei</button></div><p class="small muted" style="margin:-4px 0 4px">${rest} dia${rest === 1 ? '' : 's'} (com hoje) · dia a dia pelo projetado${DDh.mudou ? '' : ' (média dos últimos meses)'} · toque num item para mudar</p>
-    ${itensF.map((x, i) => linhaF(x.c, nomeDia(x.c), brl0(intF[i]), subF(x, intF[i], DDh, nomeDia, 'projetado'))).join('')}
-    <div class="row small" style="justify-content:space-between;padding:8px 2px;border-top:1px solid var(--line)"><b>Dia a dia (pode gastar)</b><b class="num">${brl0(sum(intF, x => x))}</b></div>
-    ${comL.length ? `<p class="small muted" style="margin:8px 0 0">Comida, à parte (${vazio ? `o vale acabou: até ${pg0.vaProx ? 'o dia ' + pg0.vaProx.d : 'o próximo vale'} sai da conta e diminui a sobra, não o pode gastar` : 'sai do vale'}):</p>${comL.map((x, i) => linhaF(x.c, x.c, brl0(intC[i]), subF(x, intC[i], CMh, c => c, 'limite'))).join('')}<div class="row small" style="justify-content:space-between;padding:8px 2px;border-top:1px solid var(--line)"><b>Comida</b><b class="num">${brl0(sum(intC, x => x))}</b></div>` : ''}</section>`;
+  // uma lista só: dia a dia (sai do salário) e comida (sai do vale, ou da conta quando o vale acabou), quem passou primeiro
+  const mesAb = MES[m0 - 1], tagCom = vazio ? 'sai da conta' : 'sai do vale';
+  const rows = [...itensF.map((x, i) => ({x, g:'dia', v:intF[i], nome:nomeDia(x.c), base:'projetado', B:DDh, nm:nomeDia, tag:'do salário'})), ...comL.map((x, i) => ({x, g:'com', v:intC[i], nome:x.c, base:'limite', B:CMh, nm:c => c, tag:tagCom}))]
+    .map((r, i) => ({...r, i})).sort((a, b) => (b.x.passou > 0.5) - (a.x.passou > 0.5) || (b.x.passou > 0.5 ? b.x.passou - a.x.passou : 0) || a.i - b.i);
+  const linhaL = r => `<div class="lw" data-g="${r.g}">${linhaF(r.x.c, r.nome, brl0(r.v), `<span class="tag ${r.g === 'com' && vazio ? 'tag-w' : ''}">${r.tag}</span> ${subF(r.x, r.v, r.B, r.nm, r.base)}`)}${r.x.passou > 0.5 && !soVer() ? `<button class="btn sm manter" data-a="projManter" data-c="${esc(r.x.c)}" data-m="${m}" data-v="${r2(r.x.gasto)}">Manter ${brl0(r.x.gasto)} só em ${mesAb}</button>` : ''}</div>`;
+  if (rows.length) h += `<section class="sec2" id="faltaGastar"><div class="sec2-h"><h2>Falta gastar em ${MESL[m0 - 1].toLowerCase()}</h2><button class="lnk" data-a="porDiaDet">Como calculei</button></div><p class="small muted" style="margin:-4px 0 4px">${rest} dia${rest === 1 ? '' : 's'} (com hoje) · dia a dia pelo projetado${DDh.mudou ? '' : DDh.teto ? ' (pelo teto do mês)' : ' (média dos últimos meses)'} · toque num item para mudar</p>
+    ${rows.map(linhaL).join('')}
+    <div class="row small" style="justify-content:space-between;padding:8px 2px;border-top:1px solid var(--line)"><b>Do salário (pode gastar)</b><b class="num">${brl0(sum(intF, x => x))}</b></div>
+    ${comL.length ? `<div class="row small" style="justify-content:space-between;padding:4px 2px 0"><b>Comida (${vazio ? `o vale acabou: sai da conta${pg0 && pg0.vaProx ? ` até o dia ${pg0.vaProx.d}` : ''}` : 'sai do vale'})</b><b class="num">${brl0(sum(intC, x => x))}</b></div>` : ''}</section>`;
+  // fazer hoje (só aparece se houver o que fazer)
+  const fz = [];
+  agendaProxima(0).forEach(a => fz.push({o:a.d + 'a', h:`<div class="ri">${dtBox(a.d < T ? T : a.d)}<span class="vbar" style="background:var(--guard)"></span><span class="tx"><span class="t1">${esc(a.t.length > 70 ? a.t.slice(0, 67) + '…' : a.t)}</span><span class="t2">${a.dias < 0 ? 'era para ontem · ' : ''}${esc(a.o.nome)}</span></span><button class="btn sm" data-a="objGuia" data-id="${a.o.id}">Ver</button></div>`}));
+  alertasContas().filter(p => p.falta <= 0).forEach(p => fz.push({o:`${m}-${pad(Math.max(1, p.dia))}b`, h:`<div class="ri">${dtBox(T)}<span class="vbar" style="background:${p.falta < 0 ? 'var(--neg)' : '#E8590C'}"></span><span class="tx"><span class="t1">${esc(p.desc)}</span><span class="t2">${p.noSaldo ? `venceu dia ${p.dia}: o saldo de ${dCurto(S.cfg.saldo.d)} já considera paga. Toque em Paguei para tirar daqui` : `${quandoTxt(p.falta)} · ${comoPagar(p)}`}</span></span><span class="v num">${brl0(p.valor)}</span>${botaoPagar(p, m)}</div>`}));
+  pendentesMes(m).filter(p => p.tipo === 'receita' && p.dia === d && walletRec(p.ref) === 'conta').forEach(p => fz.push({o:T + 'c', h:`<div class="ri">${dtBox(T)}<span class="vbar" style="background:#10B981"></span><span class="tx"><span class="t1">Deve cair hoje: ${esc(p.desc)}</span><span class="t2">quando cair, toque em Recebi</span></span><span class="v num pos">+ ${brl0(p.valor)}</span>${botaoPagar(p, m)}</div>`}));
+  if (fz.length) h += `<section class="sec2"><div class="sec2-h"><h2>Fazer hoje<span class="cnt">${fz.length}</span></h2></div>${fz.sort((a, b) => a.o.localeCompare(b.o)).map(x => x.h).join('')}</section>`;
+  // para revisar (veio de print, extrato ou IA sem certeza)
+  const rev = S.lanc.filter(l => l.revisar).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  if (rev.length) h += `<section class="sec2"><div class="sec2-h"><h2>Para revisar<span class="cnt">${rev.length}</span></h2><a class="lnk" href="#extrato">Ver</a></div>${rev.slice(0, 3).map(l => `<div class="ri">${catIco(l.cat, l.tipo)}<span class="tx"><span class="t1">${esc(l.desc)}</span><span class="t2">${esc(l.cat)} · ${esc(lugarDe(l))}</span></span><span class="v num">${brl0(l.valor)}</span><button class="okb" data-a="revOk" data-id="${l.id}" aria-label="Confirmar ${esc(l.desc)}">${svgI('M5 12l5 5 9-10', 16)}</button></div>`).join('')}</section>`;
+  // próximos dias: só a próxima entrada e a próxima conta (o calendário inteiro fica em Mês); lembrete de plano só o de amanhã
+  const evs = eventosFuturos(2).filter(e => e.d > T).sort((a, b) => a.d.localeCompare(b.d)), pE = evs.find(e => e.tipo === 'receita'), pC = evs.find(e => e.tipo !== 'receita');
+  const amanha = (() => { const x = new Date(T + 'T12:00'); x.setDate(x.getDate() + 1); return isoDate(x); })(), agA = agendaProxima(1).filter(a => a.d === amanha);
+  const emD = dt => { const n = ddiff(T, dt); return n === 1 ? 'amanhã' : `em ${n} dias`; };
+  const linhaP = (e, rec) => `<div class="ri">${dtBox(e.d)}<span class="vbar" style="background:${rec ? '#10B981' : '#E8590C'}"></span><span class="tx"><span class="t1">${rec ? 'Próxima entrada' : 'Próxima conta'}: ${esc(e.desc)}</span><span class="t2">${rec ? 'entra na conta' : /^Fatura /.test(e.desc) ? 'pagar a fatura' : 'pagar'} · ${emD(e.d)}</span></span><span class="v num ${rec ? 'pos' : ''}">${rec ? '+ ' : ''}${brl0(e.v)}</span></div>`;
+  if (pE || pC || agA.length) h += `<section class="sec2" id="proximos"><div class="sec2-h"><h2>Próximos dias</h2><a class="lnk" href="#contas">Ver o mês</a></div>${pE ? linhaP(pE, true) : ''}${pC ? linhaP(pC, false) : ''}${agA.map(a => `<div class="li" data-a="objGuia" data-id="${a.o.id}" role="button" tabindex="0"><span class="tx"><span class="t1">📋 Amanhã: ${esc(a.t.length > 70 ? a.t.slice(0, 67) + '…' : a.t)}</span><span class="t2">${esc(a.o.nome)}</span></span><span class="chev">›</span></div>`).join('')}</section>`;
+  const esq = esquecidos();
+  if (esq.length) h += `<section class="sec2"><div class="sec2-h"><h2>Esqueceu algo?</h2></div>${esq.map(x => `<div class="ri"><span class="tx"><span class="t1">${x.t}</span><span class="t2">${x.sub}</span></span>${x.btn}</div>`).join('')}</section>`;
+  if (mostrarInstalar()) h += instalarHTML(false);
   return h;
 }
+// A frase do próximo aperto junta o que sai antes de a conta zerar (ex.: a viagem no dia 1º e o cartão no dia 10)
+function apertoTxt(ap) {
+  const its = folgaInfo(addM(ap.m, -1)).itens.filter(x => x.dia <= ap.dia).sort((a, b) => b.v - a.v).slice(0, 2).sort((a, b) => a.dia - b.dia);
+  return `Próximo aperto, ${dCurto(`${ap.m}-${pad(ap.dia)}`)}${its.length ? `: saem ${eJunta(its.map(x => `${x.desc.replace(/\s*\(.*\)\s*$/, '')} (dia ${x.dia})`))}` : ''}. Faltam ${brl0(ap.falta)} na conta até o dinheiro entrar${ap.ate ? ` no dia ${ap.ate}` : ''} (vai no cartão).`;
+}
+A.projManter = el => mudarProj(el.dataset.c, el.dataset.m, r2(+el.dataset.v), 'mes');
 // Avisos da tela Hoje, do mais importante para o menos. Só o primeiro aparece; os outros num toque.
 // O "próximo aperto" já está no topo e guardar para os planos fica em Planos.
 function avisosHoje(m) {
   const cr = credStatus(), ord = {bad:0, warn:1, info:2, good:3}, ap = (podeGastar() || {}).aperto;
   const avPlano = fluxo().filter(x => x.livre < 0 && x.m !== m).slice(0, 2).map(x => ({t:'bad', h:`<b>${ymLong(x.m)}: vai faltar ${brl0(-x.livre)}.</b>${coberturaHTML(planoCobertura(x.m), true)}`, btn:`<button class="btn" data-a="projIr2" data-m="${x.m}">Ver o mês</button>`}));
-  return [...alertasMes(m).filter(a => !a.k && (a.t === 'bad' || a.t === 'warn') && !(a.ap && ap)), ...avPlano, ...(cr && cr.baixo ? [{t:'bad', h:`<b>O crédito da IA está acabando:</b> restam ~${usd2(cr.resta)}. Sem crédito, o app segue pelas regras grátis.`, btn:`${botaoCredito(true)}<button class="btn" data-a="iaAddCred">Já coloquei</button>`}] : []), ...alertasVale()]
+  return [...alertasMes(m).filter(a => !a.k && !a.est && (a.t === 'bad' || a.t === 'warn') && !(a.ap && ap)), ...avPlano, ...(cr && cr.baixo ? [{t:'bad', h:`<b>O crédito da IA está acabando:</b> restam ~${usd2(cr.resta)}. Sem crédito, o app segue pelas regras grátis.`, btn:`${botaoCredito(true)}<button class="btn" data-a="iaAddCred">Já coloquei</button>`}] : []), ...alertasVale()]
     .map((a, i) => ({...a, i})).sort((a, b) => ord[a.t] - ord[b.t] || a.i - b.i);
 }
 const avisoBtn = (a, i) => `<button class="av1 ${a.t === 'bad' ? 'bad' : a.t === 'info' ? 'info' : 'warn'}" data-a="avisoDet" data-i="${i}" style="margin-top:0"><i></i><span class="avt">${umaLinha(a.h)}</span><span class="muted">›</span></button>`;
@@ -1136,7 +1169,7 @@ function onbHTML() {
   if (p === 1) return barra + `<form class="form" data-f="onb"><label class="fld big"><span>Quanto tem na conta hoje?</span><input name="v" inputmode="decimal" value="${fv(saldoHoje())}" placeholder="0,00" autocomplete="off"></label>${campo('E no vale (alimentação ou refeição)? Se não tem, deixe em branco.', 'va', '0,00')}<p class="hint">Olhe no app do banco. Daqui para frente o app ajusta sozinho com o que você lançar.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button></div></form>`;
   if (p === 2) return barra + `<form class="form" data-f="onb">${campo('Quanto cai na conta por mês (salário)?', 'v', '0,00', ' big')}${campo('Em que dia cai?', 'dia', 'ex.: 5')}<p class="hint">Tem outra entrada fixa (adiantamento, aluguel que recebe)? Dá para pôr depois em Contas fixas e rendas.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button>${pular}</div></form>`;
   if (p === 3) return barra + `<form class="form" data-f="onb">${campo('Recebe vale alimentação ou refeição? Quanto por mês?', 'v', 'deixe em branco se não recebe', ' big')}${campo('Em que dia cai o vale?', 'dia', 'ex.: 26')}<p class="hint">O vale paga a comida (mercado, restaurante, delivery). O app usa ele primeiro.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button>${pular}</div></form>`;
-  if (p === 4) return barra + `<form class="form" data-f="onb">${campo('Quanto quer gastar por mês no dia a dia, fora as contas fixas e a comida?', 'v', 'ex.: 800', ' big')}<p class="hint">Transporte, lazer, compras, farmácia… É o seu "pode gastar" do mês. Quando tiver gastos lançados, o app mostra a média de cada categoria e você ajusta em Contas › Previsto no dia a dia.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button>${pular}</div></form>`;
+  if (p === 4) return barra + `<form class="form" data-f="onb">${campo('Quanto quer gastar por mês no dia a dia, fora as contas fixas e a comida?', 'v', 'ex.: 800', ' big')}<p class="hint">Transporte, lazer, compras, farmácia… É o teto do seu "pode gastar" no mês. Quando tiver gastos lançados, o app divide esse teto entre as categorias pela média delas, e mostra a média ao lado para você decidir.</p><div class="form-actions"><button class="btn pri" type="submit">Continuar</button>${pular}</div></form>`;
   const g = podeGastar();
   return `<div style="display:flex;flex-direction:column;gap:12px"><p style="margin:0;font-size:1.05rem"><b>Pronto!</b> ${g ? `Você pode gastar <b>${brl0(g.total)}</b> até ${dCurto(g.fim)} (${brl0(g.porDia)} por dia).` : 'O app já sabe o básico. Cadastre o salário em Contas fixas e rendas para ver quanto pode gastar.'}</p>
     <div class="sec2" style="margin:0;background:var(--surface-2);box-shadow:none"><b>Próximos passos</b><ol class="small" style="margin:6px 0 0;padding-left:18px;line-height:1.6"><li>Lance um gasto: escreva <i>mercado 80</i> ou toque no <b>+</b>.</li><li>Cadastre as contas fixas (aluguel, luz, internet) em <b>Contas fixas e rendas</b>.</li>${window.__casa ? '<li>Vai dividir com alguém da casa? Convide em <b>Ajustes › Quem usa este controle</b>.</li>' : ''}</ol></div>
@@ -1153,7 +1186,7 @@ F.onb = async f => { const p = (S.onb || {}).p || 1, v = parseValor(f.v.value), 
     if (p === 1) { if (isNaN(v)) return toast('Informe quanto tem na conta (pode ser 0).'); const va = parseValor(f.va.value); await saveCfg({saldo:{v:r2(v), d:dt, em}, ...(!isNaN(va) ? {saldoVA:{v:r2(va), d:dt, em}} : {})}); }
     if (p === 2 && v > 0) await put(COLS.fixos, null, {tipo:'receita', desc:'Salário', valor:r2(v), dia, cat:'Salário', meio:'pix', inicio:ymNow(), ativo:true});
     if (p === 3 && v > 0) await put(COLS.fixos, null, {tipo:'receita', desc:'Vale alimentação', valor:r2(v), dia, cat:'Vale alimentação', meio:'va', inicio:ymNow(), ativo:true});
-    if (p === 4 && v > 0) await saveCfg({orc:{...(S.cfg.orc || {}), Outros:r2(v)}});
+    if (p === 4 && v > 0) await saveCfg({tetoDia:r2(v)});
   } catch (_) { return; }
   _flx = null; if (p === 4) await new Promise(r => setTimeout(r, 300)); onbIr(p + 1); };
 A.revOk = async el => { const l = S.lanc.find(x => x.id === el.dataset.id); if (!l) return; try { await put(COLS.lanc, l.id, {...strip(l), revisar:null}); toast('Confirmado'); } catch (_) {} };
@@ -1238,16 +1271,48 @@ function linhaMes0(m) {
 // Contas: calendário do mês com bolinhas (pagar, receber, já feito) e a lista com Paguei/Recebi.
 function vContasHoje() {
   const hojeM = ymNow(), m = S.calMes || hojeM, d0 = new Date().getDate(), aba = S.contasAba || 'contas', ro = soVer();
-  let h = `<header class="hd2"><span class="tx"><b style="font-size:1.5rem">Contas</b></span>${S.cartoes.length ? `<div class="seg3" role="group" aria-label="Ver" style="flex:none;width:190px"><button type="button" data-a="contasAba" data-v="contas" aria-pressed="${aba === 'contas'}">Contas</button><button type="button" data-a="contasAba" data-v="cartoes" aria-pressed="${aba === 'cartoes'}">Cartões</button></div>` : ''}</header>`;
+  let h = `<header class="hd2"><span class="tx"><b style="font-size:1.5rem">Mês</b></span>${S.cartoes.length ? `<div class="seg3" role="group" aria-label="Ver" style="flex:none;width:170px"><button type="button" data-a="contasAba" data-v="contas" aria-pressed="${aba === 'contas'}">Mês</button><button type="button" data-a="contasAba" data-v="cartoes" aria-pressed="${aba === 'cartoes'}">Cartões</button></div>` : ''}<button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>`;
   const nav = `<div class="row" style="justify-content:space-between;margin-bottom:12px"><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="-1" aria-label="Mês anterior">‹</button><b>${ymLong(m)}</b><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="1" aria-label="Próximo mês">›</button></div>`;
   if (aba === 'cartoes' && S.cartoes.length) return h + nav + cartoesContasHTML(m);
   const {L, E, G, pagos, pontes, saldoD, ini, cxIni, usoP, nd, d1, fxs, ix, ddDia} = linhaMes(m);
   const fx = fluxo().find(x => x.m === m), fim = fx ? fx.livre : null;
   const Ef = E.filter(p => !p.noSaldo), noVale = p => p.tipo === 'receita' && p.ref && p.kind !== 'uso' && walletRec(p.ref) !== 'conta', recV = sum(Ef.filter(noVale)), recC = sum(Ef) - recV;
   const r3 = (n, v, cor, sub = '') => `<div class="r3"><span>${n}</span><b class="num" style="color:${cor}">${v == null ? '—' : brl0(v)}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
-  h += nav + `<section class="sec2 res3">${r3('Falta pagar', sum(L.filter(p => !p.noSaldo)), 'var(--warn)')}${r3('Falta receber', recC + recV, 'var(--pos)', recV > 0.5 ? `na conta ${brl0(recC)} · no vale ${brl0(recV)} (só para comida)` : '')}${r3('Fica na conta no fim', fx ? fx.contaFim : null, fim != null && fim < 0 ? 'var(--neg)' : 'var(--ink)', sobraCx() && fx && fx.cx > 1 ? `+ ${brl0(fx.cx)} na caixinha ${NOME_SOBRAS}` : fx && fx.destino > 1 ? `livre de verdade ${brl0(fx.livreReal)}` : '')}</section>`;
+  h += nav + `<section class="sec2 res3">${r3('Falta pagar', sum(L.filter(p => !p.noSaldo)), 'var(--warn)')}${r3('Falta receber na conta', recC, 'var(--pos)', recV > 0.5 ? `e mais ${brl0(recV)} no vale (só para comida)` : '')}${r3('Fica na conta no fim', fx ? fx.contaFim : null, fim != null && fim < 0 ? 'var(--neg)' : 'var(--ink)', sobraCx() && fx && fx.cx > 1 ? `+ ${brl0(fx.cx)} na caixinha ${NOME_SOBRAS}` : fx && fx.destino > 1 ? `livre de verdade ${brl0(fx.livreReal)}` : '')}</section>`;
   const sep = m === hojeM ? separadoInfo() : null;
   if (sep) h += `<div class="sec2" style="margin-bottom:14px;background:var(--warn-soft)"><b>⚠️ ${ymLabel(sep.ate)} fecha negativo pelo plano</b><p class="small" style="margin:4px 0 0">Faltam ${brl0(sep.v)}. Para cobrir: mude um plano, adie uma compra ou guarde ${brl0(sep.porMes)} por mês até lá. O "pode gastar" não muda sozinho por isso.</p><button class="btn sm" data-a="projIr2" data-m="${sep.ate}" style="margin-top:6px">Ver ${ymLabel(sep.ate)}</button></div>`;
+  // previsto do dia a dia (sem dia certo) por categoria
+  const p = projMes(m), prev = {}; prevGastoMes(m).forEach(l => { const o = prev[l.cat] = prev[l.cat] || {v:0, lug:{}}; o.v += l.v; o.lug[l.lugar] = (o.lug[l.lugar] || 0) + l.v; });
+  const pc = Object.entries(prev).sort((a, b) => b[1].v - a[1].v), grp = c => ehPool(c) ? 'dia' : vaCats().includes(c) || ['va', 'vr'].includes((S.cfg.orcMeio || {})[c]) ? 'com' : 'out';
+  // valores inteiros que somam o total de cada grupo (os mesmos da tela Hoje)
+  const G3 = {dia:pc.filter(x => grp(x[0]) === 'dia'), com:pc.filter(x => grp(x[0]) === 'com'), out:pc.filter(x => grp(x[0]) === 'out')}, tot3 = a => brl0(Math.round(sum(a, x => x[1].v)));
+  Object.values(G3).forEach(a => { const iv = inteiros(a.map(x => x[1].v), Math.round(sum(a, x => x[1].v))); a.forEach((x, i) => { x[1].vi = iv[i]; }); });
+  if (m === hojeM) { const FI = faltaInt(); G3.dia.forEach(x => { if (x[0] in FI) x[1].vi = FI[x[0]]; }); }
+  const liP = ([c, o]) => `<div class="li" data-a="prevCat" data-c="${esc(c)}" data-m="${m}" role="button" tabindex="0">${catIco(c, 'despesa')}<span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">${itensTxt(c, o.vi) || Object.keys(o.lug).map(esc).join(' · ')}</span></span><span class="am">${brl0(o.vi)}</span><span class="chev">›</span></div>`;
+  // ---- o salário do mês em três blocos: o que não dá para cortar, o que dá, e o dinheiro a mais (com destino) ----
+  const mesAb = MESL[+m.slice(5) - 1].toLowerCase();
+  const deve = [...L, ...pagos].filter(x => x.tipo !== 'receita').sort((a, b) => a.dia - b.dia), totDeve = sum(deve, x => x.valor) + sum(G3.out, x => x[1].v), jaPago = sum(deve.filter(x => x.pago), x => x.valor);
+  const linD = x => `<div class="ri"><span class="tx"><span class="t1">${esc(x.desc)}</span><span class="t2">${x.pago ? 'pago' : x.noSaldo ? 'já está no saldo' : `dia ${Math.max(1, x.dia)}`}</span></span><span class="v num${x.pago ? ' muted' : ''}">${brl0(x.valor)}</span></div>`;
+  const blocoNao = `<section class="sec2" id="naoCortar"><div class="sec2-h"><h2 style="text-transform:none">Não dá para cortar</h2><b class="num">${brl0(totDeve)}</b></div><p class="small muted" style="margin:-4px 0 6px">O que o salário já deve em ${mesAb}: contas, faturas, financiamento, parcelas${jaPago > 0.5 ? ` (já pago ${brl0(jaPago)})` : ''}.</p>${deve.map(linD).join('') || '<p class="small muted">Nada neste mês.</p>'}${G3.out.map(([c, o]) => `<div class="ri" data-g="out"><span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">previsto pela média dos últimos meses</span></span><span class="v num">${brl0(o.vi)}</span></div>`).join('')}</section>`;
+  // dá para cortar: o dia a dia (sai do salário) e a comida (sai do vale); a média ao lado do que já foi
+  const atualM = m === hojeM, FIm = atualM ? faltaInt() : {}, hvM = histVar();
+  const cortar = atualM ? [...diaDiaBase().lista.map(x => ({c:x.c, nome:nomeDia(x.c), g:x.gasto, md:x.media, falta:FIm[x.c] || 0, passou:x.passou, com:false})), ...comidaMes(m).lista.map(x => ({c:x.c, nome:x.c, g:x.gasto, md:hvM[x.c] ? hvM[x.c].tot : 0, falta:Math.round(x.falta), passou:x.passou, com:true}))]
+    : [...G3.dia.map(([c, o]) => ({c, nome:nomeDia(c), g:0, md:mediaPool(m)[c] || 0, falta:o.vi, passou:0, com:false})), ...G3.com.map(([c, o]) => ({c, nome:c, g:0, md:hvM[c] ? hvM[c].tot : 0, falta:o.vi, passou:0, com:true}))];
+  cortar.sort((a, b) => (b.passou > 0.5) - (a.passou > 0.5) || (atualM ? (b.g - b.md) - (a.g - a.md) : b.falta - a.falta));
+  const blocoSim = cortar.length ? `<section class="sec2" id="cortar"><div class="sec2-h"><h2 style="text-transform:none">Dá para cortar</h2><b class="num">${brl0(sum(cortar, x => x.falta))}</b></div><p class="small muted" style="margin:-4px 0 6px">O dia a dia e a comida: é aqui que o salário e o vale vazam. ${atualM ? 'A média fica ao lado do que já foi: onde passou da média, cabe gastar menos.' : 'O que está previsto, pela média.'}</p>
+    ${cortar.map(x => `<div class="li" data-a="prevCat" data-c="${esc(x.c)}" data-m="${m}" data-g="${x.com ? 'com' : 'dia'}" role="button" tabindex="0">${catIco(x.c, 'despesa')}<span class="tx"><span class="t1">${esc(x.nome)}${x.com ? ' <span class="tag">comida</span>' : ''}</span><span class="t2">${atualM ? `já foi ${brl0(x.g)} · média ${brl0(x.md)}${x.g > x.md + 0.5 ? ` · <span class="neg">${brl0(x.g - x.md)} acima</span>` : ''}` : `média ${brl0(x.md)}`}</span></span><span class="am">${x.passou > 0.5 ? '<span class="neg">passou</span>' : brl0(x.falta)}</span><span class="chev">›</span></div>`).join('')}</section>` : '';
+  // entrou a mais: férias, 13º, PLR… já com destino, antes de parecer sobra
+  const NAO_EXTRA = ['Salário', 'Vale alimentação', 'Vale refeição'];
+  const extras = [...fixosAtivos(m).filter(f => f.tipo === 'receita' && !NAO_EXTRA.includes(f.cat) && !pagoFixo(f, m) && valorFixo(f, m) >= 300).map(f => ({desc:f.desc, v:valorFixo(f, m), dia:diaFixo(f, m)})),
+    ...S.lanc.filter(l => l.mes === m && l.tipo === 'receita' && !isRep(l) && !isVARec(l) && !NAO_EXTRA.includes(l.cat) && (+l.valor || 0) >= 300).map(l => ({desc:l.desc, v:+l.valor || 0, dia:l.data ? +l.data.slice(8) : 1, ja:true}))].sort((a, b) => a.dia - b.dia);
+  let blocoMais = '';
+  if (extras.length) { const fxm = fxs[ix], nx = addM(m, 1), folgaM = colchao(m), guarda = fxm ? Math.max(0, fxm.cxMov || 0) : 0;
+    const planosM = objsAtivos().filter(o => o.alvo && o.alvo >= m && o.alvo <= nx && objFalta(o) > 1).map(o => { const it = itensMes(o.alvo).G.find(g => g.kind === 'objDia' && g.o === o); return `${esc(o.nome.replace(/\s*\(.*\)\s*$/, ''))} (${brl0(objFalta(o))}${it ? `, dia ${it.dia} de ${MESL[+o.alvo.slice(5) - 1].toLowerCase().slice(0, 3)}` : ''})`; });
+    const partes = [...planosM, folgaM > 0.5 ? `${brl0(folgaM)} para ${ymLabel(nx)} não usar o cartão até o dinheiro entrar` : '', guarda > 0.5 ? `o resto (${brl0(guarda)}) pode ir para a caixinha ${NOME_SOBRAS}` : ''].filter(Boolean);
+    blocoMais = `<section class="sec2" id="aMais"><div class="sec2-h"><h2 style="text-transform:none">Entrou a mais</h2><b class="num pos">+ ${brl0(sum(extras, x => x.v))}</b></div>
+      <p class="small" style="margin:0;line-height:1.55">${extras.map(x => `${x.ja ? 'Entrou' : `No dia ${x.dia} entra`} <b>${esc(x.desc)}</b> (${brl0(x.v)})`).join('; ')}. ${partes.length ? `Já está combinado: ${eJunta(partes)}.` : ''}</p>
+      ${fxm ? `<p class="small" style="margin:6px 0 0">Sobra de verdade, depois disso: <b>${brl0(Math.max(0, fxm.livreReal))}</b>, que é o que segura ${ymLabel(fxm.paraM)}. Veja em <a href="#planos">Ano</a>.</p>` : ''}</section>`; }
+  h += blocoNao + blocoSim + blocoMais;
   // lista dia a dia
   const DS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'], [y, mo] = m.split('-').map(Number);
   const quando = dia => { const x = new Date(y, mo - 1, dia); return `${DS[x.getDay()]}, ${dia} ${MES[mo - 1]}`; };
@@ -1273,17 +1338,6 @@ function vContasHoje() {
       ${usoP.cx + usoP.cred + usoP.cheque > 0.5 ? `<b>Antes do dinheiro entrar:</b> ${[usoP.cx > 0.5 ? `tira ${brl0(usoP.cx)} da caixinha` : '', usoP.cred > 0.5 ? `paga ${brl0(usoP.cred)} no crédito` : '', usoP.cheque > 0.5 ? `usa ${brl0(usoP.cheque)} do cheque especial` : ''].filter(Boolean).join(', ')} (a partir do dia ${usoP.dias[0]}). A conta nunca fica negativa.<br>` : '<b>A conta não fica negativa</b> em nenhum dia.<br>'}
       <b>Fim do mês: ≈ ${brl0(fimC)}</b> na conta${sobraCx() && fxm && fimC > 0.5 && fxm.livre >= colchao(m) - 0.5 ? ` (${folgaCurta(m)})` : ''}${sobraCx() && fxm ? ` · caixinha ${brl0(Math.max(0, fxm.cx) + (usoP.fatura || 0))}${usoP.fatura > 0.5 ? ` (${brl0(usoP.fatura)} separados para a fatura)` : ''}` : ''}.${usoP.divida > 0.5 ? `<br><b class="neg">O mês não fecha: ${brl0(usoP.divida)} ficam no cartão para a fatura de ${ymLabel(addM(m, 1))}.</b> Veja em Planos como cobrir.` : ''}${lrM != null ? `<br><b>Dia a dia projetado${m === hojeM ? ' que falta' : ''}:</b> ${brl0(pdM)} (fora comida) · <b class="${lrM < -0.5 ? 'neg' : 'pos'}">${lrM < -0.5 ? `Falta tirando tudo: ${brl0(-lrM)}` : `Sobra tirando tudo: + ${brl0(lrM)}`}</b>${lrM < -0.5 && fxm.paraM ? ` (em ${ymLabel(fxm.paraM)})` : ''}` : ''}${ddDia > 0.5 ? `<br><span class="muted">O "conta ≈" de cada dia vale se o dia a dia que falta sair aos poucos (≈ ${brl0(ddDia)} por dia da conta).</span>` : ''}</div>` + lista; }
   h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">Dia a dia de ${ymLabel(m)}</h2><button class="lnk small" data-a="contasPagos">${S2 ? 'Esconder o que já foi' : 'Mostrar o que já foi'}</button></div>${m > hojeM && !ro && lista ? '<p class="small muted" style="margin:-4px 0 6px">Entrada ou conta com valor diferente neste mês? Toque em <b>Mudar</b>: vale só para este mês ou daqui pra frente.</p>' : ''}${lista || '<p class="muted small" style="padding:8px 0">Nada pendente neste mês.</p>'}</section>`;
-  // previsto do dia a dia (sem dia certo) por categoria
-  const p = projMes(m), prev = {}; prevGastoMes(m).forEach(l => { const o = prev[l.cat] = prev[l.cat] || {v:0, lug:{}}; o.v += l.v; o.lug[l.lugar] = (o.lug[l.lugar] || 0) + l.v; });
-  const pc = Object.entries(prev).sort((a, b) => b[1].v - a[1].v), grp = c => ehPool(c) ? 'dia' : vaCats().includes(c) || ['va', 'vr'].includes((S.cfg.orcMeio || {})[c]) ? 'com' : 'out';
-  // valores inteiros que somam o total de cada grupo (os mesmos da tela Hoje)
-  const G3 = {dia:pc.filter(x => grp(x[0]) === 'dia'), com:pc.filter(x => grp(x[0]) === 'com'), out:pc.filter(x => grp(x[0]) === 'out')}, tot3 = a => brl0(Math.round(sum(a, x => x[1].v)));
-  Object.values(G3).forEach(a => { const iv = inteiros(a.map(x => x[1].v), Math.round(sum(a, x => x[1].v))); a.forEach((x, i) => { x[1].vi = iv[i]; }); });
-  if (m === hojeM) { const FI = faltaInt(); G3.dia.forEach(x => { if (x[0] in FI) x[1].vi = FI[x[0]]; }); }
-  const liP = ([c, o]) => `<div class="li" data-a="prevCat" data-c="${esc(c)}" data-m="${m}" role="button" tabindex="0">${catIco(c, 'despesa')}<span class="tx"><span class="t1">${esc(nomeDia(c))}</span><span class="t2">${itensTxt(c, o.vi) || Object.keys(o.lug).map(esc).join(' · ')}</span></span><span class="am">${brl0(o.vi)}</span><span class="chev">›</span></div>`;
-  if (pc.length) h += `<section class="sec2" id="previstoMes"><div class="sec2-h"><h2 style="text-transform:none">Previsto no dia a dia (${tot3(G3.dia)})</h2></div><p class="small muted" style="margin:-4px 0 6px">O que ainda falta gastar em ${ymLabel(m)}, fora comida${m === hojeM ? ': é o "pode gastar"' : ''}. Toque para mudar o projetado (todos os meses ou só este).</p>${G3.dia.map(liP).join('') || '<p class="small muted">Nada previsto.</p>'}
-    ${G3.com.length ? `<h3 style="margin:14px 0 2px">Comida (${tot3(G3.com)})</h3><p class="small muted" style="margin:0 0 6px">Limite próprio, sai do vale.</p>${G3.com.map(liP).join('')}` : ''}
-    ${G3.out.length ? `<h3 style="margin:14px 0 2px">Outros previstos (${tot3(G3.out)})</h3><p class="small muted" style="margin:0 0 6px">Pela média dos últimos meses (ex.: impostos). Não entram no pode gastar: saem da sobra do mês.</p>${G3.out.map(liP).join('')}` : ''}</section>`;
   // viagens e planos do mês
   const objs = {}; p.linhas.filter(l => l.tipo === 'objetivo').forEach(l => { const k = l.cat.replace('Objetivo: ', ''); objs[k] = (objs[k] || 0) + l.v; });
   if (Object.keys(objs).length) h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">Viagens e planos em ${ymLabel(m)}</h2></div>${Object.entries(objs).map(([k, v]) => { const o = S.objs.find(x => x.nome === k); return `<div class="li" ${o ? `data-a="objGuia" data-id="${o.id}"` : ''} role="button" tabindex="0">${catIco('Viagens', 'despesa')}<span class="tx"><span class="t1">${esc(k)}</span><span class="t2">toque para ver o guia</span></span><span class="am">${brl0(v)}</span><span class="chev">›</span></div>`; }).join('')}</section>`;
@@ -1303,7 +1357,7 @@ function abrirProj(c, m) {
   const falta = sum(prevGastoMes(m).filter(l => l.cat === c), l => l.v), its = itensCat(c, falta), dd = m === ymNow() && pool ? diaDiaBase().lista.find(x => x.c === c) : null, md = pool ? (mediaPool(m)[c] || 0) : (mediasEd(m)[c] || 0);
   const proj = dd ? dd.proj : temV ? lim : pool ? md : g + falta;
   const L = (a, b, st = '') => `<div class="row" style="justify-content:space-between${st}"><span>${a}</span><b class="num">${b}</b></div>`;
-  const topo = dd ? L(dd.mudou ? 'Projetado (seu valor)' : 'Projetado (média)', brl0(dd.proj)) + (dd.mudou ? L('Média', brl0(dd.media)) : '') + L('Já gastou', brl0(dd.gasto)) + (dd.passou > 0.5 ? L('Passou do projetado', `<span class="neg">${brl0(dd.passou)}</span>`) : '') + (dd.fech ? L('Terminado no mês', dd.tirado > 0.5 ? `${brl0(dd.tirado)} foram para as outras` : '—') : dd.tirado > 0.5 ? L('Foi para cobrir quem passou', '− ' + brl0(dd.tirado)) : '') + (dd.ganhou > 0.5 ? L('Veio de quem terminou', '+ ' + brl0(dd.ganhou)) : '')
+  const topo = dd ? L(dd.mudou ? 'Projetado (seu valor)' : dd.teto ? 'Projetado (parte do teto do mês)' : 'Projetado (média)', brl0(dd.proj)) + (dd.mudou ? L('Média', brl0(dd.media)) : '') + L('Já gastou', brl0(dd.gasto)) + (dd.passou > 0.5 ? L('Passou do projetado', `<span class="neg">${brl0(dd.passou)}</span>`) : '') + (dd.fech ? L('Terminado no mês', dd.tirado > 0.5 ? `${brl0(dd.tirado)} foram para as outras` : '—') : dd.tirado > 0.5 ? L('Foi para cobrir quem passou', '− ' + brl0(dd.tirado)) : '') + (dd.ganhou > 0.5 ? L('Veio de quem terminou', '+ ' + brl0(dd.ganhou)) : '')
     : L(temV ? (pool ? 'Projetado (seu valor)' : 'Limite do mês') : (pool ? 'Projetado (média)' : 'Previsão (média)'), brl0(temV ? lim : g + falta)) + (temV && md ? L('Média', brl0(md)) : '') + L('Já gastou', brl0(g));
   const deOnde = c === CSD ? `<p class="small" style="margin:10px 0 0"><b>De onde vem:</b> é a média do que vocês gastavam no cartão sem dizer em quê (faturas antigas lançadas inteiras), tirando as assinaturas fixas do cartão. Se agora cada compra do cartão é lançada com a categoria, pode zerar.${dd && dd.gasto > 0.5 ? ` Neste mês já tem ${brl0(dd.gasto)} lançados assim: zerando, este mês fica nesse valor e os próximos vão a zero.` : ''}</p>` : '';
   const ed = soVer() ? '' : `<form class="form" data-f="proj" style="margin-top:14px;padding:12px 14px;border-radius:14px;border:1px solid var(--line)"><input type="hidden" name="c" value="${esc(c)}"><input type="hidden" name="m" value="${m}">
@@ -1311,10 +1365,16 @@ function abrirProj(c, m) {
     <div class="seg" role="radiogroup" aria-label="Vale para"><label><input type="radio" name="escopo" value="todos" ${temMes ? '' : 'checked'}><span>Todos os meses</span></label><label><input type="radio" name="escopo" value="mes" ${temMes ? 'checked' : ''}><span>Só em ${ymLabel(m)}</span></label></div>
     <div class="form-actions"><button class="btn pri" type="submit">Salvar</button></div>
     <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">${md && (c in (S.cfg.orc || {}) || temMes) ? `<button type="button" class="btn sm" data-a="projMedia" data-c="${esc(c)}" data-m="${m}">Usar a média (${brl0(md)})</button>` : ''}${proj > 0.5 ? `<button type="button" class="btn sm" data-a="projZerar" data-c="${esc(c)}" data-m="${m}">Zerar</button>` : ''}</div></form>`;
-  openSheet(`${nomeDia(c)} · ${ymLabel(m)}`, `<div style="padding:12px 14px;border-radius:14px;background:var(--surface-2)">${topo}${L('<b>Ainda previsto</b>', brl0(dd ? dd.falta : falta), ';border-top:1px solid var(--line);margin-top:6px;padding-top:6px')}</div>${deOnde}${ed}
+  openSheet(`${nomeDia(c)} · ${ymLabel(m)}`, `${pool ? tetoBox() : ''}<div style="padding:12px 14px;border-radius:14px;background:var(--surface-2);margin-top:${pool && tetoDia() != null ? 10 : 0}px">${topo}${L('<b>Ainda previsto</b>', brl0(dd ? dd.falta : falta), ';border-top:1px solid var(--line);margin-top:6px;padding-top:6px')}</div>${deOnde}${ed}
     ${its.length > 1 || (its.length === 1 && norm(its[0].n) !== norm(c)) ? `<h3 style="margin-top:14px">O que ainda está previsto</h3>${its.map(x => `<div class="row small" style="justify-content:space-between;padding:7px 0;border-top:1px solid var(--line)"><span>${esc(x.n)}</span><b class="num">${brl0(x.v)}</b></div>`).join('')}` : ''}
     <div class="form-actions" style="margin-top:14px;flex-wrap:wrap">${soVer() || c === CSD ? '' : `<button class="btn" data-a="limCat" data-c="${esc(c)}" data-m="${m}">Itens</button>`}${m === ymNow() && !soVer() && proj > 0.5 ? `<button class="btn" data-a="fecharCat" data-cat="${esc(c)}" data-m="${m}">${(((S.cfg.orcFech || {})[m]) || []).includes(c) ? 'Reabrir este gasto' : 'Terminei este gasto'}</button>` : ''}<button class="btn" data-a="catDet" data-cat="${esc(c)}" data-m="${m}">Ver o que já gastei</button></div>`);
 }
+// Teto do dia a dia (de quem começou do zero): mostra, muda ou troca pela média
+const tetoBox = () => { const t = tetoDia(); if (t == null) return ''; const md = sum(Object.values(mediaPool(ymNow())), v => v);
+  return `<div class="small" id="tetoBox" style="margin:10px 0 0;padding:10px 12px;border-radius:12px;background:var(--surface-2)"><b>Teto do dia a dia: ${brl0(t)} por mês.</b> ${md > 0.5 ? `Dividido entre as categorias na proporção da média delas (a média soma ${brl0(md)}).` : 'Enquanto não há média, fica todo em Outros.'}${soVer() ? '' : `<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><button class="btn sm" type="button" data-a="tetoMudar">Mudar o teto</button>${md > 0.5 ? `<button class="btn sm" type="button" data-a="tetoMedia">Usar a média (${brl0(md)})</button>` : ''}</div>`}</div>`; };
+A.tetoMedia = async () => { const a = podeGastar(); try { await saveCfg({tetoDia:null}); _flx = null; const d = podeGastar(); toast(`Agora vale a média de cada categoria. Pode gastar: ${brl0(a ? a.total : 0)} → ${brl0(d ? d.total : 0)}`); closeSheet(); } catch (_) {} };
+A.tetoMudar = () => openSheet('Teto do dia a dia', `<form class="form" data-f="teto"><label class="fld big"><span>Quanto quer gastar por mês no dia a dia, fora as contas e a comida?</span><input name="v" inputmode="decimal" value="${fv(tetoDia())}"></label><p class="hint">É o total do mês. O app divide entre as categorias pela média delas. Deixe 0 para usar só a média.</p><div class="form-actions"><button class="btn pri" type="submit">Salvar</button></div></form>`);
+F.teto = async f => { const v = parseValor(f.v.value); if (!(v >= 0)) return toast('Informe o valor.'); const a = podeGastar(); try { await saveCfg({tetoDia:v > 0 ? r2(v) : null}); _flx = null; const d = podeGastar(); toast(`Pode gastar: ${brl0(a ? a.total : 0)} → ${brl0(d ? d.total : 0)}`); closeSheet(); } catch (_) {} };
 // Muda o projetado de uma categoria. v = número (0 vale) ou null = volta para a média. "Todos os meses" também vale para o mês que está aberto.
 // Zerar tira só o que FALTA: no mês atual o projetado fica no que já foi gasto (não vira "passou do projetado"); os outros meses vão a zero.
 async function mudarProj(c, m, v, escopo, zerar = false) {
@@ -1444,26 +1504,42 @@ function lugsProj(c, hv) {
 }
 // Mês em que vocês zeraram todo o dia a dia (ex.: férias pagas pelo plano da viagem): o cartão sem detalhe também fica zero
 const zerouDiaDia = (m, orc = orcDoMes(m), media = mediaPool(m)) => { const cs = Object.keys(media).filter(c => c !== 'Cartão (sem detalhe)' && media[c] > 0.5); return cs.length > 0 && !('Cartão (sem detalhe)' in orc) && cs.every(c => c in orc && !(+orc[c] > 0)); };
-// Dia a dia do mês atual (fora comida): projetado de cada categoria = o valor que vocês mudaram ou, se não mudaram, a média.
+// Teto do mês (quem começou do zero disse quanto quer gastar no dia a dia): é o total do mês, não uma categoria a mais.
+const tetoDia = () => { const t = +S.cfg.tetoDia; return t > 0 ? t : null; };
+// Projetado do dia a dia (fora comida) de cada categoria no mês m: o valor que vocês puseram; senão a média.
+// Com teto: enquanto não há média, o teto fica todo em "Outros"; quando a média aparece, o teto é dividido entre as
+// categorias na proporção da média (o total continua o teto, nada soma por cima). "Usar a média" tira o teto.
+function projPool(m) {
+  const C = cacheDados(); C.pp = C.pp || new Map(); if (C.pp.has(m)) return C.pp.get(m);
+  const media = mediaPool(m), orc = orcDoMes(m), zerou = zerouDiaDia(m, orc, media), CSD = 'Cartão (sem detalhe)', proj = {}, mudou = {}, peloTeto = {};
+  const cats = new Set([...Object.keys(media), ...Object.keys(orc).filter(ehPool)]);
+  cats.forEach(c => { if (c in orc && ehPool(c)) { proj[c] = Math.max(0, +orc[c] || 0); mudou[c] = true; } else if (c === CSD && zerou) { proj[c] = 0; mudou[c] = true; } else proj[c] = media[c] || 0; });
+  const teto = tetoDia();
+  if (teto != null) { const livres = [...cats].filter(c => !mudou[c]), resto = Math.max(0, teto - sum([...cats].filter(c => mudou[c]), c => proj[c])), sm = sum(livres, c => media[c] || 0);
+    if (sm > 0.5) livres.forEach(c => { proj[c] = resto * (media[c] || 0) / sm; peloTeto[c] = true; });
+    else if (!Object.values(media).some(v => v > 0.5)) { livres.forEach(c => { proj[c] = 0; }); cats.add('Outros'); proj.Outros = (mudou.Outros ? proj.Outros : 0) + resto; peloTeto.Outros = true; } }
+    // (há média, mas todas as categorias têm valor de vocês, como num mês zerado: o teto não soma nada)
+  const r = {proj, mudou, peloTeto, media, teto, cats:[...cats]}; C.pp.set(m, r); return r;
+}
+// Dia a dia do mês atual (fora comida): projetado de cada categoria = o valor que vocês mudaram ou, se não mudaram, a média (ou o teto).
 // O que falta = projetado − gasto. Passou numa categoria? O excesso sai das outras, proporcional ao que faltava em cada uma.
 function diaDiaBase() {
   const C = cacheDados(); if (C.ddb) return C.ddb;
-  const m = ymNow(), T = hoje(), media = mediaPool(m), orc = orcDoMes(m), gasto = {}, proj = {}, mudou = {}, CSD = 'Cartão (sem detalhe)';
+  const m = ymNow(), T = hoje(), PP = projPool(m), media = PP.media, orc = orcDoMes(m), gasto = {}, proj = {}, mudou = {}, CSD = 'Cartão (sem detalhe)';
   const agendado = l => l.data && l.data > T && !l.cartaoId;
   S.lanc.forEach(l => { if (mesGasto(l) !== m || agendado(l)) return; const v = +l.valor || 0;
     if (l.tipo !== 'receita' && l.cat === CSD && !isFixo(l) && !l.grupo && !l.objId && !isRep(l)) { gasto[CSD] = (gasto[CSD] || 0) + v; return; }
     if (!varLanc(l) || !noDiaDia(l)) return; const c = l.cat || 'Outros'; gasto[c] = (gasto[c] || 0) + v; });
-  const cats = [...new Set([...Object.keys(media), ...Object.keys(gasto), ...Object.keys(orc).filter(ehPool)])], f0 = {}, ex = {};
-  const zerou = zerouDiaDia(m, orc, media);
-  cats.forEach(c => { if (c in orc && ehPool(c)) { proj[c] = Math.max(0, +orc[c] || 0); mudou[c] = true; } else if (c === CSD && zerou) { proj[c] = 0; mudou[c] = true; } else proj[c] = media[c] || 0;
+  const cats = [...new Set([...PP.cats, ...Object.keys(gasto)])], f0 = {}, ex = {};
+  cats.forEach(c => { proj[c] = PP.proj[c] || 0; if (PP.mudou[c]) mudou[c] = true;
     const d = proj[c] - (gasto[c] || 0); f0[c] = Math.max(0, d); ex[c] = Math.max(0, -d); });
   // "Terminei este gasto no mês": o que sobrou nele vai para as outras, pela mesma regra (proporcional ao que falta em cada uma)
   const fech = new Set(((S.cfg.orcFech || {})[m]) || []), abertas = cats.filter(c => !fech.has(c) && f0[c] > 0.005), quem = abertas.length ? abertas : cats.filter(c => f0[c] > 0.005);
   const somaF = sum(cats, c => f0[c]), somaE = sum(cats, c => ex[c]), resto = r2(Math.max(0, somaF - somaE)), somaQ = sum(quem, c => f0[c]), k = somaQ > 0 ? resto / somaQ : 0, falta = {};
   cats.forEach(c => { falta[c] = quem.includes(c) ? r2(f0[c] * k) : 0; });
-  const lista = cats.map(c => ({c, media:r2(media[c] || 0), proj:r2(proj[c]), mudou:!!mudou[c], gasto:r2(gasto[c] || 0), falta:falta[c], passou:r2(ex[c]), era:r2(f0[c]), tirado:r2(Math.max(0, f0[c] - falta[c])), ganhou:r2(Math.max(0, falta[c] - f0[c])), fech:fech.has(c)})).filter(x => x.proj > 0.5 || x.media > 0.5 || x.gasto > 0.5).sort((a, b) => b.proj - a.proj || b.gasto - a.gasto);
+  const lista = cats.map(c => ({c, media:r2(media[c] || 0), proj:r2(proj[c]), mudou:!!mudou[c], teto:!!PP.peloTeto[c], gasto:r2(gasto[c] || 0), falta:falta[c], passou:r2(ex[c]), era:r2(f0[c]), tirado:r2(Math.max(0, f0[c] - falta[c])), ganhou:r2(Math.max(0, falta[c] - f0[c])), fech:fech.has(c)})).filter(x => x.proj > 0.5 || x.media > 0.5 || x.gasto > 0.5).sort((a, b) => b.proj - a.proj || b.gasto - a.gasto);
   C.ddb = {lista, falta, resto, media:r2(sum(cats, c => media[c] || 0)), proj:r2(sum(cats, c => proj[c])), gasto:r2(sum(cats, c => gasto[c] || 0)), passou:r2(somaE), meses:mediaPool0().ms, mudou:cats.some(c => mudou[c]),
-    passaram:cats.filter(c => ex[c] > 0.5).sort((a, b) => ex[b] - ex[a]), fech:cats.filter(c => fech.has(c) && f0[c] > 0.5)};
+    passaram:cats.filter(c => ex[c] > 0.5).sort((a, b) => ex[b] - ex[a]), fech:cats.filter(c => fech.has(c) && f0[c] > 0.5), teto:PP.teto};
   return C.ddb;
 }
 // Uma regra só para o que passa do previsto: sai das outras, proporcional ao que faltava em cada uma.
@@ -1541,6 +1617,7 @@ A.porDiaDet = () => {
   const m = ymNow(), aj = ajusteMes(m), pj = g.pj, linha = (a, b, c = '') => `<div class="row small" style="gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1">${a}${c ? ` <span class="muted">· ${c}</span>` : ''}</span><b class="num">${b}</b></div>`;
   const DD = g.DD, mesN = MESL[+m.slice(5) - 1].toLowerCase(), x = g.cx, nomeC = nomeDia;
   let h = `<p class="small" style="margin-top:0"><b>Pode gastar</b> é o que falta do <b>projetado</b> do dia a dia fora comida em ${mesN}, na conta ou no cartão. O projetado de cada categoria é a <b>média</b> (últimos ${DD.meses.length} meses, sem viagem e sem mês fora do normal) ou o valor que vocês mudaram. <b>Todo gasto lançado já desconta.</b></p>`;
+  h += tetoBox();
   h += `<h3 style="margin:12px 0 2px">Quanto falta em cada categoria</h3>`;
   const ordC = DD.lista.slice().sort((a, b) => (b.passou > 0.5) - (a.passou > 0.5) || b.passou - a.passou || b.falta - a.falta), FI = faltaInt(), intC = ordC.map(y => FI[y.c] || 0);
   h += ordC.map((y, i) => `<div data-a="prevCat" data-c="${esc(y.c)}" data-m="${m}" class="cc-row small" role="button" tabindex="0"><div class="row" style="gap:8px"><b style="flex:1;min-width:0">${esc(nomeC(y.c))} ›</b><span class="muted">falta</span><b class="num">${brl0(intC[i])}</b></div><span class="t2 muted">projetado ${brl0(y.proj)}${y.mudou ? '*' : ''} · média ${brl0(y.media)} · gasto <span class="${y.passou > 0.5 ? 'neg' : ''}">${brl0(y.gasto)}</span>${y.passou > 0.5 ? ` · <span class="neg">passou ${brl0(y.passou)}</span>` : ''}${y.fech ? ' · terminado no mês' : y.tirado > 0.5 && Math.round(y.era) > intC[i] ? ` · ${brl0(Math.round(y.era) - intC[i])} cobri${Math.round(y.era) - intC[i] === 1 ? 'u' : 'ram'} quem passou` : ''}${y.ganhou > 0.5 && intC[i] > Math.round(y.era) ? ` · + ${brl0(intC[i] - Math.round(y.era))} de quem terminou` : ''}</span></div>`).join('') || '<p class="small muted">Sem histórico de gastos ainda.</p>';
@@ -1722,7 +1799,7 @@ function ajusteMedia2611() {
   if (soVer() || !casaDoDono() || !S.cfg || S.cfg.ajMedia2611 || !S.cfg.ajLim2611) return;
   clearTimeout(_ajMedT); _ajMedT = setTimeout(async () => { if (S.cfg.ajMedia2611) return; const o = {...(S.cfg.orc || {})}, tirou = Object.keys(o).filter(ehPool);
     tirou.forEach(c => { delete o[c]; });
-    try { await saveCfg({orc:o, ajMedia2611:true}); _flx = null; if (tirou.length) toast(`O dia a dia agora segue a média (${tirou.join(', ')}). Para mudar um valor: Contas › Previsto no dia a dia.`, 7000); } catch (_) {} }, 3000);
+    try { await saveCfg({orc:o, ajMedia2611:true}); _flx = null; if (tirou.length) toast(`O dia a dia agora segue a média (${tirou.join(', ')}). Para mudar um valor: Mês › Dá para cortar.`, 7000); } catch (_) {} }, 3000);
 }
 // Dono pediu (nov/26): gasto previsto no crédito vai para o cartão dele (Nubank), nunca para o de outra pessoa
 let _ajCartT = null;
@@ -1918,31 +1995,43 @@ function mesAMesHTML(fut) {
 }
 function vPlanos() {
   const fut = fluxo(), T = hoje(), ro = soVer();
-  let h = header('Planos', 'Seus próximos meses, viagens e compras', '');
-  const mx = Math.max(1, ...fut.map(x => Math.abs(x.livre)));
-  h += `<section class="sec2"><div class="sec2-h"><h2>${sobraCx() ? 'Caixinha Sobras no fim do mês' : 'Livre de verdade no fim do mês'}</h2><span class="small muted">toque num mês</span></div>
+  let h = `<header class="hd2"><span class="tx"><small>os meses se ajudando e os seus planos</small><b style="font-size:1.5rem">Ano</b></span><button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>`;
+  // o ano se equilibrando: cada mês com a altura do que fica no fim (conta + caixinha); o mais justo marcado, e de onde vem o alívio
+  const pior = fut.reduce((a, b) => b.livre < a.livre ? b : a), mx = Math.max(1, ...fut.map(x => Math.abs(x.livre))), P = ymLabel(pior.m);
+  const ajudam = fut.filter(x => x.m < pior.m && x.sobra > 1).sort((a, b) => b.sobra - a.sobra).slice(0, 2).sort((a, b) => a.m.localeCompare(b.m)).map(x => ymLabel(x.m));
+  const frase = pior.livre < -0.5 ? `<b class="neg">Falta tirando tudo: ${brl0(-pior.livre)} em ${P}.</b> Diminua o projetado ou um plano até ficar positivo.`
+    : pior.m === ymNow() ? `<b>O mês mais justo é este (${P})</b>: termina com ${brl0(pior.livre)}. Os meses seguintes fecham com mais, então isso é o que dá para gastar a mais (ou guardar) sem faltar em nenhum mês.`
+    : `<b>O mês mais justo é ${P}</b>: termina com ${brl0(pior.livre)}. ${ajudam.length ? `${eJunta(ajudam)} guarda${ajudam.length > 1 ? 'm' : ''} o que ${P} precisa: gastar essa sobra antes faz ${P} faltar.` : `Gastar essa sobra antes faz ${P} faltar.`}`;
+  h += `<section class="sec2" id="anoGrafico"><div class="sec2-h"><h2>Fim de cada mês</h2><span class="small muted">conta + caixinha · toque num mês</span></div>
     <div class="pl-rola"><div style="min-width:${fut.length * 58}px">
-    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:4px;align-items:end;height:150px;margin-top:8px">${fut.map(x => { const lr = x.livre < 0 ? x.livre : x.livreReal, cor = lr < 0 ? 'var(--neg)' : lr < colchao(x.m) ? '#F59F00' : '#10B981', hT = Math.max(5, Math.round(Math.abs(x.livre) / mx * 118)), hR = x.livre < 0 ? hT : Math.max(lr > 0 ? 4 : 0, Math.round(Math.max(0, lr) / mx * 118)), hG = Math.round(Math.max(0, sobraCx() ? x.cx : 0) / mx * 118), lbl = brl0(sobraCx() && x.livre >= 0 ? x.cx : lr);
-      return `<button data-a="projIr2" data-m="${x.m}" aria-label="${ymLong(x.m)}: livre de verdade ${brl0(lr)}, na conta ${brl0(x.livre)}" style="border:0;background:none;padding:0;height:150px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;cursor:pointer;font:inherit;color:var(--ink);min-width:0"><span style="font-size:.62rem;font-weight:700;white-space:nowrap">${lbl}</span>${x.livre > lr + 1 && !sobraCx() ? `<span style="width:100%;height:${Math.max(2, hT - hR)}px;border-radius:6px 6px 0 0;background:color-mix(in srgb, ${cor} 22%, var(--surface-2))"></span>` : ''}${sobraCx() && x.livre >= 0 ? `${hG > 0 ? `<span style="width:100%;height:${hG}px;border-radius:6px 6px 0 0;background:#3B5BDB"></span>` : ''}<span style="width:100%;height:${Math.max(3, Math.round(Math.max(0, x.contaFim) / mx * 118))}px;border-radius:${hG > 0 ? '0 0 2px 2px' : '6px 6px 2px 2px'};background:${x.contaFim < colchao(x.m) - 1 ? '#F59F00' : '#10B981'}"></span>` : `${hG > 0 ? `<span style="width:100%;height:${Math.min(hG, hR)}px;background:#3B5BDB"></span>` : ''}<span style="width:100%;height:${Math.max(0, hR - Math.min(hG, hR))}px;border-radius:${x.livre > lr + 1 || hG > 0 ? '0 0 2px 2px' : '6px 6px 2px 2px'};background:${cor}"></span>`}</button>`; }).join('')}</div>
-    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:4px;border-top:1.5px solid var(--line);padding-top:4px;font-size:.66rem;color:var(--muted);text-align:center">${fut.map((x, i) => `<span>${MES[+x.m.slice(5) - 1]}${i === 0 || x.m.endsWith('-01') ? '/' + x.m.slice(2, 4) : ''}</span>`).join('')}</div></div></div>
-    <div class="row small muted" style="gap:12px;margin-top:8px;flex-wrap:wrap">${sobraCx() ? '<span><em class="lg" style="background:#3B5BDB"></em> caixinha Sobras</span><span><em class="lg" style="background:#10B981"></em> na conta</span>' : '<span><em class="lg" style="background:#10B981"></em> livre de verdade</span><span><em class="lg" style="background:color-mix(in srgb, #10B981 22%, var(--surface-2))"></em> já tem destino</span>'}<span><em class="lg" style="background:#F59F00"></em> apertado</span><span><em class="lg" style="background:var(--neg)"></em> vai faltar</span></div>
-    <p class="small muted" style="margin-top:8px;border-top:1px solid var(--surface-2);padding-top:8px">${sobraCx() ? `Número = quanto terá na caixinha ${NOME_SOBRAS} no fim de cada mês.` : 'Número = o que fica livre de verdade no fim de cada mês.'} Arraste para o lado para ver todos os meses; toque num mês para ver o que entra, sai e ${sobraCx() ? 'guarda' : 'sobra'}.</p>
-    <details class="small muted" style="margin-top:4px"><summary style="cursor:pointer">Como funciona</summary><p style="margin:6px 0 0">${sobraCx() ? `No fim de cada mês fica na conta só o que o mês seguinte precisa até o dinheiro entrar; o resto vai para a caixinha ${NOME_SOBRAS}; nos meses apertados sai dela só o que faltar.` : 'O livre de verdade é o que dá para usar sem faltar em nenhum mês; a parte clara da barra também está na conta, mas já tem destino (viagens, reservas e meses mais justos à frente).'} A conta vai até ${ymLabel(fut[fut.length - 1].m)}. O guardado fica à parte, em <a href="#guardado">Guardado</a> (${brl0(totalGuardadoObj())}).</p></details></section>`;
-  h += mesAMesHTML(fut);
+    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:4px;align-items:end;height:150px;margin-top:8px">${fut.map(x => { const eh = x === pior, hg = Math.max(4, Math.round(Math.abs(x.livre) / mx * 118)), cor = x.livre < 0 ? 'var(--neg)' : eh ? '#F59F00' : x.livre < colchao(x.m) - 0.5 ? '#FCD34D' : '#10B981';
+      return `<button data-a="projIr2" data-m="${x.m}" aria-label="${ymLong(x.m)}: ${brl0(x.livre)} no fim${eh ? ', o mês mais justo' : ''}" style="border:0;background:none;padding:0;height:150px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;cursor:pointer;font:inherit;color:var(--ink);min-width:0"><span style="font-size:.62rem;font-weight:700;white-space:nowrap">${eh ? '▼ ' : ''}${brl0(x.livre)}</span><span style="width:100%;height:${hg}px;border-radius:6px 6px 2px 2px;background:${cor}${eh ? ';outline:2px solid var(--ink);outline-offset:1px' : ''}"></span></button>`; }).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(${fut.length},minmax(0,1fr));gap:4px;border-top:1.5px solid var(--line);padding-top:4px;font-size:.66rem;color:var(--muted);text-align:center">${fut.map((x, i) => `<span${x === pior ? ' style="color:var(--ink);font-weight:800"' : ''}>${MES[+x.m.slice(5) - 1]}${i === 0 || x.m.endsWith('-01') ? '/' + x.m.slice(2, 4) : ''}</span>`).join('')}</div></div></div>
+    <div class="r3" style="border-top:1px solid var(--line);margin-top:10px"><span>O que segura ${P}</span><b class="num ${pior.livre < -0.5 ? 'neg' : 'pos'}">${pior.livre < -0.5 ? '− ' : ''}${brl0(Math.abs(pior.livre))}</b><small>${pior.livre < -0.5 ? 'falta: diminua o projetado ou um plano' : 'o que dá para gastar a mais (ou guardar) sem faltar em nenhum mês'}</small></div>
+    <p class="small" style="margin:6px 0 0;line-height:1.5">${frase}</p>
+    <div class="row small muted" style="gap:12px;margin-top:8px;flex-wrap:wrap"><span><em class="lg" style="background:#10B981"></em> tranquilo</span><span><em class="lg" style="background:#FCD34D"></em> aperta no começo do mês seguinte</span><span><em class="lg" style="background:#F59F00"></em> o mais justo</span><span><em class="lg" style="background:var(--neg)"></em> vai faltar</span></div>
+    <details class="small muted" style="margin-top:6px"><summary style="cursor:pointer">Como funciona</summary><p style="margin:6px 0 0">Cada barra é todo o dinheiro no fim do mês (conta + caixinha ${NOME_SOBRAS}), seguindo o projetado de todos os meses. ${sobraCx() ? 'Na conta fica só o que o mês seguinte precisa até o dinheiro entrar; o resto vai para a caixinha; nos meses apertados sai dela só o que faltar. ' : ''}O mês mais justo manda: o que sobra nele é o que dá para usar sem faltar em nenhum mês até ${ymLabel(fut[fut.length - 1].m)}. O guardado nos planos fica à parte, em <a href="#guardado">Guardado</a> (${brl0(totalGuardadoObj())}).</p></details></section>`;
+  // dinheiro a mais no ano (férias, 13º, PLR…): o destino já aparece no dia em que cai
+  const NAO_EXTRA = ['Salário', 'Vale alimentação', 'Vale refeição'];
+  const extA = fut.flatMap(x => fixosAtivos(x.m).filter(f => f.tipo === 'receita' && !NAO_EXTRA.includes(f.cat) && !pagoFixo(f, x.m) && valorFixo(f, x.m) >= 300).map(f => ({m:x.m, desc:f.desc, v:valorFixo(f, x.m), dia:diaFixo(f, x.m)})));
+  if (extA.length) h += `<section class="sec2" id="aMaisAno"><div class="sec2-h"><h2>Dinheiro a mais no ano</h2></div><p class="small muted" style="margin:-4px 0 6px">Já com destino, antes de parecer sobra. Guardar só aparece quando o dinheiro estiver na conta; antes disso é plano.</p>${extA.map(e => { const nx = addM(e.m, 1), dest = objsAtivos().filter(o => o.alvo && o.alvo >= e.m && o.alvo <= nx && objFalta(o) > 1).map(o => `${esc(o.nome.replace(/\s*\(.*\)\s*$/, ''))} ${brl0(objFalta(o))}`);
+    return `<div class="ri">${dtBox(`${e.m}-${pad(Math.min(e.dia, diasNoMes(e.m)))}`)}<span class="tx"><span class="t1">${esc(e.desc)} <span class="muted">· ${ymLabel(e.m)}</span></span><span class="t2" style="white-space:normal">${(() => { const ps = [...dest, ...(colchao(e.m) > 0.5 ? [`o que ${ymLabel(nx)} precisa (${brl0(colchao(e.m))})`] : [])]; return ps.length ? `vai para: ${eJunta(ps)}; o resto, para a caixinha` : 'vai para a caixinha'; })()}</span></span><span class="v num pos">+ ${brl0(e.v)}</span></div>`; }).join('')}</section>`;
   // meses no vermelho: o plano
   fut.filter(x => x.livre < 0).slice(0, 3).forEach(x => { const pc = planoCobertura(x.m); h += `<button class="sec2" data-a="projIr2" data-m="${x.m}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:2px solid var(--neg);cursor:pointer;font:inherit;color:inherit"><span class="cic" style="background:var(--neg-soft);color:var(--neg)">${svgI('M12 8v5M12 16h.01M10.3 3.9L2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</span><span class="tx" style="flex:1"><b>${ymLong(x.m)}: vai faltar ${brl0(-x.livre)}</b><span class="small muted" style="display:block">Plano: ${esc(resumoCobertura(pc))}${pc && pc.passos.length > 1 ? ' e mais' : ''}</span></span><span class="muted">›</span></button>`; });
-  const sep = separadoInfo();
-  if (sep && !fut.some(x => x.livre < 0)) h += `<p class="small" style="margin:-4px 2px 12px">${ymLabel(sep.ate)} é o mês mais apertado: segure ${brl0(sep.porMes)} por mês até lá.</p>`;
   // objetivos
   const objs = objsAtivos().sort((a, b) => String(a.alvo || '').localeCompare(String(b.alvo || '')));
   h += `<div class="sec2-h" style="margin:6px 2px 8px"><h2>Viagens e objetivos</h2>${ro ? '' : '<button class="btn sm pri" data-a="novoPlano">+ Novo</button>'}</div>`;
+  // guardar só vira botão quando o dinheiro já está na conta; antes disso é plano
+  const temDin = guardavelAgora() >= 1;
   h += objs.length ? objs.map(o => { const prev = objPrevisto(o), g = objGuardado(o), gasto = objGasto(o), pct = prev ? (g + gasto) / prev : 0, pg = planoGuardar(o), prox = passosDe(o).find(a => a.d >= T);
-    const linha = pg.resto >= 1 ? `<span class="small warnc" style="font-weight:600">guardar ${brl0(pg.resto)} até ${dCurto(pg.quando)}</span>` : prox ? `<span class="small" style="color:var(--accent);font-weight:600">${dCurto(prox.d)} · ${esc(prox.t.length > 60 ? prox.t.slice(0, 57) + '…' : prox.t)}</span>` : '';
+    const sai = o.alvo && o.alvo >= ymNow() ? itensMes(o.alvo).G.find(x => x.kind === 'objDia' && x.o === o) : null;
+    const linha = (sai ? `<span class="small">Sai em ${dCurto(`${o.alvo}-${pad(Math.max(1, sai.dia))}`)}: <b>${brl0(sai.valor)}</b> (está no calendário de ${ymLabel(o.alvo)})</span>` : '') + (pg.resto >= 1 ? `<span class="small warnc" style="font-weight:600">${temDin ? `guardar ${brl0(pg.resto)} até ${dCurto(pg.quando)}` : `vai guardar ${brl0(pg.resto)} quando o dinheiro cair (até ${dCurto(pg.quando)})`}</span>` : prox ? `<span class="small" style="color:var(--accent);font-weight:600">${dCurto(prox.d)} · ${esc(prox.t.length > 60 ? prox.t.slice(0, 57) + '…' : prox.t)}</span>` : '');
     const fal = Math.max(0, prev - g - gasto), tb = Math.max(prev, g + gasto, 1), w = v => (Math.max(0, v) / tb * 100).toFixed(1) + '%';
     return `<section class="sec2 plano"><div class="row" style="justify-content:space-between;gap:10px;align-items:baseline"><b style="min-width:0">${esc(o.nome)}</b><span class="small muted" style="white-space:nowrap">${o.alvo ? ymLabel(o.alvo) + ' · ' : ''}${brl0(prev)}</span></div>
       <div class="pbar" role="img" aria-label="Já pago ${brl0(gasto)}, guardado ${brl0(g)}, falta ${brl0(fal)}"><span style="width:${w(gasto)};background:#94A3B8"></span><span style="width:${w(g)};background:${corObj(o)}"></span></div>
       <div class="small pleg"><span><em class="lg" style="background:#94A3B8"></em>já pago ${brl0(gasto)}</span><span><em class="lg" style="background:${corObj(o)}"></em>guardado ${brl0(g)}</span><span><em class="lg" style="background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)"></em>falta ${brl0(fal)}</span></div>
-      <div style="display:flex;flex-direction:column;gap:2px">${linha}<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>${ro ? '' : `<button class="btn sm" data-a="guardMov" data-op="guardar" data-id="${o.id}">Guardar</button><button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>`}</div></div></section>`; }).join('') : '<p class="muted">Nenhum plano ainda.</p>';
+      <div style="display:flex;flex-direction:column;gap:2px">${linha}<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-a="objGuia" data-id="${o.id}">Guia</button>${ro ? '' : `${temDin ? `<button class="btn sm" data-a="guardMov" data-op="guardar" data-id="${o.id}">Guardar</button>` : ''}<button class="btn sm" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button>`}</div></div></section>`; }).join('') : '<p class="muted">Nenhum plano ainda.</p>';
+  h += `<details style="margin:14px 0 0"><summary class="lk-lbl" style="cursor:pointer">MÊS A MÊS, EM DETALHE ›</summary>${mesAMesHTML(fut)}</details>`;
   h += `<p style="margin-top:12px"><a class="lnk" href="#mes">Ver a análise do mês</a></p>`;
   return h;
 }
@@ -2590,11 +2679,11 @@ function projMes0(m, hv = histVar(), semObj = false, soCred = false) {
     const orc = orcDoMes(m), AJ = ajusteMes(m);
     const ja = {}; S.lanc.forEach(l => { if (mesGasto(l) === m && l.tipo !== 'receita' && !isFixo(l) && !l.grupo) ja[l.cat] = (ja[l.cat] || 0) + (+l.valor || 0); });
     const cartaoAtual = sum(S.lanc.filter(l => l.mes === m && l.cartaoId && !isFixo(l) && l.cat !== 'Cartão (sem detalhe)'));
-    const DD = atual ? diaDiaBase() : null, MP = atual ? null : mediaPool(m), zerou = MP && zerouDiaDia(m, orc, MP);
-    new Set([...Object.keys(orc).filter(c => +orc[c] > 0), ...Object.keys(hv), ...Object.keys(MP || {})]).forEach(c => {
+    const DD = atual ? diaDiaBase() : null, PP = atual ? null : projPool(m);
+    new Set([...Object.keys(orc).filter(c => +orc[c] > 0), ...Object.keys(hv), ...(PP ? PP.cats : [])]).forEach(c => {
       if (DD && ehPool(c)) return;   // mês atual: o dia a dia fora comida vem do projetado (abaixo), igual ao "pode gastar"
       // meses à frente: dia a dia fora comida pela mesma média (ou pelo valor que vocês mudaram); comida e o resto pelo limite ou pela média
-      const plan = c in AJ.lim ? AJ.lim[c] : c in orc ? +orc[c] : MP && ehPool(c) ? (c === 'Cartão (sem detalhe)' && zerou ? 0 : MP[c] || 0) : (hv[c] ? hv[c].tot : 0);
+      const plan = PP && ehPool(c) ? (PP.proj[c] || 0) : c in AJ.lim ? AJ.lim[c] : c in orc ? +orc[c] : (hv[c] ? hv[c].tot : 0);
       const feito = c === 'Cartão (sem detalhe)' ? cartaoAtual + (ja[c] || 0) : (ja[c] || 0);
       const falta = Math.max(0, plan - feito); if (!falta) return;
       const lugs = lugsProj(c, hv);
@@ -3232,7 +3321,7 @@ async function processarItens(itens, txt) {
   return salvarItens(out, txt);
 }
 async function salvarItens(out, txt) {
-  const ids = [], fixos = [], revs = [], g0 = podeGastar(), antes = g0 ? {total:g0.total, comida:g0.comida} : null;
+  const ids = [], fixos = [], revs = [], g0 = podeGastar(), antes = g0 ? {total:g0.total, comida:g0.comida, livre:g0.livre, pior:g0.pior} : null;
   for (const it of out) {
     if (it._baixa === 'fatura') continue;
     if (it.objId && !it.objItem) { const o = S.objs.find(x => x.id === it.objId); const item = o && itemDoObj(o, it, txt); if (item) it.objItem = item.id; }
@@ -3551,6 +3640,8 @@ function efeitoHTML(r) {
   const vD = sum(dia, it => +it.valor || 0), vC = sum(com, it => +it.valor || 0), a = r.antes;
   const linhas = [];
   if (vD > 0.5) linhas.push(`<b>Pode gastar: ${brl0(a.total)} → ${brl0(Math.max(0, a.total - vD))}</b>`); else linhas.push(`Pode gastar continua <b>${brl0(a.total)}</b>`);
+  // passou do pode gastar: o que passa sai do mês mais justo (o que segura o ano)
+  if (vD > a.total + 0.5 && a.livre != null && a.pior) linhas.push(`<span class="neg">${ymLabel(a.pior)}, o mês mais justo, cai de ${brl0(a.livre)} para ${brl0(a.livre - (vD - Math.max(0, a.total)))}</span>`);
   if (vC > 0.5 && a.comida != null) linhas.push(`Comida: falta ${brl0(a.comida)} → ${brl0(Math.max(0, a.comida - vC))}`);
   const motivos = r.itens.map(it => efeitoTxt(it)).filter(Boolean);
   return `<div class="small" style="margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--surface-2)">${linhas.join(' · ')}${motivos.length ? `<div class="muted" style="margin-top:3px">${[...new Set(motivos)].map(esc).join('<br>')}</div>` : ''}</div>`;
@@ -3582,7 +3673,7 @@ function avisosItens(itens, ids = []) {
     if (it.tipo !== 'despesa') return;
     if (vaCats().includes(it.cat) && !isVA(it)) { const sv = saldoVAHoje(), id = (it._ids || [])[0];
       if (sv != null && sv >= 20 && id) av.push(naoAceitaVale(it.desc) ? `<span class="muted">ℹ️ ${esc(it.desc)} não aceita vale (já anotado).</span>` : foraValeHTML(id, sv, it)); }
-    if (it.objId && it.objItem) { const o = S.objs.find(x => x.id === it.objId), t = o && objTetos(o)[it.objItem]; if (t) { const g = t.gasto + (novo ? it.valor : 0); if (g > t.prev + .5) av.push(`⚠️ <b>${esc(t.nome)}</b> passou ${brl(g - t.prev)} do teto. O excesso sai igualmente dos outros itens de ${esc(o.nome)} que ainda vão ser gastos (veja o Guia).`); } }
+    if (it.objId && it.objItem) { const o = S.objs.find(x => x.id === it.objId), t = o && objTetos(o)[it.objItem]; if (t) { const g = t.gasto + (novo ? it.valor : 0); if (g > t.prev + .5) av.push(`⚠️ <b>${esc(t.nome)}</b> passou ${brl(g - t.prev)} do teto. O excesso sai dos outros itens de ${esc(o.nome)} que ainda vão ser gastos, proporcional ao que falta em cada um (veja o Guia).`); } }
     else if (!it.fixoId && !it.objId && (it.nparc || 1) === 1 && !(it.data > hoje() && !it.cartaoId)) { const m = (it.cartaoId ? null : it.mes) || String(it.data || hoje()).slice(0, 7), pool = m === ymNow() && noDiaDia(it), x = pool ? diaDiaBase().lista.find(y => y.c === it.cat) : null, aj = ajusteMes(m), lim = x ? x.proj : +orcDoMes(m)[it.cat] || 0, g = (x ? x.gasto : aj.gasto[it.cat] || 0) + (novo ? +it.valor || 0 : 0);
       if (lim && g > lim + .5) av.push(`⚠️ <b>${esc(nomeDia(it.cat))}</b> passou ${brl(g - lim)} do ${x ? 'projetado' : 'limite'} do mês. Saiu das outras categorias, proporcional ao que faltava em cada uma (se nenhuma tiver folga, sai da sobra do mês).`); }
   });
@@ -3791,7 +3882,7 @@ document.addEventListener('submit', e => { const f = e.target; const h = F[f.dat
 // Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
 const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
 const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
-const OK_VER = new Set(["trocarCasa", "pinToggle", "pinNao", "sairOutros", "verLembrete", "extVer", "contasPagos", "prevCat", "objGuia", "irEmp", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "exportCSV", "exportJSON", "aiDicas"]);
+const OK_VER = new Set(["trocarCasa", "pinToggle", "pinNao", "sairOutros", "verLembrete", "extVer", "contasPagos", "prevCat", "objGuia", "irEmp", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "aiDicas"]);
 const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
@@ -3855,7 +3946,7 @@ A.menu = () => {
   const ctl = cs.length > 1 ? `<p class="lk-lbl">CONTROLES</p><div class="sec2" style="background:var(--surface-2);box-shadow:none;padding:2px 14px;margin-bottom:16px">${cs.map(c => `<div class="ri"><span class="tx"><span class="t1">${esc(c.nome)}${aberto(c) ? ' <span class="pill acc">aberto</span>' : ''}</span><span class="t2">${c.papel === 'dono' ? 'você controla' : c.papel === 'edita' ? 'você lança e corrige' : 'só ver'}</span></span>${aberto(c) ? '' : `<button class="btn sm" data-a="trocarCasa" data-id="${esc(c.id)}">Abrir</button>`}</div>`).join('')}</div>` : '';
   // menu que cresce: aparece o que a casa já usa; o resto fica em "Mais" (com o caminho para começar)
   const usa = temSecao(), mais = [['#mes', 'Análise do mês'], ['#anual', 'Ano e relatórios'], ...(!usa.guardado ? [['#guardado', 'Caixinhas: guardar para um plano']] : []), ...(!usa.cartoes ? [['#cartoes', 'Cartões de crédito']] : []), ...(!usa.emprestimos ? [['#emprestimos', 'Dívidas e empréstimos']] : []), ...(!usa.investimentos ? [['#investimentos', 'Reservas e investimentos']] : [])];
-  openSheet('Menu', `${ctl}<div class="mgrid">${it('#extrato', 'Lançamentos', 'M4 6h16M4 12h16M4 18h10', 'teal')}${it('#fixos', 'Contas fixas e rendas', 'doc', 'verde')}${usa.guardado ? it('#guardado', 'Guardado', 'cofre', 'azul') : ''}${usa.cartoes ? it('#cartoes', 'Cartões e parcelas', 'cartao', 'roxo') : ''}${usa.emprestimos ? it('#emprestimos', 'Dívidas', 'M12 3v18M7 7h7a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8', 'vermelho') : ''}${usa.investimentos ? it('#investimentos', 'Reservas', 'M4 20V10M10 20V4M16 20v-7M22 20H2', 'azul') : ''}${soVer() ? '' : `<button data-a="importarExtrato"><span class="cic" style="background:${CORES.cinza[0]};color:${CORES.cinza[1]}">${svgI('entra', 22)}</span>Importar extrato</button>`}</div>
+  openSheet('Menu', `${ctl}<div class="mgrid">${it('#ajuda', 'Ajuda e perguntas', 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5M12 16.5h.01', 'azul')}${it('#extrato', 'Lançamentos', 'M4 6h16M4 12h16M4 18h10', 'teal')}${it('#fixos', 'Contas fixas e rendas', 'doc', 'verde')}${usa.guardado ? it('#guardado', 'Guardado', 'cofre', 'azul') : ''}${usa.cartoes ? it('#cartoes', 'Cartões e parcelas', 'cartao', 'roxo') : ''}${usa.emprestimos ? it('#emprestimos', 'Dívidas', 'M12 3v18M7 7h7a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8', 'vermelho') : ''}${usa.investimentos ? it('#investimentos', 'Reservas', 'M4 20V10M10 20V4M16 20v-7M22 20H2', 'azul') : ''}${soVer() ? '' : `<button data-a="importarExtrato"><span class="cic" style="background:${CORES.cinza[0]};color:${CORES.cinza[1]}">${svgI('entra', 22)}</span>Importar extrato</button>`}</div>
     <details class="menu-mais" style="margin-top:14px"><summary class="lk-lbl" style="cursor:pointer;margin:0">MAIS ›</summary><div class="sec2" style="background:var(--surface-2);box-shadow:none;padding:2px 14px;margin:8px 0 0">${mais.map(([h, t]) => `<a class="ri" href="${h}" style="text-decoration:none;color:inherit"><span class="tx"><span class="t1">${t}</span></span><span class="chev">›</span></a>`).join('')}</div></details>
     <p class="lk-lbl" style="margin-top:18px">AJUSTES RÁPIDOS</p>
     <div class="sec2" style="background:var(--surface-2);box-shadow:none;padding:2px 14px">
@@ -3916,8 +4007,20 @@ function lkHTML() {
     <p class="small muted" style="margin-top:8px">${L.data === hoje() ? 'Hoje' : dLabel(L.data)}${!rec ? ` · ${L.nparc > 1 ? L.nparc + 'x' : 'à vista'}` : ''} · <button class="lnk small" type="button" data-a="lkMais">${L.mais ? 'fechar' : 'mudar data' + (!rec ? ' ou parcelas' : '')}</button></p>
     ${L.mais ? `<div class="f2" style="margin-top:6px"><label class="fld"><span>Data</span><input type="date" id="lk-data" value="${L.data}"></label>${!rec ? `<label class="fld"><span>Parcelas${credito ? '' : ' (no crédito)'}</span><select id="lk-parc">${Array.from({length:24}, (_, i) => `<option value="${i + 1}" ${L.nparc === i + 1 ? 'selected' : ''}>${i ? (i + 1) + 'x' : 'à vista'}</option>`).join('')}</select></label>` : ''}</div>` : ''}
     <div class="lk-kp">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', '⌫'].map(k => `<button type="button" data-a="lkTecla" data-k="${k}" aria-label="${k === '⌫' ? 'Apagar' : k}">${k}</button>`).join('')}</div>
+    <p class="small lk-ef" id="lk-ef">${lkEfeito()}</p>
     <div class="lk-go"><button class="rb" type="button" data-a="lkModo" data-v="chat" aria-label="Escrever ou falar">${svgI('M9 3h6v12H9zM5 11a7 7 0 0 0 14 0M12 18v3')}</button><button class="btn pri" type="button" data-a="lkSalvar">${rec ? 'Salvar entrada' : 'Salvar gasto'}</button></div>
     <div class="lk-res" id="lk-res">${S.lkRes || ''}</div>`;
+}
+// O que acontece se gravar este gasto, antes de gravar
+function lkEfeito() {
+  const L = S.lk; if (!L || L.tipo === 'receita' || !L.cat) return '';
+  const v = L.cents / 100, sva = saldoVAHoje(), g = podeGastar();
+  if (L.data > hoje() && !L.cartaoId) return `Agendado para ${dLabel(L.data)}: só sai da conta no dia.`;
+  if (vaCats().includes(L.cat)) {
+    if (L.meio === 'va') return sva != null && v > sva + 0.005 ? `<span class="warnc">O vale tem só ${brl0(sva)}: ${brl0(v - sva)} vão sair da conta e comem o salário (diminuem a sobra do mês, não o pode gastar).</span>` : `Sai do vale${sva != null ? ` (fica ${brl0(Math.max(0, sva - v))})` : ''}: não mexe no pode gastar.`;
+    return `<span class="warnc">Comida ${L.cartaoId ? 'no cartão' : 'na conta'}: isso sai do salário, não do pode gastar (diminui a sobra do mês)${sva != null && sva >= 20 ? `. Tem ${brl0(sva)} no vale` : ''}.</span>`; }
+  if (g && noDiaDia({cat:L.cat, desc:L.desc || L.cat})) return v > g.total + 0.5 ? `<span class="warnc">Passa do pode gastar (${brl0(g.total)}): ${ymLabel(g.pior)}, o mês mais justo, cai de ${brl0(g.livre)} para ${brl0(g.livre - (v - Math.max(0, g.total)))}.</span>` : `Pode gastar: ${brl0(g.total)} → ${brl0(Math.max(0, g.total - v))}`;
+  return 'Fora do dia a dia: sai da sobra do mês, não do pode gastar.';
 }
 function lkRender() { const el = $('#lk'); if (el) el.innerHTML = lkHTML(); }
 function abrirTeclado() {
@@ -4348,7 +4451,7 @@ function orcEdBody(m) {
   return `<div class="seg orc-seg"><button type="button" data-a="orcEsc" data-v="todos" aria-pressed="${esc_ === 'todos'}">Todos os meses</button><button type="button" data-a="orcEsc" data-v="mes" aria-pressed="${esc_ === 'mes'}">Só em ${mesNome}</button></div>
     ${esc_ === 'mes' ? `<p class="hint" style="margin:6px 0 0">Mudanças valem só para ${mesNome} (bom para férias e viagem).${temMes ? ` <button type="button" class="lnk" data-a="orcMesLimpar" data-m="${m}">Voltar ao padrão</button>` : ''}</p>` : ''}
     <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:var(--surface-2)"><p class="small" style="margin:0 0 6px"><b>Média usada:</b> últimos 6 meses, sem os excepcionais. Toque num mês para tirar ou voltar.</p><div class="chips">${baseMedia().cand.slice().sort().map(mm => { const f = baseMedia().fora.find(x => x.m === mm); return `<button type="button" class="chip" data-a="mesForaToggle" data-m="${mm}" style="${f ? 'text-decoration:line-through;opacity:.6' : 'font-weight:700'}" title="${f ? esc(f.mot) : 'na média'}">${ymLabel(mm)}${f ? ` · ${esc(f.mot)}` : ''}</button>`; }).join('')}</div>${baseMedia().eventuais.length ? `<p class="small muted" style="margin:6px 0 0">Fora por serem eventuais: ${baseMedia().eventuais.map(e => `${esc(e.c)} ${brl0(e.v)} (${ymLabel(e.m)})`).join(', ')}.</p>` : ''}</div>
-    <div class="orc-tot"><span>Total por mês</span><b class="num">${brl0(tot)}</b>${totMed ? `<span class="small muted">média ${brl0(totMed)}</span>` : ''}</div>
+    ${tetoBox()}<div class="orc-tot"><span>Total por mês</span><b class="num">${brl0(tot)}</b>${totMed ? `<span class="small muted">média ${brl0(totMed)}</span>` : ''}</div>
     <div class="orc-list">${com.map(row).join('') || '<p class="muted small">Tudo pela média. Para pôr um valor seu, toque abaixo.</p>'}</div>
     ${sem.length ? `<p class="small muted" style="margin:16px 0 6px">Pela média (toque para pôr um valor seu):</p><div class="chips">${sem.map(c => `<button type="button" class="chip" data-a="orcAdd" data-c="${esc(c)}">+ ${esc(nomeDia(c))}${med[c] ? ` <span class="muted">${brl0(med[c])}</span>` : ''}</button>`).join('')}</div>` : ''}
     <p class="small muted" style="margin-top:10px">Salva sozinho. Sem valor seu, o dia a dia segue a média e se ajusta todo mês. Comida (mercado, restaurante, delivery) sai do vale primeiro.</p>`;
@@ -4527,16 +4630,17 @@ async function clientesHTML() {
   const r = await window.__admin.listar(), cs = r.casas || [];
   const lin = c => `<div class="gi"><div class="row" style="justify-content:space-between;gap:8px"><b>${esc(c.cliente || c.dono)}${c.minha ? ' <span class="pill">você</span>' : ''}</b><span class="pill ${c.pausado ? 'bad' : c.ativos ? 'ok' : ''}">${c.pausado ? 'pausado' : c.ativos ? 'ativo' : 'convite enviado'}</span></div>
     <div class="small muted">${esc(c.membros.join(', '))} · WhatsApp ${c.whatsapp ? 'ligado' : 'não configurado'} · IA ${c.ia ? `US$ ${c.usoIA.toFixed(2).replace('.', ',')} de ${c.limiteIA == null ? 'sem limite' : 'US$ ' + c.limiteIA.toFixed(2).replace('.', ',')}` : 'desligada'}</div>
-    ${c.minha ? '' : `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm" data-a="cliPausar" data-id="${c.id}" data-v="${c.pausado ? 0 : 1}">${c.pausado ? 'Reativar' : 'Pausar'}</button><button class="btn sm" data-a="cliLimite" data-id="${c.id}" data-l="${c.limiteIA ?? ''}">Limite de IA</button><button class="btn sm dang" data-a="cliRemover" data-id="${c.id}">Remover</button></div>`}</div>`;
+    ${c.minha ? '' : `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm" data-a="cliPausar" data-id="${c.id}" data-v="${c.pausado ? 0 : 1}">${c.pausado ? 'Reativar' : 'Pausar'}</button><button class="btn sm" data-a="cliLimite" data-id="${c.id}" data-l="${c.limiteIA ?? ''}">Limite de IA</button>${c.ativos ? `<button class="btn sm" data-a="cliNovaSenha" data-id="${c.id}">Nova senha</button>` : ''}<button class="btn sm dang" data-a="cliRemover" data-id="${c.id}">Remover</button></div>`}</div>`;
   return `<p class="small">Cada cliente tem um controle separado e privado: você não vê os dados deles. Todos recebem na hora as melhorias do app. Se a pessoa já vê o seu controle (ex.: sua esposa), ela passa a ter os dois e troca no menu ☰ › Controles. Para liberar, coloque o e-mail abaixo e mande o endereço do app: a pessoa toca em <b>Primeiro acesso</b>.</p>
     <form class="quick" data-f="cliAdd" style="margin:10px 0;flex-wrap:wrap"><input name="email" type="email" placeholder="E-mail do cliente" required style="flex:2;min-width:180px"><input name="nome" placeholder="Nome (opcional)" style="flex:1;min-width:120px"><button class="btn pri" type="submit">Liberar</button></form>
     <div class="gitens">${cs.map(lin).join('')}</div>
-    <p class="hint">Pausar bloqueia o acesso sem apagar nada (ex.: falta de pagamento). Remover apaga o controle e todos os dados do cliente, sem volta. O limite padrão de IA para clientes é US$ 0,50 por mês.</p>`;
+    <p class="hint">Pausar bloqueia o acesso sem apagar nada (ex.: falta de pagamento). Nova senha: para quem esqueceu (os dados continuam; a pessoa entra em Primeiro acesso com o mesmo e-mail). Remover apaga o controle e todos os dados do cliente, sem volta. O limite padrão de IA para clientes é US$ 0,50 por mês.</p>`;
 }
 A.clientes = async () => { openSheet('Clientes', '<p class="muted">Carregando…</p>'); try { const h = await clientesHTML(); openSheet('Clientes', h); } catch (e) { openSheet('Clientes', `<p class="neg">${esc(e?.message || 'Não consegui carregar.')}</p>`); } };
 F.cliAdd = async fm => { try { await window.__admin.add(fm.email.value, fm.nome.value); toast('Liberado. Mande o endereço do app para a pessoa.'); A.clientes(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
 A.cliPausar = async el => { try { await window.__admin.pausar(el.dataset.id, el.dataset.v === '1'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 A.cliLimite = async el => { const v = prompt('Limite de IA por mês, em dólares (ex.: 0,50). Deixe vazio para o padrão.', el.dataset.l || ''); if (v === null) return; try { await window.__admin.limite(el.dataset.id, v.trim() === '' ? null : parseValor(v)); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
+A.cliNovaSenha = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Toque de novo: liberar nova senha'; return; } try { await window.__admin.novaSenha(el.dataset.id); toast('Pronto: a pessoa entra em "Primeiro acesso" com o mesmo e-mail e cria outra senha. Os dados continuam.'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 A.cliRemover = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Toque de novo: apaga tudo'; return; } try { await window.__admin.remover(el.dataset.id); toast('Cliente removido'); A.clientes(); } catch (e) { toast(e?.message || 'Erro'); } };
 F.casaAdd = async fm => { try { await window.__casa.add(fm.e.value, fm.papel.value); toast('Acesso liberado. A pessoa entra com esse e-mail em Primeiro acesso.'); render(); } catch (e) { toast(e?.message || 'Não consegui liberar.'); } };
 A.casaTirar = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar'; return; } try { await window.__casa.remove(el.dataset.e); toast('Acesso removido'); render(); } catch (e) { toast(e?.message || 'Não consegui tirar.'); } };
