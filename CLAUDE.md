@@ -45,6 +45,18 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
   - **Mês, o salário**: **Não dá para cortar** mostra o que **falta pagar** (o já pago fica recolhido) e o atalho "Em dez o salário já deve R$ X"; **Dá para cortar** (dia a dia e comida: já foi × **previsto**; a média só aparece quando existe; o número grande é o que **passou do previsto**); **Entrou a mais** (férias, 13º, PLR) com destino. Depois o resumo (falta pagar, falta receber na conta, fim do mês) e o calendário com Paguei/Recebi.
   - **Destino do dinheiro a mais** (`destinoExtras`): na ordem, os planos e caixinhas do próprio mês, depois o que o mês seguinte precisa até o dinheiro entrar (já inclui as contas e os planos dele) e o resto para a caixinha. **Cada destino leva só o que cabe no que entrou; a soma é sempre o valor que entrou.** Nada conta duas vezes. **Mês e Ano contam a mesma história**: a mesma lista (`extrasMes`: o que já entrou no mês, ex.: o 13º, e o que ainda vai entrar) e o mesmo destino (`destinoMes`). O dinheiro só vai para o que sai **depois** de ele entrar: o que sai antes (ex.: a viagem do dia 1º, quando o 13º cai no dia 19) já está no que o mês anterior deixou.
   - **Ano, um mês ajuda o outro**: o fim de cada mês, o mais justo marcado (▼) e "O que segura {mês}"; a frase não aponta outros meses como quem segura (a sobra deles já tem destino). Dinheiro a mais com destino, por mês. Os objetivos com barra (já pago, guardado, falta) e o dia em que o dinheiro sai. **Guardar só vira botão quando o dinheiro está na conta**; antes é plano. A tela velha "Análise do mês" não fica no menu (só em Relatórios do ano).
+  - **Viagem: o painel fica no Guia** (Ano › a viagem › Guia; `objResumo`). Mostra:
+    - planejado, já saiu e **ainda pode**: no total, por fonte (da conta, do vale, no cartão) e em cada item;
+    - **entrou fora do plano**: receita ligada à viagem (reembolso, devolução). Soma no que ainda pode (`objGasto` = saiu − entrou) e não vira "dinheiro a mais" da casa;
+    - **ficou a menos**: item com **Terminei este item**. A sobra vai para os outros itens, e item terminado não gasta mais na projeção (`objRestante`);
+    - o que **passou**: sai dos outros itens;
+    - gasto **sem item**: sai dos itens da mesma fonte, proporcional ao que falta (a regra única, `objTetos`).
+  - Escrever "reembolso … <nome da viagem>" liga a receita à viagem. "Recebi as férias" é o pagamento de férias e não liga.
+  - **Calendário da viagem** (`espalharViagem`): o que falta de cada item sai no dia do "quando" dele.
+    - Datas ("06/12", "sábados 06, 13 e 20/12") caem nesses dias.
+    - Períodos ("de 21/12 a 03/01", "até 25/12") e item sem data são espalhados, por semana. Sem data, valem os dias da viagem: o "(29/11 a 04/01)" do nome, a agenda ou o mês todo.
+    - Tudo fica dentro do mês da viagem; no mês atual, nunca antes de hoje.
+    - O total do mês não muda. Muda o que o mês anterior precisa deixar na conta até o dinheiro entrar. No destino do dinheiro a mais, a viagem é um destino só ("Férias de 19 a 29").
 - **Começar do zero** (controle novo): botão **Começar** na tela Hoje, 7 passos, cada um já salva:
   1. quanto tem na conta e no vale;
   2. salário e dia;

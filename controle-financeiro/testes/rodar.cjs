@@ -583,9 +583,58 @@ async function mesmoDinheiro(b) {
     const v = T.linhaMes('2027-02').G.find(g => g.kind === 'objDia' && g.o && /Viagem/.test(g.o.nome)), velho = T.destinoExtras('2027-02', 1500, 1), novo = T.destinoMes('2027-02');
     return {dia:v ? v.dia : null, velho:velho.map(d => d.t.replace(/<[^>]+>/g, '')), novo:novo.map(d => d.t.replace(/<[^>]+>/g, '')), soma:novo.reduce((t, d) => t + d.v, 0)}; });
   const antes = d => (d.match(/no dia (\d+)/) || [])[1];
-  ok(dobra.dia != null && dobra.dia < 27 && dobra.velho.some(t => /Viagem de verão no dia/.test(t)) && !dobra.novo.some(t => /Viagem de verão no dia/.test(t) || (/^guardar|^[A-Z]/.test(t) && +antes(t) < 27)) && Math.abs(dobra.soma - 1500) < 1,
+  ok(dobra.dia != null && dobra.dia < 27 && dobra.velho.some(t => /Viagem de verão (no dia|de \d+ a \d+)/.test(t)) && !dobra.novo.some(t => /Viagem de verão/.test(t) || (/^guardar|^[A-Z]/.test(t) && +antes(t) < 27)) && Math.abs(dobra.soma - 1500) < 1,
     `dinheiro que cai no dia 27 não paga de novo a viagem do dia ${dobra.dia} (${dobra.novo.join(' | ').slice(0, 120)})`);
   ok(!erros.length, `mesmo dinheiro: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
+// 3p) Controle da viagem: o que saiu, o que ainda pode (no total e por item), o que entrou fora do plano, o que ficou a menos,
+// o gasto sem item; e o calendário espalhando o que falta pelos dias de cada item, em vez de tudo num dia só
+async function viagemControle(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  // o "quando" de cada item vira dia no calendário
+  const q = await p.evaluate(() => { const T = window.__T, f = (quando, cat = '') => { const r = T.diasDoItem({quando, cat}, '2026-12', [1, 31], 1); return Object.entries(r.partes).map(([d, v]) => `${d}:${Math.round(v * 100)}`).join(' '); };
+    return {d:f('06/12'), sab:f('sábados 06, 13, 20 e 27/12'), bf:f('27 ou 28/11 (Black Friday)'), dia:f('R$ 25/dia até 20/12 · R$ 45/dia de 21 a 25/12').split(' ').length, fim:f('26/12 a 03/01'), sem:f('só se precisar').split(' ').length,
+      gas:f('~R$ 400 por semana', 'Gasolina até 25/12').split(' ').length, ceia:f('23/12 (Natal R$ 500) e 30/12 (Ano Novo R$ 500)'), hoje:Object.keys(T.diasDoItem({quando:'10/11'}, '2026-11', [1, 30], 22).partes).join(),
+      per:T.periodoViagem({nome:'Férias (29/11 a 04/01)'}, '2026-12').join('-') + ' ' + T.periodoViagem({nome:'Praia (05/02 a 15/02)'}, '2027-02').join('-')}; });
+  ok(q.d === '6:100' && q.sab === '6:25 13:25 20:25 27:25' && q.bf === '1:100' && q.dia === 25 && q.fim === '26:17 27:17 28:17 29:17 30:17 31:17' && q.sem === 31 && q.gas === 25 && q.ceia === '23:50 30:50' && q.hoje === '22' && q.per === '1-31 5-15',
+    `o "quando" do item vira dia: ${JSON.stringify(q)}`);
+  // calendário: a viagem de fev/27 sai no dia de cada item (e o resto espalhado por semana), somando o mesmo total
+  const cal = await p.evaluate(async () => { const T = window.__T, S = T.S, o = S.objs.find(x => x.id === 'obj-viagem'), antes = T.itensMes('2027-02').G.filter(x => x.kind === 'objDia');
+    await S.db.doc('objetivos/obj-viagem').set({...o, nome:'Viagem de verão (05/02 a 15/02)', itens:[{...o.itens[0], quando:'06/02'}, {...o.itens[1], quando:'todo dia'}]}); await new Promise(r => setTimeout(r, 400));
+    const g = T.itensMes('2027-02').G.filter(x => x.kind === 'objDia'), o2 = S.objs.find(x => x.id === 'obj-viagem');
+    return {antes:antes.length, totA:antes.reduce((t, x) => t + x.valor, 0), dias:g.map(x => `${x.dia}:${Math.round(x.valor)}`).join(' '), tot:g.reduce((t, x) => t + x.valor, 0), falta:T.objFalta(o2)}; });
+  ok(cal.antes >= 1 && /\b6:\d+/.test(cal.dias) && /\b5:\d+/.test(cal.dias) && /\b12:\d+/.test(cal.dias) && Math.abs(cal.tot - cal.totA) < 1 && Math.abs(cal.tot - cal.falta) < 1,
+    `o calendário espalha a viagem pelos dias (hospedagem no dia 6, o resto por semana: ${cal.dias}; soma ${Math.round(cal.tot)} = o que falta ${Math.round(cal.falta)})`);
+  await ir(p, '#planos');
+  ok(/Sai de 5 de fev a 12 de fev da conta: R\$\s*2\.700/.test(await p.evaluate(() => document.querySelector('main').innerText)), 'Ano: a viagem diz de que dia a que dia o dinheiro sai');
+  // gastos e o que entrou: com item, sem item, reembolso (fora do plano) e "Terminei este item" gastando menos
+  await p.evaluate(async () => { const T = window.__T, d = T.hoje();
+    await T.criarLanc({tipo:'despesa', valor:1000, desc:'Pousada', cat:'Viagens', data:d, meio:'pix', nparc:1, objId:'obj-viagem', objItem:'v1'});
+    await T.criarLanc({tipo:'despesa', valor:200, desc:'Lanche', cat:'Viagens', data:d, meio:'pix', nparc:1, objId:'obj-viagem'});
+    await T.criarLanc({tipo:'receita', valor:350, desc:'Reembolso do passeio', cat:'Reembolso', data:d, meio:'pix', nparc:1, objId:'obj-viagem'});
+    await T.criarLanc({tipo:'despesa', valor:600, desc:'Passeio de barco', cat:'Viagens', data:d, meio:'pix', nparc:1, objId:'obj-viagem', objItem:'v2'}); });
+  await p.waitForTimeout(400);
+  await p.evaluate(() => { const b = document.createElement('button'); b.dataset.a = 'objGuia'; b.dataset.id = 'obj-viagem'; document.body.appendChild(b); b.click(); b.remove(); }); await p.waitForTimeout(300);
+  await p.click('#sheet [data-a="fecharItem"][data-i="v2"]'); await p.waitForTimeout(700);
+  const v = await p.evaluate(() => { const T = window.__T, o = T.S.objs.find(x => x.id === 'obj-viagem'), R = T.objResumo(o), TT = R.TT;
+    return {prev:R.prev, saiu:R.saiu, entrou:R.entrou, pode:R.pode, h:Math.round(TT.v1.teto - TT.v1.gasto), p2:TT.v2.sobrou, menos:R.menos.length, sem:R.semItem.length, falta:T.objFalta(o), extra:T.extrasMes('2026-11').map(x => x.desc).join(),
+      painel:(document.querySelector('#sheet .vg') || {}).innerText || '', item:[...document.querySelectorAll('#sheet .gi')].map(x => x.innerText.replace(/\s+/g, ' '))[0] || ''}; });
+  ok(v.prev === 2700 && v.saiu === 1800 && v.entrou === 350 && v.pode === 1250 && v.h === 1250 && v.p2 === 300 && Math.abs(v.falta - 1250) < 0.6,
+    `viagem: planejado 2.700, já saiu 1.800, entrou 350 fora do plano, ainda pode ${v.pode} (hospedagem ${v.h}: recebeu a sobra do passeio, o reembolso e pagou o lanche sem item); falta ${Math.round(v.falta)}`);
+  const pn = v.painel.replace(/\s+/g, ' ');
+  ok(/Planejado R\$\s*2\.700/.test(pn) && /Já saiu R\$\s*1\.800/.test(pn) && /Ainda pode R\$\s*1\.250/.test(pn) && /Entrou fora do plano \(Reembolso do passeio\)[^+]*\+ R\$\s*350/.test(pn) && /Ficou a menos \(Passeios\)[\s\S]*R\$\s*300/.test(pn) && /Sem item \(Lanche\)[\s\S]*R\$\s*200/.test(pn) && /ainda pode R\$\s*1\.250/.test(v.item),
+    `o Guia mostra o painel da viagem (${pn.slice(0, 150)}…)`);
+  ok(!/Reembolso/.test(v.extra), 'o reembolso da viagem fica na viagem: não vira "dinheiro a mais" da casa');
+  // escrever: reembolso que cita a viagem fica ligado a ela; "recebi as férias" (o pagamento) não vira dinheiro da viagem "Férias…"
+  const t = await p.evaluate(async () => { const T = window.__T, S = T.S, d = T.hoje();
+    await S.db.doc('objetivos/obj-ferias').set({nome:'Férias na praia', tipo:'viagem', alvo:'2027-01', itens:[{id:'f1', cat:'Hotel', prev:1000}], passos:[], movs:[], status:'ativo'}); await new Promise(r => setTimeout(r, 300));
+    window.__AI = {acao:'lancar', itens:[{tipo:'receita', valor:120, desc:'Reembolso do hotel', cat:'Reembolso', data:d, meio:'pix'}]}; await T.lancarTexto('reembolso do hotel 120 férias na praia');
+    window.__AI = {acao:'lancar', itens:[{tipo:'receita', valor:2000, desc:'Férias', cat:'13º / Férias', data:d, meio:'pix'}]}; await T.lancarTexto('recebi as férias 2000');
+    await new Promise(r => setTimeout(r, 300));
+    const r1 = S.lanc.find(l => l.desc === 'Reembolso do hotel'), r2 = S.lanc.find(l => l.desc === 'Férias' && l.tipo === 'receita'); return {reemb:r1 && r1.objId, ferias:r2 ? (r2.objId || 'sem plano') : 'não lançou'}; });
+  ok(t.reemb === 'obj-ferias' && t.ferias === 'sem plano', `reembolso escrito fica na viagem; "recebi as férias" não (${JSON.stringify(t)})`);
+  ok(!erros.length, `viagem: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
 // 4) Datas escritas no chat
@@ -811,6 +860,7 @@ async function telas(b) {
     secao('Hoje, Mês e Ano'); await telasNovas(b);
     secao('O que ainda enganava, teto calculado e WhatsApp'); await auditoria3(b);
     secao('Mês e Ano: o mesmo dinheiro a mais'); await mesmoDinheiro(b);
+    secao('Controle da viagem e calendário por dia'); await viagemControle(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);
