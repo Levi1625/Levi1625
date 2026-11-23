@@ -899,7 +899,7 @@ function alertasMes(m) {
   if (m >= ymNow()) { const f = fluxoDe(m);
     if (f && f.livre < 0) out.push({t:'bad', h:`Do jeito que está planejado, ${atual ? 'este mês' : ymLong(m)} termina com <b>${brl(-f.livre)} faltando</b>. Se nada mudar, isso vira dívida no cartão ou no cheque especial.`, btn:`<button class="btn sm" data-a="projIr2" data-m="${m}">Ver plano</button>`});
     else if (f && f.sobra < 0) out.push({t:f.saude === 'pend' ? 'warn' : 'info', h:`Neste mês sai mais do que entra (<b>${brl(-f.sobra)}</b>), mas o que sobrou dos meses anteriores cobre. Livre no fim do mês: <b>${brl(f.livre)}</b>.`, btn:`<button class="btn sm" data-a="projIr2" data-m="${m}">Ver o mês</button>`});
-    else if (f && f.saude === 'pend') out.push({t:'warn', h:`O mês fecha apertado: livre no fim de só <b>${brl(f.livre)}</b>.`}); }
+    else if (f && f.saude === 'pend') { const fi = folgaInfo(m), prox = ymLabel(addM(m, 1)); out.push({t:'warn', h:`Para ${prox} não usar o cartão, faltam <b>${brl0(colchao(m) - f.livre)}</b> no fim do mês: ${prox} precisa de ${brl0(colchao(m))} na conta${fi.ate ? ` até o dinheiro entrar (dia ${fi.ate})` : ''} e vai ter ${brl0(f.livre)}.`, btn:`<button class="btn sm" data-a="projIr2" data-m="${addM(m, 1)}">Ver ${prox}</button>`}); } }
   if (atual) agendaProxima(3).forEach(a => out.push({k:'agenda', t:a.dias <= 0 ? 'warn' : 'info', h:`<b>${a.dias < 0 ? 'Era para ' + dLabel(a.d) : a.dias === 0 ? 'Hoje' : a.dias === 1 ? 'Amanhã' : dLabel(a.d)}</b> · ${esc(a.t)} <span class="muted">(${esc(a.o.nome)})</span>`, btn:`<button class="btn sm" data-a="objGuia" data-id="${a.o.id}">Guia</button>`}));
   const r = resumo(m), med = mediaCat(m, 3, true), dm = diasNoMes(m), dia = atual ? new Date().getDate() : dm, orc = orcDoMes(m);
   Object.entries(r.porCatVar).forEach(([c, v]) => {
@@ -1562,7 +1562,7 @@ let _ajLimT = null;
 // Sem isso, a regra do agendado contava os dois de novo no dia 25.
 let _ajPagoT = null;
 function ajustePago2611() {
-  if (soVer() || !S.cfg || S.cfg.ajPago2611 || !S.lanc.length || !S.cfg.saldo || _ajPagoT) return;
+  if (soVer() || !casaDoDono() || !S.cfg || S.cfg.ajPago2611 || !S.lanc.length || !S.cfg.saldo || _ajPagoT) return;
   _ajPagoT = setTimeout(async () => { if (S.cfg.ajPago2611) return; const m = ymNow(), mud = [];
     const fxs = S.fixos.filter(f => f.tipo !== 'receita' && /financiamento do carro|academia/i.test(f.desc || '')).map(f => f.id);
     for (const l of S.lanc.filter(l => fxs.includes(l.fixoId) && (l.refMes || l.mes) === m && l.data && l.data > hoje() && String(l.criado || '') <= String(S.cfg.saldo.em || ''))) {
@@ -1571,22 +1571,25 @@ function ajustePago2611() {
 }
 let _ajDiasT = null;
 function ajusteDias2611() {
-  if (soVer() || !S.cfg || S.cfg.ajDias2611 || !S.fixos.length || _ajDiasT) return;
+  if (soVer() || !casaDoDono() || !S.cfg || S.cfg.ajDias2611 || !S.fixos.length || _ajDiasT) return;
   _ajDiasT = setTimeout(async () => { if (S.cfg.ajDias2611) return; const mud = [];
     for (const f of S.fixos.filter(x => x.tipo !== 'receita' && /financiamento do carro|academia/i.test(x.desc || '') && +x.dia !== 1)) { const aj = {...(f.ajustes || {})}; Object.keys(aj).forEach(k => { if (aj[k] && aj[k].dia) { const {dia, ...resto} = aj[k]; if (Object.keys(resto).length) aj[k] = resto; else delete aj[k]; } }); try { await put(COLS.fixos, f.id, {...strip(f), dia:1, ajustes:aj}); mud.push(f.desc.replace(/\s*\(.*\)/, '')); } catch (_) {} }
     try { await saveCfg({ajDias2611:true}); if (mud.length) toast(`Agora no dia 1: ${mud.join(' e ')}`, 5000); } catch (_) {} }, 3500);
 }
 function ajusteLimites2611() {
-  if (soVer() || !S.cfg || S.cfg.ajLim2611 || !S.fixos.length || !S.cfg.orc) return;
+  if (soVer() || !casaDoDono() || !S.cfg || S.cfg.ajLim2611 || !S.fixos.length || !S.cfg.orc) return;
   clearTimeout(_ajLimT); _ajLimT = setTimeout(async () => { if (S.cfg.ajLim2611) return; const o = {...(S.cfg.orc || {})}, novo = {Mercado:1700, 'Restaurantes e lanches':600, 'Bares e saídas':200}, mud = [];
     Object.entries(novo).forEach(([c, v]) => { if (!(+o[c] >= v)) { mud.push(`${c} ${brl0(+o[c] || 0)} → ${brl0(v)}`); o[c] = v; } });
     try { await saveCfg({orc:o, ajLim2611:true}); if (mud.length) toast('Limites atualizados: ' + mud.join(' · '), 6000); } catch (_) {} }, 2500);
 }
+// As correções únicas de nov/26 foram combinadas com o dono para a casa DELE (limites dele, academia e financiamento no dia 1, Nubank…).
+// Nunca rodam no controle de um cliente (ex.: casa da mãe) nem em outro controle: lá a pessoa decide tudo do zero.
+const casaDoDono = () => !window.__casa || (!!window.__admin && typeof window.__casa.dono === 'function' && typeof window.__casa.email === 'function' && window.__casa.dono() === window.__casa.email());
 // Dono pediu (nov/26): o projetado do dia a dia fora comida volta para a média. Tira os valores antigos de "todos os meses";
 // o que foi mudado só para um mês (ex.: férias zeradas em dezembro) continua.
 let _ajMedT = null;
 function ajusteMedia2611() {
-  if (soVer() || !S.cfg || S.cfg.ajMedia2611 || !S.cfg.ajLim2611) return;
+  if (soVer() || !casaDoDono() || !S.cfg || S.cfg.ajMedia2611 || !S.cfg.ajLim2611) return;
   clearTimeout(_ajMedT); _ajMedT = setTimeout(async () => { if (S.cfg.ajMedia2611) return; const o = {...(S.cfg.orc || {})}, tirou = Object.keys(o).filter(ehPool);
     tirou.forEach(c => { delete o[c]; });
     try { await saveCfg({orc:o, ajMedia2611:true}); _flx = null; if (tirou.length) toast(`O dia a dia agora segue a média (${tirou.join(', ')}). Para mudar um valor: Contas › Previsto no dia a dia.`, 7000); } catch (_) {} }, 3000);
@@ -1594,7 +1597,7 @@ function ajusteMedia2611() {
 // Dono pediu (nov/26): gasto previsto no crédito vai para o cartão dele (Nubank), nunca para o de outra pessoa
 let _ajCartT = null;
 function ajusteCartao2611() {
-  if (soVer() || !S.cfg || S.cfg.cartaoPrincipal || S.cfg.ajCart2611 || !S.cartoes.length) return;
+  if (soVer() || !casaDoDono() || !S.cfg || S.cfg.cartaoPrincipal || S.cfg.ajCart2611 || !S.cartoes.length) return;
   const nu = S.cartoes.find(c => /nubank/i.test(c.nome || '')); if (!nu) return;
   clearTimeout(_ajCartT); _ajCartT = setTimeout(async () => { if (S.cfg.cartaoPrincipal || S.cfg.ajCart2611) return; try { await saveCfg({cartaoPrincipal:nu.id, ajCart2611:true}); _flx = null; } catch (_) {} }, 3500);
 }

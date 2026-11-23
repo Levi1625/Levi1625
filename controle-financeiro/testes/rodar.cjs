@@ -335,7 +335,29 @@ async function controles(b) {
   ok(!erros.length, `controles: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
-// 12) Todas as telas abrem sem erro
+// 12) As correções únicas combinadas com o dono para a casa dele (limites dele, dia 1, Nubank…) nunca mexem no controle de um cliente;
+//     e o aviso de mês apertado diz quanto falta para o mês seguinte não usar o cartão (e não "livre de só R$ X")
+async function controleCliente(b) {
+  const roda = async cliente => { const p = await b.newPage({viewport:{width:390, height:844}}), erros = []; p.on('pageerror', e => erros.push(e.message));
+    await p.clock.setFixedTime(new Date('2026-11-22T10:00:00'));
+    if (cliente) await p.addInitScript(() => { window.__casa = {papel:() => 'dono', email:() => 'cliente@teste.com', dono:() => 'cliente@teste.com', whats:() => null}; });   // abre já como controle de cliente
+    await p.goto(ARQ); await p.waitForTimeout(1500);
+    await p.evaluate(async () => { const S = window.__T.S;
+      const cfg = {...S.cfg, orc:{Mercado:500, Lazer:80}}; ['ajLim2611', 'ajDias2611', 'ajPago2611', 'ajMedia2611', 'ajCart2611', 'cartaoPrincipal'].forEach(k => { delete cfg[k]; });
+      await S.db.doc('config/geral').set(cfg); window.__T.render(); });
+    await p.waitForTimeout(9000);
+    const r = await p.evaluate(() => { const o = window.__T.S.cfg.orc || {}; return {merc:o.Mercado, lazer:o.Lazer}; }); await p.close(); return {r, erros}; };
+  const dono = await roda(false), cli = await roda(true);
+  ok(dono.r.merc === 1700 && dono.r.lazer === undefined, `na casa do dono as correções combinadas rodam (Mercado ${dono.r.merc}, Lazer pela média)`);
+  ok(cli.r.merc === 500 && cli.r.lazer === 80, `no controle de um cliente nada é trocado (Mercado ${cli.r.merc}, Lazer ${cli.r.lazer})`);
+  const {p, erros} = await abrir(b, '2026-11-22', 1500);
+  await p.evaluate(() => { const S = window.__T.S; return S.db.doc('config/geral').set({...S.cfg, folgaExtra:50000}); }); await p.waitForTimeout(300);
+  const av = await p.evaluate(() => { window.__T.render(); return window.__T.alertasMes(window.__T.ymNow()).map(a => a.h).join(' | '); });
+  ok(/não usar o cartão, faltam/.test(av) && !/fecha apertado: livre no fim de só/.test(av), `aviso de mês apertado diz quanto falta para o mês seguinte (${av.replace(/<[^>]+>/g, '').slice(0, 110)}…)`);
+  ok(![...dono.erros, ...cli.erros, ...erros].length, `controle de cliente: sem erro na página${[...dono.erros, ...cli.erros, ...erros][0] ? ' → ' + [...dono.erros, ...cli.erros, ...erros][0] : ''}`); await p.close();
+}
+
+// 13) Todas as telas abrem sem erro
 async function telas(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 2500);
   for (const v of ['inicio', 'contas', 'planos', 'ajuda', 'extrato', 'guardado', 'mes', 'fixos', 'cartoes', 'emprestimos', 'ajustes']) await ir(p, '#' + v);
@@ -362,6 +384,7 @@ async function telas(b) {
     secao('Mudar o projetado na hora'); await projManual(b);
     secao('Mudar pelo texto (chat)'); await mudarTexto(b);
     secao('Mais de um controle no mesmo e-mail'); await controles(b);
+    secao('Controle de cliente e aviso de mês apertado'); await controleCliente(b);
     secao('Telas'); await telas(b);
   } catch (e) { ok(false, 'o teste quebrou: ' + e.message); }
   await b.close();
