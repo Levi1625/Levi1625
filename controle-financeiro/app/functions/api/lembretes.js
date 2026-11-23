@@ -107,7 +107,7 @@ export function montar(dados, HOJE) {
   const rv = cfg.resumoWhats && cfg.resumoWhats.viagem;
   if (rv && rv.fim >= HOJE && (cfg.resumoWhats.d || "") >= addDia(HOJE, -7)) {
     const dH = (rv.dias || []).find((x) => x.d === HOJE), its = dH ? dH.its || [] : [];
-    topo.splice(rw ? 1 : 0, 0, `✈️ ${rv.nome}: ainda pode ${brl(rv.pode)}${its.length ? ` · hoje: ${its.map((x) => `${x.n} ${brl(x.v)}${x.f && x.f !== "conta" ? ` (${x.f})` : ""}`).join(", ")}` : ""}`);
+    topo.splice(rw ? 1 : 0, 0, `✈️ ${rv.nome}${rv.ini && rv.ini > HOJE ? ` (começa em ${rv.ini.slice(8)}/${rv.ini.slice(5, 7)})` : ""}: ainda pode ${brl(rv.pode)}${its.length ? ` · hoje: ${its.map((x) => `${x.n} ${brl(x.v)}${x.f && x.f !== "conta" ? ` (${x.f})` : ""}`).join(", ")}` : ""}`);
   }
   if (!topo.length && !contas.length && !caiHoje.length && !hoje.length && !amanha.length && !guardar.length && !semana.length) return null;
 

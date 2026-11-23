@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '23/11 16:49';</script>
+<script>window.__versao = '23/11 17:09';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -1126,7 +1126,7 @@ function vHoje() {
       ${pg ? '' : `<div class="hero-m"><button data-a="saldoEdit"><small>Na conta</small><b class="num">${brl0(sh)}</b></button><button data-a="abrirGuardado"><small>Guardado</small><b class="num">${brl0(gd)}</b></button><button data-a="saldoEdit"><small>Vale</small><b class="num">${sva == null ? 'informar' : brl0(sva)}</b>${vd && vd.txt ? `<em>${esc(vd.txt)}</em>` : ''}</button></div>`}</section>`;
   }
   // a viagem que está valendo hoje: quanto ainda pode e quanto sobra nos itens de hoje (sem precisar abrir Ano › Guia)
-  { const vh = sh != null ? viagemHoje() : null; if (vh) h += `<section class="sec2" id="viagemHoje"><div class="row" style="gap:8px;align-items:baseline;justify-content:space-between;flex-wrap:nowrap"><b style="min-width:0">✈️ ${esc(vh.nome)}</b><span class="small" style="white-space:nowrap">ainda pode <b class="num pos">${brl0(vh.pode)}</b></span></div>
+  { const vh = sh != null ? viagemHoje() : null; if (vh) h += `<section class="sec2" id="viagemHoje"><div class="row" style="gap:8px;align-items:baseline;justify-content:space-between;flex-wrap:nowrap"><b style="min-width:0">✈️ ${esc(vh.nome)}${vh.antes ? ` <span class="small" style="font-weight:600">começa em ${dCurto(vh.ini)}</span>` : ''}</b><span class="small" style="white-space:nowrap">ainda pode <b class="num pos">${brl0(vh.pode)}</b></span></div>
     ${vh.hoje.length ? `<p class="small" style="margin:4px 0 0">Hoje: ${vh.hoje.map(x => `${esc(x.n)} <b class="num">${brl0(x.v)}</b>${x.f !== 'conta' ? ` <span class="muted">(${x.f})</span>` : ''}`).join(' · ')}</p>` : vh.prox ? `<p class="small muted" style="margin:4px 0 0">Próximo: ${esc(vh.prox.n)} em ${dCurto(vh.prox.d)} (${brl0(vh.prox.v)})</p>` : ''}
     <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-a="objGuia" data-id="${vh.o.id}">Guia</button>${soVer() ? '' : `<button class="btn sm" data-a="gastoObj" data-id="${vh.o.id}">Lançar gasto</button>`}</div></section>`; }
   // quem ainda não sabe quanto gastar por mês: o app calcula pelo que entra e sai
@@ -1373,12 +1373,13 @@ const fracMes = (x, m) => m < ymNow() || !x ? 0 : sum(x.datas.filter(z => diaRea
 // A viagem que está valendo hoje (do primeiro ao último dia dela, até tocar em "Voltei"): quanto ainda pode e os itens de hoje,
 // com quanto sobra em cada um. Também os itens dos próximos 7 dias, para o lembrete das 8h saber o de cada dia.
 function viagemHoje(T = hoje()) {
-  for (const o of objsAtivos().filter(ehViagem)) { if (o.voltou || !(o.itens || []).length) continue; const DV = diasViagem(o); if (T < DV.per[0] || T > DV.per[1]) continue;
+  const vs = objsAtivos().filter(o => ehViagem(o) && !o.voltou && (o.itens || []).length).map(o => ({o, per:diasViagem(o).per})).filter(x => T <= x.per[1] && ddiff(T, x.per[0]) <= 7).sort((a, b) => a.per[0].localeCompare(b.per[0]));
+  for (const {o} of vs) { const DV = diasViagem(o);
     const R = objResumo(o), TT = R.TT, its = (o.itens || []).filter(it => TT[it.id] && !TT[it.id].fechado && TT[it.id].teto - TT[it.id].gasto > 0.5);
     const doDia = d => its.filter(it => (DV.itens[it.id] || DV.sem).datas.some(z => z.d === d)).map(it => ({n:String(it.cat).replace(/\s*\(.*\)\s*$/, ''), v:Math.round(TT[it.id].teto - TT[it.id].gasto), f:(it.meio === 'va' || it.meio === 'vr') ? 'vale' : /^cc:/.test(it.meio || '') ? 'cartão' : 'conta'})).sort((a, b) => b.v - a.v).slice(0, 3);
     const prox = its.flatMap(it => (DV.itens[it.id] || {datas:[]}).datas.filter(z => z.d > T && (DV.itens[it.id] || {}).modo === 'data').map(z => ({d:z.d, n:String(it.cat).replace(/\s*\(.*\)\s*$/, ''), v:Math.round(TT[it.id].teto - TT[it.id].gasto)}))).sort((a, b) => a.d.localeCompare(b.d))[0] || null;
     const dias = []; for (let i = 0, d = T; i < 7 && d <= DV.per[1]; i++, d = maisDia(d, 1)) { const x = doDia(d); if (x.length) dias.push({d, its:x}); }
-    return {o, nome:nomeObj(o), pode:Math.round(R.pode), hoje:doDia(T), prox, dias}; }
+    return {o, nome:nomeObj(o), pode:Math.round(R.pode), hoje:doDia(T), prox, dias, ini:DV.per[0], antes:T < DV.per[0]}; }
   return null;
 }
 // Os gastos de uma viagem no calendário do mês: o que tem dia certo cai no dia (juntando os itens do mesmo dia);
@@ -1541,8 +1542,10 @@ function vContasHoje() {
       <b>Fim do mês: ≈ ${brl0(fimC)}</b> na conta${sobraCx() && fxm && fimC > 0.5 && fxm.livre >= colchao(m) - 0.5 ? ` (${folgaCurta(m)})` : ''}${sobraCx() && fxm ? ` · caixinha ${brl0(Math.max(0, fxm.cx) + (usoP.fatura || 0))}${usoP.fatura > 0.5 ? ` (${brl0(usoP.fatura)} separados para a fatura)` : ''}` : ''}.${usoP.divida > 0.5 ? `<br><b class="neg">O mês não fecha: ${brl0(usoP.divida)} ficam no cartão para a fatura de ${ymLabel(addM(m, 1))}.</b> Veja em Planos como cobrir.` : ''}${lrM != null ? `<br><b>Dia a dia projetado${m === hojeM ? ' que falta' : ''}:</b> ${brl0(pdM)} (fora comida) · <b class="${lrM < -0.5 ? 'neg' : 'pos'}">${lrM < -0.5 ? `Falta tirando tudo: ${brl0(-lrM)}` : `Sobra tirando tudo: + ${brl0(lrM)}`}</b>${lrM < -0.5 && fxm.paraM ? ` (em ${ymLabel(fxm.paraM)})` : ''}` : ''}${ddDia > 0.5 ? `<br><span class="muted">O "conta ≈" de cada dia vale se o dia a dia que falta sair aos poucos (≈ ${brl0(ddDia)} por dia da conta).</span>` : ''}</div>` + lista; }
   h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">Dia a dia de ${ymLabel(m)}</h2><button class="lnk small" data-a="contasPagos">${S2 ? 'Esconder o que já foi' : 'Mostrar o que já foi'}</button></div>${m > hojeM && !ro && lista ? '<p class="small muted" style="margin:-4px 0 6px">Entrada ou conta com valor diferente neste mês? Toque em <b>Mudar</b>: vale só para este mês ou daqui pra frente.</p>' : ''}${lista || '<p class="muted small" style="padding:8px 0">Nada pendente neste mês.</p>'}</section>`;
   // viagens e planos do mês
-  const objs = {}; p.linhas.filter(l => l.tipo === 'objetivo').forEach(l => { const k = l.cat.replace('Objetivo: ', ''); objs[k] = (objs[k] || 0) + l.v; });
-  if (Object.keys(objs).length) h += `<section class="sec2"><div class="sec2-h"><h2 style="text-transform:none">Viagens e planos em ${ymLabel(m)}</h2></div>${Object.entries(objs).map(([k, v]) => { const o = S.objs.find(x => x.nome === k); return `<div class="li" ${o ? `data-a="objGuia" data-id="${o.id}"` : ''} role="button" tabindex="0">${catIco('Viagens', 'despesa')}<span class="tx"><span class="t1">${esc(k)}</span><span class="t2">toque para ver o guia</span></span><span class="am">${brl0(v)}</span><span class="chev">›</span></div>`; }).join('')}</section>`;
+  // o número grande é o que sai da conta (o mesmo do calendário); o que sai do vale e o que vem na fatura ficam ao lado
+  const objs = {}; p.linhas.filter(l => l.tipo === 'objetivo').forEach(l => { const k = l.cat.replace('Objetivo: ', ''), f = /^Crédito /.test(l.lugar) ? 'cartao' : isVLg(l.lugar) ? 'vale' : 'conta', x = objs[k] = objs[k] || {conta:0, vale:0, cartao:0}; x[f] += l.v; });
+  if (Object.keys(objs).length) h += `<section class="sec2" id="planosMes"><div class="sec2-h"><h2 style="text-transform:none">Viagens e planos em ${ymLabel(m)}</h2><span class="small muted">da conta</span></div>${Object.entries(objs).map(([k, x]) => { const o = S.objs.find(y => y.nome === k), lado = [x.vale > 0.5 ? `do vale ${brl0(x.vale)}` : '', x.cartao > 0.5 ? `na fatura ${brl0(x.cartao)}` : ''].filter(Boolean);
+    return `<div class="li" ${o ? `data-a="objGuia" data-id="${o.id}"` : ''} role="button" tabindex="0">${catIco('Viagens', 'despesa')}<span class="tx"><span class="t1">${esc(k)}</span><span class="t2" style="white-space:normal">${lado.length ? `e mais ${lado.join(' e ')} (fora da conta) · ` : ''}toque para ver o guia</span></span><span class="am">${brl0(x.conta)}</span><span class="chev">›</span></div>`; }).join('')}</section>`;
   h += `<div class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="#fixos">${ro ? 'Ver contas fixas' : 'Contas fixas e limites'}</a></div>`;
   return h;
 }
@@ -2113,7 +2116,7 @@ function resumoWhats() {
     passou:[...g.DD.lista.filter(x => x.passou > 0.5).map(x => ({c:nomeDia(x.c), v:Math.round(x.passou)})), ...g.CM.lista.filter(x => x.passou > 0.5).map(x => ({c:x.c, v:Math.round(x.passou)}))].slice(0, 3),
     aperto:pj.livre1 != null && pj.livre1 < 0 ? `Até ${dCurto(pj.P1)} a conta não fecha: faltam ${brl0(-pj.livre1)}.` : ap ? apertoTxt(ap) : null,
     falta:g.livre < -0.5 ? `Falta ${brl0(-g.livre)} em ${ymLabel(g.pior)} (tirando tudo).` : null,
-    viagem:(() => { const vh = viagemHoje(); return vh ? {nome:vh.nome, pode:vh.pode, dias:vh.dias.map(x => ({d:x.d, its:x.its.map(y => ({n:y.n, v:y.v, f:y.f}))})), fim:diasViagem(vh.o).per[1]} : null; })()};
+    viagem:(() => { const vh = viagemHoje(); return vh ? {nome:vh.nome, pode:vh.pode, ini:vh.ini, dias:vh.dias.map(x => ({d:x.d, its:x.its.map(y => ({n:y.n, v:y.v, f:y.f}))})), fim:diasViagem(vh.o).per[1]} : null; })()};
 }
 function sincResumoWhats() {
   if (soVer() || !window.__casa || !S.cfg) return;
@@ -2355,6 +2358,7 @@ function vAjuda() {
     <li><b>Hoje</b>: <b>Pode gastar</b> é o que ainda sai do salário no dia a dia deste mês, fora comida (o previsto de cada categoria é a média dos últimos meses, sem viagem, ou o valor que você pôs). <b>Vale</b> é o que ainda tem para comida. <b>Por dia</b> = pode gastar ÷ os dias que faltam, contando hoje. A frase embaixo é o aperto mais perto; a lista mostra o que falta em cada categoria.</li>
     <li><b>Mês</b>: o que não dá para cortar (contas, faturas, financiamento), o que dá (dia a dia e comida, com o previsto ao lado) e o dinheiro a mais (férias, 13º, PLR) com destino. Embaixo, o calendário com Paguei e Recebi.</li>
     <li><b>Ano</b>: quanto fica no fim de cada mês. O mais justo é marcado: o que sobra nele é o que dá para gastar a mais (ou guardar) sem faltar em nenhum mês. Os planos ficam aqui.</li>
+    <li><b>Viagem</b>: no Ano, toque nela e em <b>Guia</b>. Lá estão o planejado, o que já saiu e o que ainda pode (no total, da conta, do vale e do cartão, e em cada item), o que entrou fora do plano e o que ficou a menos. Ao lançar, diga o item (<i>almoço 45 alimentação férias</i>). Uma semana antes e durante a viagem, a tela Hoje mostra uma linha com o que ainda pode e os itens do dia, e o lembrete das 8h no WhatsApp também (abra o app pelo menos 1 vez por semana para os números ficarem certos). Na volta, toque em <b>Voltei</b>: o que sobrou não sai mais. <b>Ver resultado</b> compara o planejado com o gasto de cada item.</li>
     <li><b>Passou numa categoria?</b> O excesso sai das outras, proporcional ao que faltava em cada uma. "Terminei este gasto" faz o contrário: o que sobrou vai para as outras.</li>
     <li><b>Comida</b>: limite próprio, sai do vale. Vale só paga comida.</li>
     <li><b>A conta nunca fica negativa</b>: se for faltar, o app mostra de onde tirar (caixinha, cartão). Mês que fica negativo aparece no Ano; nada é descontado sozinho do "pode gastar".</li>
@@ -4606,7 +4610,7 @@ function objGuiaHTML(o) {
     ${R.naoCoube > 0.5 ? L('<b>Passou e não coube nos outros itens da mesma fonte</b>: a viagem fica mais cara que o planejado', brl0(R.naoCoube), 'neg') : ''}
     ${R.passou.length ? L(`<b>Passou do planejado</b> (${R.passou.map(x => curto(x.it)).join(', ')}): saiu dos outros itens`, brl0(sum(R.passou, x => x.v)), 'neg') : ''}
     ${R.semItem.length ? L(`<b>Sem item</b> (${R.semItem.map(l => esc(l.desc || 'gasto')).slice(0, 3).join(', ')}${R.semItem.length > 3 ? '…' : ''}): saiu dos itens, proporcional ao que faltava. Para escolher o item, toque no gasto em Lançamentos.`, brl0(sum(R.semItem))) : ''}
-    ${ro || o.status === 'concluido' ? '' : `<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn sm pri" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button><button class="btn sm" data-a="entrouObj" data-id="${o.id}">Lançar o que entrou</button>${ehViagem(o) && !R.voltou && T >= diasViagem(o).per[0] ? `<button class="btn sm" data-a="voltei" data-id="${o.id}">Voltei</button>` : ''}</div>`}</section>`;
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">${ro || o.status === 'concluido' ? '' : `<button class="btn sm pri" data-a="gastoObj" data-id="${o.id}">Lançar gasto</button><button class="btn sm" data-a="entrouObj" data-id="${o.id}">Lançar o que entrou</button>${ehViagem(o) && !R.voltou && T >= diasViagem(o).per[0] ? `<button class="btn sm" data-a="voltei" data-id="${o.id}">Voltei</button>` : ''}`}<button class="btn sm" data-a="objRes" data-id="${o.id}">Ver resultado</button></div></section>`;
   const itemHTML = it => { const t = TT[it.id] || {teto:+it.prev || 0, gasto:0, ajuste:0, entrou:0}, g = t.gasto, resta = r2(t.teto - g), passou = t.estourou > 0.5;
     const dir = passou ? `<span class="gi-v"><small>passou</small><b class="num neg">${brl0(t.estourou)}</b></span>` : t.fechado ? '<span class="pill ok">terminado</span>' : `<span class="gi-v"><small>ainda pode</small><b class="num ${resta < 0.5 ? '' : 'pos'}">${brl0(Math.max(0, resta))}</b></span>`;
     const nota = passou ? 'o excesso saiu dos outros itens' : t.sobrou ? `sobraram ${brl0(t.sobrou)} para os outros` : t.ajuste < -0.5 ? `${brl0(-t.ajuste)} foram cobrir outros itens` : t.ajuste > 0.5 ? `recebeu ${brl0(t.ajuste)} de sobras` : '';

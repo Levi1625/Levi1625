@@ -53,10 +53,11 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
     - gasto **sem item**: sai dos itens da mesma fonte, proporcional ao que falta (a regra única, `objTetos`);
     - **fonte** = conta, vale (VA/VR) ou **cada cartão à parte**. O que passa no cartão não come o que ainda pode no Pix. O que passou e não coube nos itens da mesma fonte aparece como "não coube".
   - Escrever "reembolso … <nome da viagem>" liga a receita à viagem. "Recebi as férias" é o pagamento de férias e não liga.
-  - **Voltei** (no Guia, depois do primeiro dia da viagem): termina os itens abertos. O que ainda podia não sai mais: some do calendário, e o topo mostra "Sobrou". **Reabrir a viagem** desfaz só esses itens.
-  - **Viagem valendo** (do primeiro ao último dia dela, até o Voltei; `viagemHoje`):
-    - a tela **Hoje** mostra uma linha: ainda pode no total e quanto sobra em cada item de hoje (alimentação, gasolina), com o vale e o cartão marcados. Sem item hoje, mostra o próximo com data;
-    - o **lembrete das 8h** traz a mesma linha. O app guarda em `resumoWhats.viagem` os itens dos próximos 7 dias, e o lembrete pega os de hoje, mesmo na virada do mês.
+  - **Voltei** (no Guia, depois do primeiro dia da viagem): termina os itens abertos. O que ainda podia não sai mais: some do calendário, e o topo mostra "Sobrou". **Reabrir a viagem** desfaz só esses itens. **Ver resultado** (planejado × gasto de cada item) fica no próprio Guia, também para quem só vê.
+  - **Mês › Viagens e planos**: o número grande é o que sai **da conta** (o mesmo do calendário). O que sai do vale e o que vem na fatura aparecem ao lado ("e mais do vale R$ X"), para a viagem não parecer mais cara.
+  - **Viagem valendo** (de 7 dias antes do primeiro dia até o último, ou até o Voltei; `viagemHoje`):
+    - a tela **Hoje** mostra uma linha: ainda pode no total e quanto sobra em cada item de hoje (alimentação, gasolina), com o vale e o cartão marcados. Antes do primeiro dia, diz "começa em 29/11". Sem item hoje, mostra o próximo com data;
+    - o **lembrete das 8h** traz a mesma linha (com "começa em" antes da viagem). O app guarda em `resumoWhats.viagem` os itens dos próximos 7 dias, e o lembrete pega os de hoje, mesmo na virada do mês.
   - **Datas da viagem** (`datasQuando`, `diasViagem`): o que falta de cada item sai no dia do "quando" dele. Se o "quando" não tem data, vale a data do nome do item (ex.: "Gasolina até 25/12").
     - Datas ("06/12", "06, 13 e 20/12") caem nesses dias.
     - Dias da semana ("sábados", "domingos", "fim de semana") viram esses dias da viagem.

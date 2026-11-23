@@ -669,6 +669,31 @@ async function viagemControle(b) {
   ok(!erros.length, `viagem: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
+// 3q) Viagem: o Mês mostra o que sai da conta (vale e fatura ao lado); a linha do Hoje aparece uma semana antes; Ajuda e "Ver resultado"
+async function viagemAvisos(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  await p.evaluate(async () => { const S = window.__T.S, o = S.objs.find(x => x.id === 'obj-viagem');
+    await S.db.doc('objetivos/obj-viagem').set({...o, nome:'Viagem de verão (05/02 a 15/02)', itens:[{...o.itens[0], quando:'06/02'}, {...o.itens[1], meio:'va', quando:'todo dia'}]});
+    await S.db.doc('objetivos/obj-breve').set({nome:'Praia (25/11 a 30/11)', tipo:'viagem', alvo:'2026-11', status:'ativo', passos:[], movs:[], itens:[{id:'b1', cat:'Almoço', prev:300, quando:'todo dia'}]}); });
+  await p.waitForTimeout(400);
+  await ir(p, '#contas'); for (let i = 0; i < 3; i++) { await p.click('[data-a="calMes"][data-d="1"]'); await p.waitForTimeout(250); }
+  const pm = await p.evaluate(() => ((document.getElementById('planosMes') || {}).innerText || '').replace(/\s+/g, ' '));
+  ok(/Viagem de verão[^R]*e mais do vale R\$\s*900 \(fora da conta\)[\s\S]*R\$\s*1\.800/.test(pm), `Mês: a viagem mostra o que sai da conta (igual ao calendário) e o vale ao lado (${pm.slice(0, 140)})`);
+  await ir(p, '#inicio');
+  const hz = await p.evaluate(() => ((document.getElementById('viagemHoje') || {}).innerText || '').replace(/\s+/g, ' '));
+  ok(/✈️ Praia começa em 25 de nov ainda pode R\$\s*300/.test(hz), `uma semana antes, o Hoje já mostra a viagem (${hz.slice(0, 80)})`);
+  const { pathToFileURL } = require('url'), L = await import(pathToFileURL(require('path').join(__dirname, '..', 'app', 'functions', 'api', 'lembretes.js')).href);
+  const rw = await p.evaluate(() => window.__T.resumoWhats()), txt = L.montar({lanc:[], fixos:[], cartoes:[], objetivos:[], config:{resumoWhats:rw}}, '2026-11-22') || '';
+  ok(/✈️ Praia \(começa em 25\/11\): ainda pode R\$\s*300,00/.test(txt), `o lembrete também avisa antes (${(txt.split('\n').find(l => /✈️/.test(l)) || 'sem linha').slice(0, 80)})`);
+  await p.evaluate(() => { const b = document.createElement('button'); b.dataset.a = 'objGuia'; b.dataset.id = 'obj-viagem'; document.body.appendChild(b); b.click(); b.remove(); }); await p.waitForTimeout(300);
+  await p.click('#sheet [data-a="objRes"]'); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => /Resultado: Viagem de verão/.test(document.querySelector('#sheet').innerText)), 'o Guia tem o botão "Ver resultado" (o guia das viagens fala dele)');
+  await p.evaluate(() => { const x = document.querySelector('[data-a="closeSheet"]'); if (x) x.click(); });
+  await ir(p, '#ajuda'); const aj = await p.evaluate(() => document.querySelector('main').textContent);
+  ok(/Viagem/.test(aj) && /Voltei/.test(aj) && /lembrete das 8h/.test(aj) && /1 vez por semana/.test(aj), 'a Ajuda explica a linha da viagem, o Voltei e o lembrete');
+  ok(!erros.length, `avisos da viagem: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
 // 4) Datas escritas no chat
 async function datasChat(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 1500);
@@ -893,6 +918,7 @@ async function telas(b) {
     secao('O que ainda enganava, teto calculado e WhatsApp'); await auditoria3(b);
     secao('Mês e Ano: o mesmo dinheiro a mais'); await mesmoDinheiro(b);
     secao('Controle da viagem e calendário por dia'); await viagemControle(b);
+    secao('Viagem no Mês, uma semana antes, Ajuda e resultado'); await viagemAvisos(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);
