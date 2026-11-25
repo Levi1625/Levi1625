@@ -6,7 +6,7 @@
 <link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bolso em Dia"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script>window.__versao = '23/11 17:44';</script>
+<script>window.__versao = '25/11 11:21';</script>
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}</style>
 <script src="shim.js"></script>
 </head><body>
@@ -491,8 +491,12 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fBRL = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
 const fBRL0 = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL', maximumFractionDigits:0});
-const brl = v => fBRL.format(+v || 0);
-const brl0 = v => fBRL0.format(+v || 0);
+// Olhinho: esconde os valores na tela (só neste aparelho). O que o app guarda ou manda (resumo do WhatsApp, plano do mês, IA) sai sempre com os números.
+let OCULTO = (() => { try { return localStorage.getItem('bolso-oculto') === '1'; } catch (_) { return false; } })();
+const semOcultar = f => { const o = OCULTO; OCULTO = false; try { return f(); } finally { OCULTO = o; } };
+const brl = v => OCULTO ? 'R$ •••' : fBRL.format(+v || 0);
+const brl0 = v => OCULTO ? 'R$ •••' : fBRL0.format(+v || 0);
+const olhoBtn = () => `<button class="rb" data-a="olho" aria-pressed="${OCULTO}" aria-label="${OCULTO ? 'Mostrar os valores' : 'Esconder os valores'}" title="${OCULTO ? 'Mostrar os valores' : 'Esconder os valores'}" style="margin-right:6px">${svgI(OCULTO ? 'M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.8 9.8 0 0 1 12 5c5 0 9 4.5 10 7-.4 1-1.2 2.3-2.4 3.5M6.1 6.1C4 7.5 2.6 9.6 2 12c1 2.5 5 7 10 7 1.8 0 3.4-.5 4.9-1.3' : 'M2 12c1-2.5 5-7 10-7s9 4.5 10 7c-1 2.5-5 7-10 7S3 14.5 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z')}</button>`;
 const pct = v => (isFinite(v) ? Math.round(v * 100) : 0) + '%';
 const pad = n => String(n).padStart(2, '0');
 const isoDate = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -1102,7 +1106,7 @@ function vHoje() {
   const nome = String((S.nomes && S.nomes[S.uid]) || '').split(' ')[0];
   const dia = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
   const ctlAb = window.__casa && window.__casa.casas && window.__casa.casas().length > 1 && window.__casa.casaAtual ? (window.__casa.casaAtual() || {}).nome : '';
-  let h = `<header class="hd2"><span class="av">${esc((nome || 'B').charAt(0).toUpperCase())}</span><span class="tx"><small>${esc(dia.charAt(0).toUpperCase() + dia.slice(1))}${ctlAb ? ` · <button class="lnk" data-a="menu" style="font-size:inherit;padding:0">${esc(ctlAb)} ▾</button>` : ''}</small><b>Oi${nome ? ', ' + esc(nome) : ''}</b></span><button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>` + exBanner();
+  let h = `<header class="hd2"><span class="av">${esc((nome || 'B').charAt(0).toUpperCase())}</span><span class="tx"><small>${esc(dia.charAt(0).toUpperCase() + dia.slice(1))}${ctlAb ? ` · <button class="lnk" data-a="menu" style="font-size:inherit;padding:0">${esc(ctlAb)} ▾</button>` : ''}</small><b>Oi${nome ? ', ' + esc(nome) : ''}</b></span>${olhoBtn()}<button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>` + exBanner();
   if (sh == null) h += `<section class="hj-card s-info" id="comecar"><p class="hj-l"><b>Comece em 5 minutos:</b> quanto tem na conta, o salário, o vale e a comida, as contas fixas, o que já tem guardado e como quer guardar. Aí eu calculo quanto dá para gastar por mês, dividido por categoria, e por dia.</p><div class="row" style="margin-top:10px">${soVer() ? '<span class="small">Quem cuida do controle ainda vai preencher.</span>' : '<button class="btn pri" data-a="onb">Começar</button>'}</div></section>`;
   else {
     const pg = podeGastar(), vd = vaDuracao(), gd = totalGuardado();
@@ -1471,7 +1475,7 @@ function linhaMes0(m) {
 // Contas: calendário do mês com bolinhas (pagar, receber, já feito) e a lista com Paguei/Recebi.
 function vContasHoje() {
   const hojeM = ymNow(), m = S.calMes || hojeM, d0 = new Date().getDate(), aba = S.contasAba || 'contas', ro = soVer();
-  let h = `<header class="hd2"><span class="tx"><b style="font-size:1.5rem">Mês</b></span>${S.cartoes.length ? `<div class="seg3" role="group" aria-label="Ver" style="flex:none;width:170px"><button type="button" data-a="contasAba" data-v="contas" aria-pressed="${aba === 'contas'}">Mês</button><button type="button" data-a="contasAba" data-v="cartoes" aria-pressed="${aba === 'cartoes'}">Cartões</button></div>` : ''}<button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>`;
+  let h = `<header class="hd2"><span class="tx"><b style="font-size:1.5rem">Mês</b></span>${S.cartoes.length ? `<div class="seg3" role="group" aria-label="Ver" style="flex:none;width:170px"><button type="button" data-a="contasAba" data-v="contas" aria-pressed="${aba === 'contas'}">Mês</button><button type="button" data-a="contasAba" data-v="cartoes" aria-pressed="${aba === 'cartoes'}">Cartões</button></div>` : ''}${olhoBtn()}<button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>`;
   const nav = `<div class="row" style="justify-content:space-between;margin-bottom:12px"><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="-1" aria-label="Mês anterior">‹</button><b>${ymLong(m)}</b><button class="rb" style="width:38px;height:38px" data-a="calMes" data-d="1" aria-label="Próximo mês">›</button></div>`;
   if (aba === 'cartoes' && S.cartoes.length) return h + nav + cartoesContasHTML(m);
   const {L, E, G, pagos, pontes, saldoD, ini, cxIni, usoP, nd, d1, fxs, ix, ddDia} = linhaMes(m);
@@ -2110,7 +2114,8 @@ let _pmT = null;
 // Resumo do dia para o lembrete do WhatsApp (o servidor não calcula a projeção): pode gastar e vale, o que passou do previsto,
 // o próximo aperto e o vale acabando. Guardado em config (só o que mudou), quando o app abre ou os dados mudam.
 let _rwT = null;
-function resumoWhats() {
+function resumoWhats() { return semOcultar(resumoWhats0); }
+function resumoWhats0() {
   const g = podeGastar(); if (!g) return null; const pj = g.pj, ap = g.aperto;
   return {m:ymNow(), d:hoje(), pode:Math.round(g.total), fim:g.fim, vale:g.vaHoje == null ? null : Math.round(g.vaHoje), valeProx:g.vaProx ? {d:g.vaProx.d, v:Math.round(g.vaProx.v)} : null, comida:Math.round(g.CM.falta),
     passou:[...g.DD.lista.filter(x => x.passou > 0.5).map(x => ({c:nomeDia(x.c), v:Math.round(x.passou)})), ...g.CM.lista.filter(x => x.passou > 0.5).map(x => ({c:x.c, v:Math.round(x.passou)}))].slice(0, 3),
@@ -2126,7 +2131,7 @@ function sincResumoWhats() {
 function sincPlanoMes() {
   if (soVer() || !S.cfg || !S.objs.some(o => (o.passos || []).some(a => RX_PLANO_MES.test(a.t || '')))) return;
   clearTimeout(_pmT); _pmT = setTimeout(() => {
-    const m0 = ymNow(), novo = {[m0]:planoMesTexto(m0), [addM(m0, 1)]:planoMesTexto(addM(m0, 1))}, velho = S.cfg.planoMesTxt || {};
+    const m0 = ymNow(), novo = semOcultar(() => ({[m0]:planoMesTexto(m0), [addM(m0, 1)]:planoMesTexto(addM(m0, 1))})), velho = S.cfg.planoMesTxt || {};
     if (Object.keys(novo).every(k => novo[k] === velho[k]) && Object.keys(velho).length === 2) return;
     saveCfg({planoMesTxt:novo}).catch(() => {});
   }, 4000);
@@ -2308,7 +2313,7 @@ function mesAMesHTML(fut) {
 }
 function vPlanos() {
   const fut = fluxo(), T = hoje(), ro = soVer();
-  let h = `<header class="hd2"><span class="tx"><small>os meses se ajudando e os seus planos</small><b style="font-size:1.5rem">Ano</b></span><button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>`;
+  let h = `<header class="hd2"><span class="tx"><small>os meses se ajudando e os seus planos</small><b style="font-size:1.5rem">Ano</b></span>${olhoBtn()}<button class="rb" data-a="menu" aria-label="Menu">${svgI('M4 7h16M4 12h16M4 17h16')}</button></header>`;
   // o ano se equilibrando: cada mês com a altura do que fica no fim (conta + caixinha); o mais justo marcado, e de onde vem o alívio
   const pior = fut.reduce((a, b) => b.livre < a.livre ? b : a), mx = Math.max(1, ...fut.map(x => Math.abs(x.livre))), P = ymLabel(pior.m);
   const frase = pior.livre < -0.5 ? `<b class="neg">Falta tirando tudo: ${brl0(-pior.livre)} em ${P}.</b> Diminua o projetado ou um plano até ficar positivo.`
@@ -4074,7 +4079,8 @@ function simulacaoCompra(txt) {
 Compra de ${brl(p.valor)}.
 ${cen.filter(Boolean).join('\n')}`;
 }
-function contextoFinanceiro() {
+function contextoFinanceiro() { return semOcultar(contextoFinanceiro0); }
+function contextoFinanceiro0() {
   const m = ymNow(), r = resumo(m), med = mediaCat(m), orc = S.cfg.orc || {};
   const cats = Object.entries(r.porCat).sort((a, b) => b[1] - a[1]).map(([c, v]) => `${c}: ${brl(v)}${orc[c] ? ` (orçamento ${brl(orc[c])})` : ''}${med.media[c] ? ` (média ${brl(med.media[c])})` : ''}`).join('; ');
   const ult = [...S.lanc].filter(l => l.mes >= addM(m, -1) && l.mes <= m).sort((a, b) => (b.data || '').localeCompare(a.data || '')).slice(0, 40).map(l => `${l.data} ${l.tipo === 'receita' ? '+' : '-'}${r2(l.valor)} ${l.desc} [${l.cat}${l.cartaoId ? ', ' + (cartao(l.cartaoId)?.nome || '') : l.meio === 'va' ? ', vale' : ''}]`).join('\n');
@@ -4199,7 +4205,7 @@ document.addEventListener('submit', e => { const f = e.target; const h = F[f.dat
 // Papéis: o dono manda em tudo; "edita" lança e corrige; "ve" só vê e pergunta para a IA.
 const papel = () => (window.__casa && window.__casa.papel) ? window.__casa.papel() : 'dono';
 const soVer = () => papel() === 've', ehDono = () => papel() === 'dono';
-const OK_VER = new Set(["trocarCasa", "pinToggle", "pinNao", "sairOutros", "trocarSenha", "verLembrete", "extVer", "contasPagos", "prevCat", "objGuia", "irEmp", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "iaGastos", "aiDicas"]);
+const OK_VER = new Set(["trocarCasa", "pinToggle", "pinNao", "sairOutros", "trocarSenha", "verLembrete", "extVer", "contasPagos", "prevCat", "objGuia", "irEmp", "verFatura", "contasAba", "calMes", "calDia", "tema", "avisoDet", "abrirGuardado", "instalarApp", "instalarDepois", "menu", "closeSheet", "objGuia", "objRes", "catDet", "lugDet", "fTipo", "mes", "mesHoje", "irMes", "irMesProj", "projIr", "projIr2", "projTabelas", "porDiaDet", "projMes", "ano", "toggleMore", "verHistorico", "perguntaPronta", "mic", "sair", "olho", "iaGastos", "aiDicas"]);
 const AVISO_VER = 'Seu acesso é só para ver e perguntar. Para lançar ou mudar algo, peça para o dono do controle.';
 A.closeSheet = () => closeSheet();
 A.mes = el => { S.mes = addM(S.mes, +el.dataset.d); render(); };
@@ -5028,6 +5034,7 @@ A.casaNovaSenha = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'
   try { await window.__casa.novaSenhaMembro(el.dataset.e); toast(`Pronto: ${el.dataset.e} entra em "Primeiro acesso" com o mesmo e-mail e cria outra senha. Os dados continuam.`, 7000); render(); } catch (e) { toast(e?.message || 'Não consegui agora.'); } };
 A.casaTirar = async el => { if (el.dataset.ok !== '1') { el.dataset.ok = '1'; el.textContent = 'Confirmar'; return; } try { await window.__casa.remove(el.dataset.e); toast('Acesso removido'); render(); } catch (e) { toast(e?.message || 'Não consegui tirar.'); } };
 A.casaPapel = async el => { try { await window.__casa.setPapel(el.dataset.e, el.dataset.v); toast(el.dataset.v === 've' ? 'Agora essa pessoa só vê e pergunta' : 'Agora essa pessoa pode lançar'); render(); } catch (e) { toast(e?.message || 'Não consegui mudar.'); } };
+A.olho = () => { OCULTO = !OCULTO; try { localStorage.setItem('bolso-oculto', OCULTO ? '1' : '0'); } catch (_) {} render(); toast(OCULTO ? 'Valores escondidos. Toque no olho para mostrar.' : 'Valores à mostra.'); };
 A.sair = async () => { if (!window.__casa) return; try { await window.__casa.sair(); } catch (_) { toast('Sem internet: não consegui sair. Tente de novo com internet.'); } };
 A.sairOutros = async el => { if (!window.__casa || !confirm('Desconectar todos os outros aparelhos desta conta? Eles vão pedir o e-mail e a senha de novo. Este aparelho continua.')) return; el.disabled = true;
   try { const r = await window.__casa.sairOutros(); toast(r && r.aparelhos ? `Pronto: ${r.aparelhos} aparelho${r.aparelhos > 1 ? 's' : ''} desconectado${r.aparelhos > 1 ? 's' : ''}` : 'Pronto: nenhum outro aparelho estava conectado'); } catch (_) { toast('Sem internet agora. Tente de novo.'); } el.disabled = false; };

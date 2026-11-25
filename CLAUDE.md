@@ -28,6 +28,7 @@ Controle financeiro da casa. Respostas ao dono sempre em português, curtas e si
 - Senha nova com **8 ou mais**; login trava 15 min depois de 8 erros. PBKDF2 fica em 20 mil voltas (limite de CPU do Workers): só suba guardando o número de voltas junto do hash.
 - **Trocar minha senha** (Ajustes › Quem usa este controle, também para quem só vê): pede a atual e a nova (8 ou mais); este aparelho continua e os outros pedem a nova (`/api/senha`; errar a atual conta para a trava). **Esqueceu**: o dono do controle toca em **Nova senha** ao lado do e-mail (cliente: Ajustes › Clientes); os dados continuam e a pessoa cria outra em Primeiro acesso. O dono da casa principal usa `RESET_SENHA` no Cloudflare (SETUP.md).
 - **Sair** e **Trocar senha** ficam no menu ☰ (embaixo, com o e-mail de quem entrou) e em Ajustes. Sair precisa de internet e apaga a cópia dos dados do aparelho (pergunta antes se há mudança sem enviar). **Sair dos outros aparelhos** fica em Ajustes.
+- **Olhinho** (no topo do Hoje, Mês e Ano): esconde os valores na tela (`R$ •••`), só neste aparelho. O que o app guarda ou manda (resumo do WhatsApp, plano do mês, IA) sai sempre com os números (`semOcultar`).
 - Senha de 4 números do aparelho: oferecida uma vez no app instalado; depois de 5 erros, espera crescente (30 s, 1 min…); "Esqueci a senha" só funciona com internet.
 
 ## Regras de dinheiro combinadas com o dono (não mudar sem ele pedir)

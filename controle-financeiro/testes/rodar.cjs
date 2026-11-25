@@ -712,6 +712,21 @@ async function trocarSenha(b) {
   ok(!erros.length, `trocar senha: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
 }
 
+// 3s) Olhinho: esconde os valores na tela (Hoje, Mês e Ano); o resumo do WhatsApp continua com os números
+async function olhinho(b) {
+  const {p, erros} = await abrir(b, '2026-11-22');
+  await ir(p, '#inicio'); const antes = await p.evaluate(() => document.querySelector('main').innerText);
+  await p.click('header [data-a="olho"]'); await p.waitForTimeout(300);
+  const r = await p.evaluate(async () => { const t = {}; for (const h of ['#inicio', '#contas', '#planos']) { location.hash = h; await new Promise(r => setTimeout(r, 400)); t[h] = document.querySelector('main').innerText; }
+    return {t, rw:window.__T.resumoWhats(), guardado:(() => { try { return localStorage.getItem('bolso-oculto'); } catch (_) { return null; } })()}; });
+  const sem = x => !/R\$\s*\d/.test(x) && /R\$ •••/.test(x);
+  ok(/R\$\s*\d/.test(antes) && sem(r.t['#inicio']) && sem(r.t['#contas']) && sem(r.t['#planos']) && r.guardado === '1', 'o olhinho esconde os valores no Hoje, no Mês e no Ano (e lembra neste aparelho)');
+  ok(r.rw && typeof r.rw.pode === 'number' && !/•••/.test(JSON.stringify(r.rw)), 'o resumo do WhatsApp continua com os números');
+  await ir(p, '#inicio'); await p.click('header [data-a="olho"]'); await p.waitForTimeout(300);
+  ok(/R\$\s*\d/.test(await p.evaluate(() => document.querySelector('main').innerText)), 'tocar de novo mostra os valores');
+  ok(!erros.length, `olhinho: sem erro na página${erros.length ? ' → ' + erros[0] : ''}`); await p.close();
+}
+
 // 4) Datas escritas no chat
 async function datasChat(b) {
   const {p, erros} = await abrir(b, '2026-11-22', 1500);
@@ -938,6 +953,7 @@ async function telas(b) {
     secao('Controle da viagem e calendário por dia'); await viagemControle(b);
     secao('Viagem no Mês, uma semana antes, Ajuda e resultado'); await viagemAvisos(b);
     secao('Trocar minha senha'); await trocarSenha(b);
+    secao('Olhinho esconde os valores'); await olhinho(b);
     secao('Datas no chat'); await datasChat(b);
     secao('Reserva do carro'); await reserva(b);
     secao('Mudar valor no mês seguinte'); await mudarMes(b);
