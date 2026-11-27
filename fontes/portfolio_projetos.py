@@ -16,7 +16,7 @@ import copy
 MODELO = sys.argv[2]
 p = Presentation(MODELO)
 S = 1.2; FS = 1.2
-TOTAL = 11
+TOTAL = 10
 VERDE = RGBColor(0x00, 0x85, 0x42); CLARO = RGBColor(0xE8, 0xE8, 0xE8); FONTE = "Petrobras Sans"; FONTE_B = "Petrobras Sans XBold"
 lista = p.slides._sldIdLst; ids = list(lista)
 def _remover(sid):
@@ -103,30 +103,27 @@ def barra(s, x, y, w, pct, status, rotulo=True):
     if rotulo: texto(s, x + w + 0.1, y - 0.1, 0.9, 0.36, f"{pct}%", 12, PRETO, True, ancora=MSO_ANCHOR.MIDDLE)
 
 PROJ = [
-  dict(nome="Controle SOx SCM-42", curto="Validação mensal das medições (SOx) com app Power Apps", status="Em andamento", pct=80, entrega="Fev/2027", obs="início do piloto de 6 meses",
+  dict(nome="Projeto Automação SOX ICMC", curto="Validação mensal das medições (SOx / ICMC) com app Power Apps", status="Em andamento", pct=80, entrega="Fev/2027", obs="início do piloto de 6 meses",
        faz="Programa lê o SAP (YSMEDICAO, ME33K, ML81N), classifica no prazo, provisionado ou fora do prazo, e publica no app onde fiscais e gerentes validam. Gera as planilhas 01, 02 e 03 (evidência SOx).",
        feito=["Programa de leitura do SAP e classificação", "App: contratos, Painel do mês, Apoio e Configurações (perfis, acessos, prazo)", "Testado com a competência 10/2026 (231 contratos)", "Manuais e roteiro passo a passo"],
        falta=["Tela Relatórios e perfil Auditoria SOx", "Lembretes de cobrança no Teams (rascunhos)", "Passagem para a pessoa responsável", "Piloto fev a jul/2027; depois só exceções"]),
-  dict(nome="Mapeamento de Postos", curto="Controle de postos, SISPAT e Base Terceirizados, com painel Power BI", status="Em andamento", pct=90, entrega="Dez/2026*", obs="testes finais da versão 4",
+  dict(nome="Padronização e automação das planilhas de controle de postos e controle de pessoal da CS2", curto="Planilhas padronizadas por contrato, Base Terceirizados e painel Power BI", status="Em andamento", pct=90, entrega="Dez/2026*", obs="testes finais da versão 4",
        faz="Planilhas padronizadas por contrato (postos, pessoas, documentos, embarques) que alimentam a Base Terceirizados e o painel Power BI de controle documental, com atualização de versão automática.",
        feito=["Modelos Controle de Postos e Controle SISPAT (manutenção)", "Base Terceirizados e painel Power BI", "Atualização automática de versão (v4 de 25/11/2026)", "Manuais e apresentações de treinamento"],
        falta=["Concluir testes com as planilhas reais dos contratos", "Passar todos os contratos para a versão 4", "Treinar a equipe"]),
-  dict(nome="Robô PrestServ", curto="Cadastro automático de colaboradores no PrestServ", status="Em andamento", pct=85, entrega="Dez/2026*", obs="ajuste de desempenho",
-       faz="Robô que preenche o PrestServ a partir de uma planilha, colaborador por colaborador, com registro de cada passo e tratamento de erros.",
-       feito=["Fluxo completo de cadastro funcionando", "Diagnóstico da lentidão em lotes grandes (mais de 1.000 casos)", "Correções de desempenho preparadas (versão 2.35)"],
-       falta=["Aplicar e testar as correções no PrestServ", "Rodar um lote completo e medir o tempo"]),
-  dict(nome="Automação SAP (Sigma-C)", curto="Do Pedido no SAP ao e-mail da medição pronto", status="Concluído", pct=100, entrega="Out/2026", obs="em produção, manual v5.4",
+  dict(nome="Robô de atualização de novos campos PrestServ", curto="Atualiza os novos campos dos colaboradores no PrestServ", status="Concluído", pct=100, entrega="Nov/2026", obs="concluído",
+       faz="Robô que preenche os novos campos no PrestServ a partir de uma planilha, colaborador por colaborador, com registro de cada passo e tratamento de erros.",
+       feito=["Atualização dos novos campos funcionando", "Ajustes de desempenho para lotes grandes (mais de 1.000 colaboradores)", "Concluído em novembro/2026"], falta=["Só manutenção"]),
+  dict(nome="Automação da baixa, arquivamento e envio do e-mail dos itens da medição", curto="Do Pedido no SAP ao e-mail da medição pronto", status="Concluído", pct=100, entrega="Out/2026", obs="em produção, manual v5.4",
        faz="Abre Pedido, FRS e RM no SAP, baixa os PDFs, monta e valida o espelho da NF, arquiva no SharePoint e deixa o e-mail pronto no Outlook.",
        feito=["Em produção", "Histórico e retomada de onde parou", "Manual de uso completo (v5.4)"], falta=["Só manutenção e melhorias"]),
   dict(nome="Automação de Certidões", curto="CNDT, CRF e CND das contratadas sempre em dia", status="Concluído", pct=100, entrega="Out/2026*", obs="em produção, roda todo dia 25",
        faz="Emite e baixa as certidões nos portais do governo por CNPJ, resolve o captcha e roda sozinha pelo agendador do Windows, lendo a lista de contratos do SharePoint.",
        feito=["Em produção", "Agendada todo dia 25", "Novo contrato entra sem mudar código"], falta=["Só manutenção"]),
-  dict(nome="Código 3: medição no SAP", curto="Cria Pedido, FRS, RM e NL automaticamente no SAP", status="Em andamento", pct=40, entrega="1º sem/2027*", obs="em desenvolvimento",
-       faz="Calcula reajuste, consulta a PPU, valida os serviços e cria Pedido, FRS, RM e NL no SAP. Depois a Automação SAP segue sozinha até o e-mail.",
-       feito=["Etapas mapeadas (15 etapas automatizadas)", "Fluxo desenhado de ponta a ponta"], falta=["Concluir o desenvolvimento e testar com contratos reais", "Unificar com a Automação SAP num fluxo só"]),
-  dict(nome="Pós-medição", curto="Acompanhar a medição depois de enviada", status="Planejado", pct=10, entrega="2027*", obs="primeiras consultas em teste",
-       faz="Acompanha o status de Pedido, FRS, RM e NL no SAP até a confirmação final e avisa sozinho qualquer pendência.",
-       feito=["Primeiras consultas de acompanhamento em teste"], falta=["Definir escopo e prioridade", "Desenvolver depois do Código 3"]),
+  dict(nome="Automação da medição no SAP", curto="Cria Pedido, FRS, RM e NL no SAP e acompanha a medição até o fim (pós-medição)", status="Em andamento", pct=80, entrega="1º sem/2027*", obs="em desenvolvimento",
+       faz="Calcula reajuste, consulta a PPU, valida os serviços e cria Pedido, FRS, RM e NL no SAP. Depois acompanha a medição enviada até a confirmação final e avisa qualquer pendência (pós-medição).",
+       feito=["15 etapas mapeadas e automatizadas", "Fluxo de ponta a ponta desenhado", "Primeiras consultas de pós-medição em teste"],
+       falta=["Concluir e testar com contratos reais", "Unificar com a automação da baixa e envio do e-mail", "Pós-medição: acompanhar Pedido, FRS, RM e NL até a confirmação"]),
 ]
 
 # 1 · Capa
@@ -149,12 +146,12 @@ y0 = 3.05
 texto(s, 0.6, y0, 4.6, 0.3, "PROJETO", 9, VERDE, True); texto(s, 5.3, y0, 1.9, 0.3, "STATUS", 9, VERDE, True)
 texto(s, 7.35, y0, 3.2, 0.3, "CONCLUÍDO", 9, VERDE, True); texto(s, 10.8, y0, 1.9, 0.3, "ENTREGA", 9, VERDE, True)
 for i, pj in enumerate(PROJ):
-    y = y0 + 0.36 + i * 0.47
-    caixa(s, 0.6, y, 12.1, 0.42, CLARO if i % 2 == 0 else BRANCO)
-    texto(s, 0.7, y, 4.6, 0.42, pj["nome"], 12, PRETO, True, ancora=MSO_ANCHOR.MIDDLE)
-    selo(s, 5.3, y + 0.04, pj["status"])
-    barra(s, 7.35, y + 0.13, 2.4, pj["pct"], pj["status"])
-    texto(s, 10.8, y, 1.9, 0.42, pj["entrega"], 12, PRETO, True, ancora=MSO_ANCHOR.MIDDLE)
+    y = y0 + 0.36 + i * 0.52
+    caixa(s, 0.6, y, 12.1, 0.48, CLARO if i % 2 == 0 else BRANCO)
+    texto(s, 0.7, y, 4.55, 0.48, pj["nome"], 10, PRETO, True, ancora=MSO_ANCHOR.MIDDLE, esp=0)
+    selo(s, 5.3, y + 0.07, pj["status"])
+    barra(s, 7.35, y + 0.16, 2.4, pj["pct"], pj["status"])
+    texto(s, 10.8, y, 1.9, 0.48, pj["entrega"], 12, PRETO, True, ancora=MSO_ANCHOR.MIDDLE)
 texto(s, 0.6, 6.72, 12.1, 0.3, "* data estimada a confirmar. Percentuais estimados a partir do que já foi entregue em cada projeto.", 9, CINZA)
 
 # 3..9 · um slide por projeto
@@ -173,7 +170,7 @@ for k, pj in enumerate(PROJ):
         texto(s, 0.6, 6.72, 12.1, 0.3, "* data estimada a confirmar.", 9, CINZA)
 
 # 10 · Modelo para novos projetos
-s = base(10, "Modelo", "[Nome do projeto]")
+s = base(9, "Modelo", "[Nome do projeto]")
 texto(s, 0.6, 1.62, 8.0, 0.4, "[Uma frase: o que o projeto resolve]", 14, CINZA)
 caixa(s, 0.6, 2.1, 12.1, 1.0, CLARO)
 texto(s, 0.8, 2.15, 1.5, 0.35, "STATUS", 9, VERDE, True); selo(s, 0.8, 2.5, "Em andamento", 2.0)
